@@ -20,12 +20,17 @@ from yvy.domain.shared.time_utils import canonicalize_to_minute_utc
 from yvy.domain.shared.value_objects import StationUUID
 
 
-@st.composite
-def station_uuids(draw: st.DrawFn) -> StationUUID:
+# ANTES (Fase 1): usaba @st.composite sin draw() → HypothesisDeprecationWarning
+# @st.composite
+# def station_uuids(draw: st.DrawFn) -> StationUUID:
+#     from uuid import uuid4
+#     return StationUUID(value=uuid4())
+#
+# CAMBIO (Fase 1 patch): @st.composite requiere que la función llame a draw() internamente.
+# Como station_uuids no necesita componer varias strategies, alcanza con st.builds().
+def station_uuids() -> st.SearchStrategy[StationUUID]:
     """Genera StationUUIDs aleatorios (v4)."""
-    from uuid import uuid4
-
-    return StationUUID(value=uuid4())
+    return st.builds(StationUUID, value=st.uuids(version=4))
 
 
 @st.composite
