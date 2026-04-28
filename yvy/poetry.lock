@@ -1782,21 +1782,6 @@ pytest = ">=6.2.5"
 dev = ["pre-commit", "pytest-asyncio", "tox"]
 
 [[package]]
-name = "pytest-repeat"
-version = "0.9.4"
-description = "pytest plugin for repeating tests"
-optional = false
-python-versions = ">=3.9"
-groups = ["dev"]
-files = [
-    {file = "pytest_repeat-0.9.4-py3-none-any.whl", hash = "sha256:c1738b4e412a6f3b3b9e0b8b29fcd7a423e50f87381ad9307ef6f5a8601139f3"},
-    {file = "pytest_repeat-0.9.4.tar.gz", hash = "sha256:d92ac14dfaa6ffcfe6917e5d16f0c9bc82380c135b03c2a5f412d2637f224485"},
-]
-
-[package.dependencies]
-pytest = "*"
-
-[[package]]
 name = "python-dateutil"
 version = "2.9.0.post0"
 description = "Extensions to the standard Python datetime module"
@@ -2103,4 +2088,4 @@ python-discovery = ">=1.2.2"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "118e68f902277f51df2107a1017b0d616e13244eee21ae599569abe84bab60ee"
+content-hash = "7a2e22e71ce646233ac3a46ee9abcdad1ac778f6c0aa2be980ef798c54b29f4d"
