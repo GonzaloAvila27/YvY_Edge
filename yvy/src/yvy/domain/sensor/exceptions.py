@@ -33,3 +33,16 @@ class MalformedPayloadError(SensorDomainError):
     Diferencia con InvalidTimestampError: aquí el problema es estructural
     del payload (faltan keys, tipo wrong), no temporal.
     """
+
+
+class CatchupAlreadyRunningError(SensorDomainError):
+    """Otra ejecución de catchup recovery está activa.
+
+    Política: la app no permite dos catchups concurrentes para evitar
+    race conditions sobre el buffer histórico y duplicación de trabajo.
+    El lock se gestiona vía ``app_metrics.catchup_running`` flag.
+
+    Si esta excepción se levanta es porque el flag ya está en 1. El caller
+    debe esperar a que el catchup en curso termine (o reintentar tras X
+    segundos).
+    """
