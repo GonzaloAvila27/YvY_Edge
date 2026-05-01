@@ -24,21 +24,18 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
-from typing import Callable
+from collections.abc import Callable
 
 from yvy.presentation.components.status_indicator import State, StatusIndicator
 from yvy.presentation.theme import (
     ACCENT_GOLD,
-    ACCENT_OLIVE,
     FONT_BODY_BOLD,
     FONT_LOGO,
     FONT_SMALL,
     FONT_TINY,
     HEADER_HEIGHT,
     PRIMARY,
-    PRIMARY_LIGHT,
     SPACE_LG,
-    SPACE_MD,
     SPACE_SM,
     SPACE_XL,
     SUCCESS,

@@ -13,8 +13,9 @@ Dos implementaciones:
 from __future__ import annotations
 
 import logging
-from datetime import datetime
-from typing import Any, Iterator
+from collections.abc import Iterator
+from datetime import UTC, datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ class StubCatchupSource:
     def read_since(self, since: datetime) -> Iterator[dict[str, Any]]:
         if since.tzinfo is None:
             raise ValueError(
-                "since debe ser timezone-aware. Recibido naive: %r" % since
+                f"since debe ser timezone-aware. Recibido naive: {since!r}"
             )
 
         for slot in self._slots:
@@ -83,17 +84,16 @@ def _try_parse_ts(raw: Any) -> datetime | None:
     Devuelve None si no se puede parsear (en cuyo caso el filtro deja
     pasar el slot y el parser real lo rechaza).
     """
-    from datetime import timezone
 
     try:
         if isinstance(raw, datetime):
             if raw.tzinfo is None:
-                return raw.replace(tzinfo=timezone.utc)
+                return raw.replace(tzinfo=UTC)
             return raw
         if isinstance(raw, str):
             parsed = datetime.fromisoformat(raw)
             if parsed.tzinfo is None:
-                return parsed.replace(tzinfo=timezone.utc)
+                return parsed.replace(tzinfo=UTC)
             return parsed
     except (ValueError, TypeError):
         return None
@@ -121,10 +121,9 @@ def make_catchup_slot(
     Mismo formato que ``make_test_reading`` de live_source pero con
     nombre explícito para facilitar lectura de tests.
     """
-    from datetime import timezone
     from decimal import Decimal
 
-    ts = datetime(year, month, day, hour, minute, 0, tzinfo=timezone.utc)
+    ts = datetime(year, month, day, hour, minute, 0, tzinfo=UTC)
     return {
         "idx": ts.isoformat(),
         "temp_in": Decimal("21.5"),

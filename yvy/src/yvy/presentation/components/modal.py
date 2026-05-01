@@ -29,10 +29,11 @@ Ejemplo de uso:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import tkinter as tk
+from collections.abc import Callable
 from tkinter import ttk
-from typing import Callable
 
 from yvy.presentation.theme import (
     BG_CARD,
@@ -41,7 +42,6 @@ from yvy.presentation.theme import (
     FONT_H2,
     PRIMARY,
     SPACE_LG,
-    SPACE_MD,
     SPACE_XL,
     TEXT_ON_DARK,
     TEXT_PRIMARY,
@@ -175,10 +175,8 @@ class Modal(tk.Toplevel):
             return
         self._closed = True
 
-        try:
+        with contextlib.suppress(tk.TclError):
             self.grab_release()
-        except tk.TclError:
-            pass
 
         self.destroy()
 

@@ -28,7 +28,7 @@ import logging
 import re
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -107,7 +107,7 @@ def apply_migration(conn: sqlite3.Connection, migration: Migration) -> None:
 
     conn.executescript(sql)
 
-    applied_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    applied_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
     conn.execute(
         "INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (?, ?)",
         (migration.version, applied_at),

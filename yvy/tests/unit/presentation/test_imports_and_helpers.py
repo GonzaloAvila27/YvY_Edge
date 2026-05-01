@@ -25,8 +25,13 @@ def test_theme_imports() -> None:
 
 
 def test_components_import() -> None:
-    from yvy.presentation.components import Header, Modal, Sidebar, SidebarItem
-    from yvy.presentation.components import StatusIndicator  # noqa
+    from yvy.presentation.components import (
+        Header,
+        Modal,
+        Sidebar,
+        SidebarItem,
+        StatusIndicator,  # noqa
+    )
 
     assert Header is not None
     assert Modal is not None
@@ -111,7 +116,7 @@ def test_sidebar_item_dataclass() -> None:
     assert admin_item.admin_only is True
 
     # Frozen
-    with pytest.raises(Exception):
+    with pytest.raises(AttributeError):
         admin_item.key = "otro"  # type: ignore[misc]
 
 

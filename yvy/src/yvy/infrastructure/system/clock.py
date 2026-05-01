@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 class SystemClock:
@@ -12,7 +12,7 @@ class SystemClock:
     """
 
     def now_utc(self) -> datetime:
-        return datetime.now(tz=timezone.utc)
+        return datetime.now(tz=UTC)
 
 
 class FrozenClock:
@@ -31,7 +31,7 @@ class FrozenClock:
     def __init__(self, fixed: datetime) -> None:
         if fixed.tzinfo is None:
             raise ValueError("FrozenClock requiere datetime timezone-aware")
-        self._now = fixed.astimezone(timezone.utc)
+        self._now = fixed.astimezone(UTC)
 
     def now_utc(self) -> datetime:
         return self._now
@@ -39,7 +39,7 @@ class FrozenClock:
     def set(self, new_now: datetime) -> None:
         if new_now.tzinfo is None:
             raise ValueError("set() requiere datetime timezone-aware")
-        self._now = new_now.astimezone(timezone.utc)
+        self._now = new_now.astimezone(UTC)
 
     def advance_minutes(self, minutes: int) -> None:
         from datetime import timedelta

@@ -18,8 +18,9 @@ Cubre los 8 escenarios obligatorios:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Iterator
+from collections.abc import Iterator
+from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 
@@ -38,7 +39,6 @@ from yvy.infrastructure.pywws.catchup_source import StubCatchupSource, make_catc
 from yvy.infrastructure.pywws.parser import PywwsPayloadParser
 from yvy.infrastructure.system.clock import FrozenClock
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures locales
 # ─────────────────────────────────────────────────────────────────────────────
@@ -52,7 +52,7 @@ def metrics_repo(db_factory) -> AppMetricsRepository:
 @pytest.fixture
 def far_future_clock() -> FrozenClock:
     """Reloj a las 18:00 UTC para que slots de las 10-15 estén en el pasado."""
-    return FrozenClock(datetime(2026, 4, 26, 18, 0, 0, tzinfo=timezone.utc))
+    return FrozenClock(datetime(2026, 4, 26, 18, 0, 0, tzinfo=UTC))
 
 
 def _build_use_case(
@@ -75,7 +75,7 @@ def _build_use_case(
 
 
 def _yesterday_utc() -> datetime:
-    return datetime(2026, 4, 25, 0, 0, 0, tzinfo=timezone.utc)
+    return datetime(2026, 4, 25, 0, 0, 0, tzinfo=UTC)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -171,7 +171,7 @@ class TestCatchupBasicFlow:
 
         # Since = 10:30 → solo deberían venir 10:30 y 10:45
         result = use_case.execute(
-            since=datetime(2026, 4, 26, 10, 30, 0, tzinfo=timezone.utc)
+            since=datetime(2026, 4, 26, 10, 30, 0, tzinfo=UTC)
         )
 
         assert result.slots_read == 2
@@ -255,13 +255,13 @@ class TestCatchupIdempotence:
         mismas observaciones del buffer de la consola.
         """
         # Simular que live ya capturó algo (insertando directo en raw)
+        from yvy.domain.sensor.enums import PywwsMode
         from yvy.domain.sensor.event_id import build_event_id
         from yvy.domain.sensor.models import RawPayload
         from yvy.domain.shared.time_utils import canonicalize_to_minute_utc
-        from yvy.domain.sensor.enums import PywwsMode
 
         ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 10, 0, 0, tzinfo=timezone.utc)
+            datetime(2026, 4, 26, 10, 0, 0, tzinfo=UTC)
         )
         eid = build_event_id(station_uuid, ts)
 
@@ -271,7 +271,7 @@ class TestCatchupIdempotence:
             pywws_mode=PywwsMode.LIVE,
             pywws_ts=ts,
             payload={"temp_out": "23.5"},
-            received_at=datetime(2026, 4, 26, 10, 0, 30, tzinfo=timezone.utc),
+            received_at=datetime(2026, 4, 26, 10, 0, 30, tzinfo=UTC),
         )
         sensor_repo.save_raw(live_raw)
         assert sensor_repo.count_raw() == 1
@@ -348,7 +348,7 @@ class TestCatchupParseErrors:
         metrics_repo: AppMetricsRepository,
         station_uuid: StationUUID,
     ) -> None:
-        clock = FrozenClock(datetime(2026, 4, 26, 14, 0, 0, tzinfo=timezone.utc))
+        clock = FrozenClock(datetime(2026, 4, 26, 14, 0, 0, tzinfo=UTC))
         # Slot que reporta hora 16:00 (2 horas adelante)
         future_slot = make_catchup_slot(hour=16)
         ok_slot = make_catchup_slot(hour=12)  # OK

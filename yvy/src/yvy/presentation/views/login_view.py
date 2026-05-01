@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
+from collections.abc import Callable
 from tkinter import ttk
-from typing import Callable
 
 from yvy.presentation.components.status_indicator import StatusIndicator
 from yvy.presentation.theme import (
@@ -27,8 +27,6 @@ from yvy.presentation.theme import (
     FONT_DISPLAY,
     FONT_SMALL,
     FONT_TINY,
-    LOGIN_CARD_HEIGHT,
-    LOGIN_CARD_WIDTH,
     PRIMARY,
     SPACE_2XL,
     SPACE_LG,

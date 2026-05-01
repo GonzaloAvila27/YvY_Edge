@@ -14,9 +14,10 @@ Ambas implementan el Protocol ``yvy.application.ports.sensor_source.SensorSource
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from collections.abc import Iterator
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, Iterator
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +100,7 @@ def make_test_reading(
     Usa el formato que pywws devuelve por la API de live:
     keys con sufijos ``_in``/``_out``, ``abs_pressure``, etc.
     """
-    ts = datetime(2026, 4, day, hour, minute, 0, tzinfo=timezone.utc)
+    ts = datetime(2026, 4, day, hour, minute, 0, tzinfo=UTC)
     return {
         "idx": ts.isoformat(),
         "temp_in": Decimal("21.5"),

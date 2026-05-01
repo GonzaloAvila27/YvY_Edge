@@ -13,7 +13,7 @@ soportar concurrencia sin race conditions.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
 
@@ -128,7 +128,7 @@ class AppMetricsRepository:
             when: timestamp a guardar. Si es None, usa ``now()`` UTC.
         """
         if when is None:
-            when = datetime.now(tz=timezone.utc)
+            when = datetime.now(tz=UTC)
         elif when.tzinfo is None:
             raise ValueError("set_timestamp requiere datetime timezone-aware")
 
@@ -152,4 +152,4 @@ class AppMetricsRepository:
         row = cur.fetchone()
         if row is None:
             return None
-        return datetime.fromtimestamp(int(row[0]), tz=timezone.utc)
+        return datetime.fromtimestamp(int(row[0]), tz=UTC)

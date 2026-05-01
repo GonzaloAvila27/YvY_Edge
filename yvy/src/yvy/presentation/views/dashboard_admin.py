@@ -31,14 +31,12 @@ from tkinter import ttk
 
 from yvy.presentation.theme import (
     ACCENT_GOLD,
-    ACCENT_OLIVE,
     BG_CARD,
     BG_CREAM,
     BORDER,
     DANGER,
     FONT_BODY,
     FONT_BODY_BOLD,
-    FONT_H1,
     FONT_KPI_VALUE,
     FONT_SMALL,
     FONT_TINY,

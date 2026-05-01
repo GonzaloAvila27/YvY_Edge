@@ -16,15 +16,15 @@ from __future__ import annotations
 import logging
 import tkinter as tk
 from dataclasses import dataclass
+from datetime import tzinfo
 from tkinter import ttk
-from typing import Any
+from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 from yvy.presentation.components import Header, Sidebar, SidebarItem
 from yvy.presentation.theme import (
     BG_CREAM,
-    FONT_H1,
     SPACE_2XL,
-    TEXT_SECONDARY,
     WINDOW_DEFAULT_HEIGHT,
     WINDOW_DEFAULT_WIDTH,
     WINDOW_MIN_HEIGHT,
@@ -33,6 +33,10 @@ from yvy.presentation.theme import (
 )
 from yvy.presentation.views.dashboard_admin import DashboardAdminView
 from yvy.presentation.views.login_view import LoginView
+from yvy.presentation.views.sync_status_view import SyncStatusView
+
+if TYPE_CHECKING:
+    from yvy.presentation.controllers.sync_controller import SyncController
 
 logger = logging.getLogger(__name__)
 
@@ -62,9 +66,20 @@ _SIDEBAR_ITEMS: list[SidebarItem] = [
 
 
 class MainApplication(tk.Tk):
-    """Ventana raíz de la aplicación YVY."""
+    """Ventana raíz de la aplicación YVY.
 
-    def __init__(self) -> None:
+    Args:
+        sync_controller: opcional. Si se provee, la view ``sync`` muestra
+            el SyncStatusView funcional. Si es None, muestra placeholder.
+        local_tz: zona horaria local para conversiones de timestamps en
+            las views. Default America/Argentina/Cordoba.
+    """
+
+    def __init__(
+        self,
+        sync_controller: SyncController | None = None,
+        local_tz: tzinfo | None = None,
+    ) -> None:
         super().__init__()
 
         self.title("YVY — Sistema meteorológico escolar")
@@ -73,6 +88,10 @@ class MainApplication(tk.Tk):
 
         apply_theme(self)
         self._center_window()
+
+        # Dependencias inyectadas
+        self._sync_controller = sync_controller
+        self._local_tz = local_tz or ZoneInfo("America/Argentina/Cordoba")
 
         # Estado
         self._current_user: MockUser | None = None
@@ -177,6 +196,11 @@ class MainApplication(tk.Tk):
 
         view.pack(fill="both", expand=True)
         self._current_view_key = key
+
+        # Sincronizar el item activo del sidebar
+        if self._sidebar is not None:
+            self._sidebar.set_active(key)
+
         logger.info("Navegando a view: %s", key)
 
     def _build_view(self, key: str) -> tk.Frame:
@@ -186,6 +210,13 @@ class MainApplication(tk.Tk):
         if key == "dashboard":
             return DashboardAdminView(self._content)
 
+        if key == "sync" and self._sync_controller is not None:
+            return SyncStatusView(
+                self._content,
+                controller=self._sync_controller,
+                local_tz=self._local_tz,
+            )
+
         # Stubs para las demás views (se implementan en fases siguientes)
         return _PlaceholderView(self._content, label=self._stub_label(key))
 
@@ -194,7 +225,7 @@ class MainApplication(tk.Tk):
         labels = {
             "inicio": "Inicio (Fase posterior)",
             "formulario": "Formulario de carga (Fase posterior)",
-            "sync": "Sincronización (Fase posterior)",
+            "sync": "Sincronización (sync_controller no inyectado)",
             "ayuda": "Ayuda (Fase 8)",
             "usuarios": "Administración de usuarios (Fase 6)",
             "logs": "Logs del sistema (Fase 7)",

@@ -265,7 +265,7 @@ class RunCatchupRecoveryUseCase:
         return result
 
     @staticmethod
-    def _build_sync_payload(reading: SensorReading) -> dict:
+    def _build_sync_payload(reading: SensorReading) -> dict[str, object]:
         """Construye payload JSON-serializable para sync.
 
         Reusa la lógica de ``CaptureLiveReadingUseCase``. Si en el

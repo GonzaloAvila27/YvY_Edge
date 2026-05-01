@@ -14,7 +14,7 @@ real, así que están separados de los unit property tests.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -33,7 +33,6 @@ from yvy.infrastructure.persistence.sqlite_sync_repository import SQLiteSyncRepo
 from yvy.infrastructure.pywws.catchup_source import StubCatchupSource, make_catchup_slot
 from yvy.infrastructure.pywws.parser import PywwsPayloadParser
 from yvy.infrastructure.system.clock import FrozenClock
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Strategies
@@ -67,7 +66,7 @@ def metrics_repo(db_factory) -> AppMetricsRepository:
 
 @pytest.fixture
 def far_future_clock() -> FrozenClock:
-    return FrozenClock(datetime(2026, 4, 26, 18, 0, 0, tzinfo=timezone.utc))
+    return FrozenClock(datetime(2026, 4, 26, 18, 0, 0, tzinfo=UTC))
 
 
 def _build_use_case(
@@ -119,7 +118,7 @@ class TestCatchupResultInvariants:
             slots, sensor_repo, sync_repo, metrics_repo, station_uuid, far_future_clock
         )
         result = use_case.execute(
-            since=datetime(2026, 4, 25, 0, 0, 0, tzinfo=timezone.utc)
+            since=datetime(2026, 4, 25, 0, 0, 0, tzinfo=UTC)
         )
         total = result.new_in_raw + result.already_present + result.parse_errors
         assert total == result.slots_read
@@ -147,7 +146,7 @@ class TestCatchupIdempotenceProperty:
         far_future_clock: FrozenClock,
     ) -> None:
         """Re-ejecutar con los mismos slots no aumenta filas en sensor_raw."""
-        since = datetime(2026, 4, 25, 0, 0, 0, tzinfo=timezone.utc)
+        since = datetime(2026, 4, 25, 0, 0, 0, tzinfo=UTC)
 
         # Primera corrida
         use_case_1 = _build_use_case(
@@ -192,7 +191,7 @@ class TestCatchupIdempotenceProperty:
             slots, sensor_repo, sync_repo, metrics_repo, station_uuid, far_future_clock
         )
         result = use_case.execute(
-            since=datetime(2026, 4, 25, 0, 0, 0, tzinfo=timezone.utc)
+            since=datetime(2026, 4, 25, 0, 0, 0, tzinfo=UTC)
         )
 
         rows_after = sensor_repo.count_raw()
@@ -225,7 +224,7 @@ class TestCatchupSinceFiltering:
         far_future_clock: FrozenClock,
     ) -> None:
         """Slots con timestamp < since no aparecen en el resultado."""
-        since = datetime(2026, 4, 26, since_hour, 0, 0, tzinfo=timezone.utc)
+        since = datetime(2026, 4, 26, since_hour, 0, 0, tzinfo=UTC)
 
         use_case = _build_use_case(
             slots, sensor_repo, sync_repo, metrics_repo, station_uuid, far_future_clock

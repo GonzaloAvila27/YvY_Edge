@@ -2050,6 +2050,18 @@ files = [
 typing-extensions = ">=4.12.0"
 
 [[package]]
+name = "tzdata"
+version = "2026.2"
+description = "Provider of IANA time zone data"
+optional = false
+python-versions = ">=2"
+groups = ["main"]
+files = [
+    {file = "tzdata-2026.2-py2.py3-none-any.whl", hash = "sha256:bbe9af844f658da81a5f95019480da3a89415801f6cc966806612cc7169bffe7"},
+    {file = "tzdata-2026.2.tar.gz", hash = "sha256:9173fde7d80d9018e02a662e168e5a2d04f87c41ea174b139fbef642eda62d10"},
+]
+
+[[package]]
 name = "urllib3"
 version = "2.6.3"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
@@ -2088,4 +2100,4 @@ python-discovery = ">=1.2.2"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "7a2e22e71ce646233ac3a46ee9abcdad1ac778f6c0aa2be980ef798c54b29f4d"
+content-hash = "903e427e0df47dfc87d6ce8d1e92c1ab0e326a2f2ac10d631d3eb9f959604061"

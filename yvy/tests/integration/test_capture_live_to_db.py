@@ -15,7 +15,7 @@ Fase 2:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -220,7 +220,7 @@ class TestCaptureSkipReasons:
         station_uuid: StationUUID,
     ) -> None:
         # Reloj a las 14:00, sensor reporta 15:00 (60 min en futuro)
-        clock = FrozenClock(datetime(2026, 4, 26, 14, 0, 0, tzinfo=timezone.utc))
+        clock = FrozenClock(datetime(2026, 4, 26, 14, 0, 0, tzinfo=UTC))
         future_reading = make_test_reading(minute=0, hour=15)
 
         source = StubLiveSource([future_reading])
@@ -281,7 +281,7 @@ class TestCaptureSkipReasons:
         station_uuid: StationUUID,
     ) -> None:
         """Drift menor a 5 min se tolera (NTP imperfecto pero OK)."""
-        clock = FrozenClock(datetime(2026, 4, 26, 14, 0, 0, tzinfo=timezone.utc))
+        clock = FrozenClock(datetime(2026, 4, 26, 14, 0, 0, tzinfo=UTC))
         # Sensor 3 min adelantado (dentro del umbral)
         reading = make_test_reading(minute=3, hour=14)
 
