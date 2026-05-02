@@ -340,6 +340,7 @@ class CatchupModal(Modal):
         """Actualiza el label de progreso. Llamado desde el main thread."""
         if self._progress_label is not None:
             with contextlib.suppress(tk.TclError):
+                # Modal cerrado mientras llegaba el callback
                 self._progress_label.configure(text=message)
 
     # ─── Estado RESULT_OK ────────────────────────────────────────────────

@@ -11,6 +11,8 @@ en una máquina con display.
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 
 # ─── Imports: deben cargar sin errores ──────────────────────────────────
@@ -116,7 +118,7 @@ def test_sidebar_item_dataclass() -> None:
     assert admin_item.admin_only is True
 
     # Frozen
-    with pytest.raises(AttributeError):
+    with pytest.raises((AttributeError, dataclasses.FrozenInstanceError)):
         admin_item.key = "otro"  # type: ignore[misc]
 
 

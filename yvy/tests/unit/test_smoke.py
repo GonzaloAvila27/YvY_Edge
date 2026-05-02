@@ -48,4 +48,4 @@ def test_main_returns_zero() -> None:
     """El main debe ejecutarse sin errores y retornar 0."""
     from yvy.main import main
 
-    assert main() == 0
+    assert main([]) == 0

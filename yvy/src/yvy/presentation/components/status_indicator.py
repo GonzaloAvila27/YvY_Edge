@@ -136,7 +136,12 @@ class StatusIndicator(tk.Frame):
             logger.warning("Estado desconocido en StatusIndicator: %s", state)
             state = "neutral"
 
-        color = TEXT_ON_DARK_MUTED if state == "neutral" and self._on_dark else _STATE_COLORS[state]
+        # En estado neutral sobre fondo oscuro, usamos color claro.
+        color = (
+            TEXT_ON_DARK_MUTED
+            if state == "neutral" and self._on_dark
+            else _STATE_COLORS[state]
+        )
 
         self._icon.configure(fg=color)
         self._label.configure(fg=color)

@@ -14,6 +14,7 @@ real (datos mockeados de usuario/IEA).
 from __future__ import annotations
 
 import logging
+import threading
 import tkinter as tk
 from dataclasses import dataclass
 from datetime import tzinfo
@@ -36,6 +37,9 @@ from yvy.presentation.views.login_view import LoginView
 from yvy.presentation.views.sync_status_view import SyncStatusView
 
 if TYPE_CHECKING:
+    from yvy.application.use_cases.retention.run_retention_job import (
+        RunRetentionJobUseCase,
+    )
     from yvy.presentation.controllers.sync_controller import SyncController
 
 logger = logging.getLogger(__name__)
@@ -71,6 +75,9 @@ class MainApplication(tk.Tk):
     Args:
         sync_controller: opcional. Si se provee, la view ``sync`` muestra
             el SyncStatusView funcional. Si es None, muestra placeholder.
+        retention_use_case: opcional. Si se provee, se ejecuta en thread
+            daemon al startup (antes del login) si toca por cooldown. Si
+            es None, no se ejecuta retention.
         local_tz: zona horaria local para conversiones de timestamps en
             las views. Default America/Argentina/Cordoba.
     """
@@ -78,6 +85,7 @@ class MainApplication(tk.Tk):
     def __init__(
         self,
         sync_controller: SyncController | None = None,
+        retention_use_case: RunRetentionJobUseCase | None = None,
         local_tz: tzinfo | None = None,
     ) -> None:
         super().__init__()
@@ -91,6 +99,7 @@ class MainApplication(tk.Tk):
 
         # Dependencias inyectadas
         self._sync_controller = sync_controller
+        self._retention_use_case = retention_use_case
         self._local_tz = local_tz or ZoneInfo("America/Argentina/Cordoba")
 
         # Estado
@@ -105,7 +114,49 @@ class MainApplication(tk.Tk):
         self._sidebar: Sidebar | None = None
         self._content: tk.Frame | None = None
 
+        # Disparar retention en background ANTES del login.
+        # Sin UI, sin bloqueo. Si la app cierra antes de que termine,
+        # el thread daemon muere; en el próximo arranque se reintenta
+        # porque last_retention_run_at no se actualizó.
+        self._retention_thread: threading.Thread | None = None
+        if self._retention_use_case is not None:
+            self._start_retention_background()
+
         self.show_login()
+
+    def _start_retention_background(self) -> None:
+        """Lanza el job de retención en thread daemon.
+
+        El thread NO toca widgets. Si necesitamos reflejar el resultado
+        en la UI más adelante (ej. notificación post-login), se
+        comunica via app_metrics y la UI lo lee al refrescar.
+        """
+        def _run() -> None:
+            try:
+                assert self._retention_use_case is not None
+                result = self._retention_use_case.execute()
+                if result.did_run:
+                    logger.info(
+                        "Retention background OK: %d raw, %d sync archivados",
+                        result.raw_deleted,
+                        result.sync_archived,
+                    )
+                else:
+                    logger.debug(
+                        "Retention background skipped: %s",
+                        result.skipped_reason,
+                    )
+            except Exception:
+                # No queremos que un crash del retention tumbe la app.
+                logger.exception("Retention background falló")
+
+        thread = threading.Thread(
+            target=_run,
+            name="retention-startup",
+            daemon=True,
+        )
+        self._retention_thread = thread
+        thread.start()
 
     # ─── Estados de la app ───────────────────────────────────────────────
 

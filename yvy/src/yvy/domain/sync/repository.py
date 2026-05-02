@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import tzinfo
+from datetime import datetime, tzinfo
 from typing import Protocol
 from uuid import UUID
 
@@ -115,5 +115,38 @@ class SyncRepository(Protocol):
             equivalentes al "00:00 local hoy" y "00:00 local mañana" y
             pasarlos como parámetros a la query como strings ISO. NO usar
             ``date(created_at, 'localtime')`` que depende del tz del SO.
+        """
+        ...
+
+    # ─── Retención (Fase 5) ──────────────────────────────────────────────
+
+    def delete_sent_older_than(self, threshold_utc: datetime) -> int:
+        """Borra jobs con status='sent' y last_attempt < threshold_utc.
+
+        Atómica: un único DELETE en una transacción.
+
+        Args:
+            threshold_utc: timestamp UTC tz-aware. Jobs sent con
+                ``last_attempt`` estrictamente menor se borran.
+
+        Returns:
+            Cantidad de jobs borrados.
+
+        Notes:
+            CRÍTICO: solo toca jobs con status='sent'. Jobs en status
+            pending/sending/error NUNCA se purgan por este método. Si
+            una IEA está semanas sin internet, los pending acumulados
+            sobreviven indefinidamente.
+
+            El umbral se compara contra ``last_attempt`` (cuando fue
+            efectivamente confirmado al server), NO contra
+            ``created_at``. Esto significa que un job que se envió ayer
+            tras estar 2 meses pendiente se conserva 30 días desde ayer,
+            no se purga inmediatamente.
+
+            Si ``last_attempt`` es NULL (caso teórico raro: un job
+            marcado sent sin intentos registrados), el job NO se purga
+            por este método. Es defensivo: ante data inconsistente,
+            no borrar.
         """
         ...

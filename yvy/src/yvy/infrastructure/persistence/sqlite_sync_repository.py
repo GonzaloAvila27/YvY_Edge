@@ -154,7 +154,7 @@ class SQLiteSyncRepository:
         )
 
         # Inicializar todas las keys en 0
-        result: dict[SyncStatus, int] = {s: 0 for s in SyncStatus}
+        result: dict[SyncStatus, int] = dict.fromkeys(SyncStatus, 0)
 
         for row in cur.fetchall():
             try:
@@ -212,6 +212,41 @@ class SQLiteSyncRepository:
             (str(SyncStatus.SENT), lower_iso, upper_iso),
         )
         return int(cur.fetchone()[0])
+
+    # ─── Retención (Fase 5) ──────────────────────────────────────────────
+
+    def delete_sent_older_than(self, threshold_utc: datetime) -> int:
+        """Borra jobs con status='sent' y last_attempt < threshold_utc.
+
+        Atómica: BEGIN IMMEDIATE + DELETE + COMMIT.
+
+        Solo toca status='sent'. Pending/sending/error sobreviven
+        indefinidamente hasta que el sync agent (Fase 9) los procese.
+
+        Defensivo con last_attempt NULL: la query exige
+        ``last_attempt IS NOT NULL`` antes de comparar. Sent jobs sin
+        last_attempt (data inconsistente) se conservan.
+        """
+        threshold_iso = threshold_utc.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+        conn = self._factory.get_connection()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            cur = conn.execute(
+                """
+                DELETE FROM sync_queue
+                 WHERE status = ?
+                   AND last_attempt IS NOT NULL
+                   AND last_attempt < ?
+                """,
+                (str(SyncStatus.SENT), threshold_iso),
+            )
+            deleted = cur.rowcount
+            conn.execute("COMMIT")
+            return int(deleted)
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
 
 
 def _json_default(obj: Any) -> Any:
