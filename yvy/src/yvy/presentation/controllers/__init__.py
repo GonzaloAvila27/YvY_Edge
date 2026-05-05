@@ -6,18 +6,20 @@ Razonamiento completo en ``yvy_FASE4_RESUMEN.md``.
 
 Controllers disponibles:
     - SyncController: dashboard de sync + trigger del catchup recovery.
+    - AuthController: login, logout, cambio de propia password.
 
 Próximos a agregar (fases siguientes):
-    - AuthController (Fase 6)
     - DashboardController (Fase 5/7)
 """
 
+from yvy.presentation.controllers.auth_controller import AuthController
 from yvy.presentation.controllers.sync_controller import (
     SyncController,
     SyncDashboardData,
 )
 
 __all__ = [
+    "AuthController",
     "SyncController",
     "SyncDashboardData",
 ]

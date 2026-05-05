@@ -252,32 +252,45 @@ class Header(tk.Frame):
             font=("DejaVu Sans", 10, "bold"),
         )
 
-        # Texto rol debajo del avatar (arriba?). Spec dice "label debajo" —
-        # como el header es bajo, ponemos rol a la derecha del avatar para
-        # no romper la altura de 60px.
+        # Texto username + rol a la derecha del avatar.
+        # Spec mostraba "JP / ADMIN" — el screenshot reveló que sin el username
+        # explícito el avatar quedaba ambiguo (las iniciales "JP" + "ADMIN"
+        # parecían concatenarse). Agregamos username completo arriba del rol.
         text_frame = tk.Frame(inner, bg=PRIMARY)
         text_frame.pack(side="left", padx=(SPACE_SM, 0))
 
-        role_label = tk.Label(
+        username_label = tk.Label(
             text_frame,
+            text=user_name,
+            bg=PRIMARY,
+            fg=TEXT_ON_DARK,
+            font=FONT_SMALL,
+        )
+        username_label.pack(anchor="w")
+
+        role_chevron_row = tk.Frame(text_frame, bg=PRIMARY)
+        role_chevron_row.pack(anchor="w")
+
+        role_label = tk.Label(
+            role_chevron_row,
             text=user_role.upper(),
             bg=PRIMARY,
             fg=TEXT_ON_DARK_MUTED,
             font=FONT_TINY,
         )
-        role_label.pack(anchor="w")
+        role_label.pack(side="left")
 
         chevron = tk.Label(
-            text_frame,
-            text="▾",
+            role_chevron_row,
+            text=" ▾",
             bg=PRIMARY,
             fg=TEXT_ON_DARK,
-            font=FONT_SMALL,
+            font=FONT_TINY,
         )
-        chevron.pack(anchor="w")
+        chevron.pack(side="left")
 
         # Click handlers
-        for w in (canvas, role_label, chevron, inner):
+        for w in (canvas, username_label, role_label, chevron, inner):
             w.bind(
                 "<Button-1>",
                 lambda _e: self._on_avatar_click() if self._on_avatar_click else None,

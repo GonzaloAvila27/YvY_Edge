@@ -38,6 +38,12 @@ def main(argv: list[str] | None = None) -> int:
         )
     if args.command == "version":
         return _cmd_version()
+    if args.command == "hero-rescue":
+        return _cmd_hero_rescue(
+            db_path=Path(args.db),
+            username=args.username,
+            new_password=args.new_password,
+        )
     if args.command is None:
         # Comando default: placeholder hasta que Fase 4 conecte la GUI.
         return _cmd_run_app()
@@ -104,6 +110,31 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # version
     subparsers.add_parser("version", help="Imprime versión y sale")
+
+    # hero-rescue (CLI emergency reset de password)
+    rescue = subparsers.add_parser(
+        "hero-rescue",
+        help=(
+            "Bypass de auth para resetear password de un usuario administrativo. "
+            "Solo usar en emergencia (admin olvidó password). Requiere acceso "
+            "físico a la máquina."
+        ),
+    )
+    rescue.add_argument(
+        "--db",
+        default=str(DB_DEFAULT_PATH),
+        help=f"Path a la base SQLite (default: {DB_DEFAULT_PATH})",
+    )
+    rescue.add_argument(
+        "--username",
+        required=True,
+        help="Usuario al cual resetear la contraseña",
+    )
+    rescue.add_argument(
+        "--new-password",
+        required=True,
+        help="Nueva contraseña (mín. 8 caracteres)",
+    )
 
     return parser
 
@@ -225,6 +256,108 @@ def _cmd_retention(
         else:
             print(f"⏸ Retention skipped: {result.skipped_reason}")
             print("  (usar --force para forzar la ejecución)")
+
+        return 0
+    finally:
+        factory.close_thread_connection()
+
+
+def _cmd_hero_rescue(
+    *,
+    db_path: Path,
+    username: str,
+    new_password: str,
+) -> int:
+    """Resetea la password de un user administrativo. CLI bypass.
+
+    Política:
+    - Solo afecta users con rol admin o superadmin (no profesores ni alumnos).
+    - Audit PASSWORD_RESET_CLI con source=CLI.
+    - El user debe existir; si no, retorna error.
+    - El user debe estar activo; si no, lo reactivamos también (caso típico:
+      "olvidé la password Y desactivé la cuenta por error").
+    - Password debe pasar validación de fuerza (>= 8 chars).
+    """
+    from dataclasses import replace
+
+    from yvy.domain.auth.enums import AuditEventType, AuditSource
+    from yvy.domain.auth.exceptions import (
+        UserNotFoundError,
+        WeakPasswordError,
+    )
+    from yvy.domain.auth.models import (
+        AuditLogEntry,
+        Role,
+        validate_password_strength,
+    )
+    from yvy.infrastructure.auth.bcrypt_hasher import BcryptPasswordHasher
+    from yvy.infrastructure.persistence.connection import (
+        SQLiteConnectionFactory,
+    )
+    from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
+        SQLiteAuditLogRepository,
+    )
+    from yvy.infrastructure.persistence.sqlite_user_repository import (
+        SQLiteUserRepository,
+    )
+
+    if not db_path.exists():
+        print(f"✗ Base de datos no existe: {db_path}", file=sys.stderr)
+        return 1
+
+    factory = SQLiteConnectionFactory(path=db_path)
+    try:
+        # Validar password antes de hashear (más rápido falla)
+        try:
+            validate_password_strength(new_password)
+        except WeakPasswordError as exc:
+            print(f"✗ Password rechazado: {exc}", file=sys.stderr)
+            return 1
+
+        user_repo = SQLiteUserRepository(factory)
+        audit_repo = SQLiteAuditLogRepository(factory)
+        hasher = BcryptPasswordHasher()  # rounds=12 default
+
+        target = user_repo.find_by_username(username)
+        if target is None:
+            print(f"✗ Usuario no encontrado: {username}", file=sys.stderr)
+            return 1
+
+        if target.role not in (Role.ADMIN, Role.SUPERADMIN):
+            print(
+                f"✗ hero-rescue solo aplica a admin/superadmin. "
+                f"User '{username}' tiene rol '{target.role.value}'.",
+                file=sys.stderr,
+            )
+            return 1
+
+        # Reactivar si está inactivo (caso típico)
+        was_inactive = not target.is_active
+        if was_inactive:
+            target = replace(target, is_active=True)
+
+        new_hash = hasher.hash(new_password)
+        user_repo.save(target, new_hash)
+
+        # Audit PASSWORD_RESET_CLI con source=CLI
+        audit_repo.append(
+            AuditLogEntry(
+                event_type=AuditEventType.PASSWORD_RESET_CLI,
+                source=AuditSource.CLI,
+                user_id=target.id,
+                username=target.username,
+                role=target.role,
+                metadata={
+                    "reactivated": was_inactive,
+                },
+            )
+        )
+
+        print("✓ Password reseteada exitosamente")
+        print(f"  Usuario: {target.username} ({target.role.value})")
+        print(f"  Nombre: {target.full_name}")
+        if was_inactive:
+            print("  ⚠ Cuenta reactivada (estaba desactivada).")
 
         return 0
     finally:
