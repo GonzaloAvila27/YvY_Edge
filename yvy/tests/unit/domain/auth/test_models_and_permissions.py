@@ -93,6 +93,26 @@ class TestPermissions:
         u = _make_user(role=Role.ALUMNO, can_export_raw=True)
         assert not Permissions.can_export_raw(u)
 
+    def test_export_data_vs_export_raw(self) -> None:
+        """Profesor sin flag exporta procesado pero NO raw.
+
+        Confirma la separación: EXPORT_DATA es por rol, EXPORT_RAW es
+        rol + flag.
+        """
+        profe_no_flag = _make_user(role=Role.PROFESOR, can_export_raw=False)
+        assert Permissions.can_export_data(profe_no_flag)
+        assert not Permissions.can_export_raw(profe_no_flag)
+
+        profe_with_flag = _make_user(role=Role.PROFESOR, can_export_raw=True)
+        assert Permissions.can_export_data(profe_with_flag)
+        assert Permissions.can_export_raw(profe_with_flag)
+
+    def test_alumno_cannot_export_data_or_raw(self) -> None:
+        """Alumno NO exporta ni procesado ni raw."""
+        u = _make_user(role=Role.ALUMNO, can_export_raw=True)
+        assert not Permissions.can_export_data(u)
+        assert not Permissions.can_export_raw(u)
+
     def test_profesor_can_view_sync_but_not_trigger_catchup(self) -> None:
         u = _make_user(role=Role.PROFESOR)
         assert Permissions.can_view_sync_status(u)

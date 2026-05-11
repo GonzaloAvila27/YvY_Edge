@@ -90,10 +90,24 @@ class Permissions:
         return user.role in (Role.PROFESOR, Role.ADMIN, Role.SUPERADMIN)
 
     @staticmethod
-    def can_export_raw(user: User | None) -> bool:
-        """Exportar raw data.
+    def can_export_data(user: User | None) -> bool:
+        """Exportar sensor_data (procesado).
 
-        Doble condición: rol válido (no alumno) Y flag explícito.
+        Solo por rol: profesor, admin, superadmin. Para uso interno de
+        la IEA (informes a directivos, comparativas, etc.). NO requiere
+        flag adicional.
+        """
+        if user is None or not user.is_active:
+            return False
+        return user.role in (Role.PROFESOR, Role.ADMIN, Role.SUPERADMIN)
+
+    @staticmethod
+    def can_export_raw(user: User | None) -> bool:
+        """Exportar sensor_raw (crudo).
+
+        Doble condición: rol válido (no alumno) Y flag explícito
+        ``can_export_raw=True``. Para envío externo de datos sin procesar
+        (típicamente a la tecnicatura para uso académico).
         """
         if user is None or not user.is_active:
             return False

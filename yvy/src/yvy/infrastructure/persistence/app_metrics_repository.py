@@ -118,6 +118,24 @@ class AppMetricsRepository:
         row = cur.fetchone()
         return int(row[0]) if row is not None else 0
 
+    def set_counter(self, key: str, value: int) -> None:
+        """Setea valor absoluto (UPSERT).
+
+        Distinto de increment_counter: éste reemplaza el valor existente.
+        Útil para configuración persistente editada desde UI.
+        """
+        conn = self._factory.get_connection()
+        conn.execute(
+            """
+            INSERT INTO app_metrics (key, value, updated_at)
+            VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+            ON CONFLICT(key) DO UPDATE
+               SET value = excluded.value,
+                   updated_at = excluded.updated_at
+            """,
+            (key, value),
+        )
+
     # ─── Timestamps (epoch seconds) ──────────────────────────────────────
 
     def set_timestamp(self, key: str, when: datetime | None = None) -> None:

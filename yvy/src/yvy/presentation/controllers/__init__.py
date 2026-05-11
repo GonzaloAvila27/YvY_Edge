@@ -17,10 +17,12 @@ from yvy.presentation.controllers.sync_controller import (
     SyncController,
     SyncDashboardData,
 )
+from yvy.presentation.controllers.users_admin_controller import UsersAdminController
 
 __all__ = [
     "AuthController",
     "SyncController",
     "SyncDashboardData",
+    "UsersAdminController",
 ]
 

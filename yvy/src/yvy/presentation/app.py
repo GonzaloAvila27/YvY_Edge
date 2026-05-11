@@ -62,12 +62,23 @@ from yvy.presentation.theme import (
     WINDOW_MIN_WIDTH,
     apply_theme,
 )
+from yvy.presentation.views.admin.data_view import DataView
+from yvy.presentation.views.admin.logs_view import LogsView
+from yvy.presentation.views.admin.settings_view import SettingsView
+from yvy.presentation.views.admin.users_view import UsersView
 from yvy.presentation.views.dashboard_admin import DashboardAdminView
+from yvy.presentation.views.help_view import HelpView
 from yvy.presentation.views.login_view import LoginView
 from yvy.presentation.views.onboarding.wizard_view import OnboardingWizard
 from yvy.presentation.views.sync_status_view import SyncStatusView
 
 if TYPE_CHECKING:
+    from yvy.application.use_cases.admin.export_data_csv import ExportDataCsvUseCase
+    from yvy.application.use_cases.admin.export_raw_csv import ExportRawCsvUseCase
+    from yvy.application.use_cases.admin.list_audit_logs import ListAuditLogsUseCase
+    from yvy.application.use_cases.admin.update_retention_policy import (
+        UpdateRetentionPolicyUseCase,
+    )
     from yvy.application.use_cases.auth.complete_onboarding import (
         CompleteOnboardingResult,
         CompleteOnboardingUseCase,
@@ -75,11 +86,15 @@ if TYPE_CHECKING:
     from yvy.application.use_cases.retention.run_retention_job import (
         RunRetentionJobUseCase,
     )
+    from yvy.infrastructure.help.help_repository import HelpRepository
     from yvy.infrastructure.persistence.app_config_repository import (
         AppConfigRepository,
     )
     from yvy.presentation.controllers.auth_controller import AuthController
     from yvy.presentation.controllers.sync_controller import SyncController
+    from yvy.presentation.controllers.users_admin_controller import (
+        UsersAdminController,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +124,7 @@ _SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem(key="usuarios", label="Usuarios", icon_char="👥", admin_only=True),
     SidebarItem(key="logs", label="Logs", icon_char="📜", admin_only=True),
     SidebarItem(key="datos", label="Datos", icon_char="💾", admin_only=True),
+    SidebarItem(key="config", label="Configuración", icon_char="⚙", admin_only=True),
 ]
 
 
@@ -131,6 +147,14 @@ class MainApplication(tk.Tk):
         retention_use_case: RunRetentionJobUseCase | None = None,
         auth_controller: AuthController | None = None,
         onboarding_use_case: CompleteOnboardingUseCase | None = None,
+        users_admin_controller: UsersAdminController | None = None,
+        list_audit_logs_uc: ListAuditLogsUseCase | None = None,
+        update_retention_uc: UpdateRetentionPolicyUseCase | None = None,
+        metrics_repo: object | None = None,
+        export_data_uc: ExportDataCsvUseCase | None = None,
+        export_raw_uc: ExportRawCsvUseCase | None = None,
+        db_factory: object | None = None,
+        help_repository: HelpRepository | None = None,
         app_config_repo: AppConfigRepository | None = None,
         hardware_fingerprint: str | None = None,
         iea_name: str = "IEA — sin configurar",
@@ -151,6 +175,14 @@ class MainApplication(tk.Tk):
         self._retention_use_case = retention_use_case
         self._auth_controller = auth_controller
         self._onboarding_use_case = onboarding_use_case
+        self._users_admin_controller = users_admin_controller
+        self._list_audit_logs_uc = list_audit_logs_uc
+        self._update_retention_uc = update_retention_uc
+        self._metrics_repo = metrics_repo
+        self._export_data_uc = export_data_uc
+        self._export_raw_uc = export_raw_uc
+        self._db_factory = db_factory
+        self._help_repository = help_repository
         self._app_config_repo = app_config_repo
         self._hardware_fingerprint = hardware_fingerprint
         self._iea_name = iea_name
@@ -406,6 +438,62 @@ class MainApplication(tk.Tk):
                 self._content,
                 controller=self._sync_controller,
                 local_tz=self._local_tz,
+            )
+
+        if key == "usuarios" and self._users_admin_controller is not None:
+            return UsersView(
+                self._content,
+                controller=self._users_admin_controller,
+            )
+
+        if key == "logs" and self._list_audit_logs_uc is not None:
+            return LogsView(
+                self._content,
+                use_case=self._list_audit_logs_uc,
+            )
+
+        if key == "ayuda" and self._help_repository is not None:
+            return HelpView(
+                self._content,
+                help_repository=self._help_repository,
+            )
+
+        if (
+            key == "datos"
+            and self._export_data_uc is not None
+            and self._export_raw_uc is not None
+            and self._db_factory is not None
+        ):
+            current_user = (
+                self._auth_controller.current_user
+                if self._auth_controller is not None
+                else None
+            )
+            return DataView(
+                self._content,
+                factory=self._db_factory,  # type: ignore[arg-type]
+                export_data_uc=self._export_data_uc,
+                export_raw_uc=self._export_raw_uc,
+                current_user=current_user if isinstance(current_user, User) else None,
+            )
+
+        if key == "config" and self._update_retention_uc is not None:
+            # Solo superadmin puede forzar retention
+            is_superadmin = False
+            if (
+                self._auth_controller is not None
+                and self._auth_controller.current_user is not None
+            ):
+                u = self._auth_controller.current_user
+                from yvy.domain.auth.enums import Role
+                is_superadmin = u.role == Role.SUPERADMIN
+            return SettingsView(
+                self._content,
+                update_use_case=self._update_retention_uc,
+                retention_use_case=self._retention_use_case,
+                is_superadmin=is_superadmin,
+                metrics_repo=self._metrics_repo,
+                help_repository=self._help_repository,
             )
 
         return _PlaceholderView(self._content, label=self._stub_label(key))

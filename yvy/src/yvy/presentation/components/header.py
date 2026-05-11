@@ -222,8 +222,10 @@ class Header(tk.Frame):
         self.set_notifications_count(count)
 
     def _build_avatar(self, user_name: str, user_role: str) -> None:
-        """Avatar circular con iniciales + label rol debajo."""
-        avatar_outer = tk.Frame(self, bg=PRIMARY, width=100)
+        """Avatar circular con iniciales + nombre/rol al lado."""
+        # Ancho mínimo razonable para nombres como "Juan Pérez" + "SUPERADMIN".
+        # Si el nombre es muy largo, lo truncamos visualmente con ellipsis.
+        avatar_outer = tk.Frame(self, bg=PRIMARY, width=180)
         avatar_outer.pack(side="right", fill="y", padx=(SPACE_SM, SPACE_LG))
         avatar_outer.pack_propagate(False)
 

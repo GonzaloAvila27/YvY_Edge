@@ -286,9 +286,14 @@ def apply_theme(root: tk.Tk) -> None:
         background=[
             ("active", BG_HOVER),
             ("pressed", BG_HOVER),
+            ("disabled", BG_CARD),
+        ],
+        foreground=[
+            ("disabled", TEXT_SECONDARY),
         ],
         bordercolor=[
             ("active", PRIMARY),
+            ("disabled", BORDER),
         ],
     )
 
