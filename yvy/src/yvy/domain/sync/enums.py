@@ -38,3 +38,5 @@ class EntityType(StrEnum):
     SENSOR_READING = "sensor_reading"
     EMPIRICAL_RECORD = "empirical_record"
     COMMENT = "comment"
+    EMPIRICAL_OBSERVATION = "empirical_observation"
+    EMPIRICAL_EVENT = "empirical_event"

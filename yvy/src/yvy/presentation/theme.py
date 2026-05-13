@@ -119,6 +119,31 @@ WINDOW_MIN_HEIGHT: Final[int] = 600
 LOGIN_CARD_WIDTH: Final[int] = 380
 LOGIN_CARD_HEIGHT: Final[int] = 440
 
+# ─── Aliases de conveniencia para vistas (dict de colores y fuentes) ─────
+
+COLORS: Final[dict[str, str]] = {
+    "primary": PRIMARY,
+    "primary_light": PRIMARY_LIGHT,
+    "bg": BG_CREAM,
+    "bg_alt": BG_SIDEBAR,
+    "text": TEXT_PRIMARY,
+    "text_muted": TEXT_SECONDARY,
+    "text_inverse": TEXT_ON_DARK,
+    "success": SUCCESS,
+    "warning": WARNING,
+    "danger": DANGER,
+    "border": BORDER,
+}
+
+FONTS: Final[dict[str, tuple[str, int, str]]] = {
+    "heading": FONT_H2,
+    "body": FONT_BODY,
+    "body_bold": FONT_BODY_BOLD,
+    "small": FONT_SMALL,
+    "tiny": FONT_TINY,
+    "mono": FONT_MONO,
+}
+
 
 # ─── Configuración de ttk.Style ──────────────────────────────────────────
 
