@@ -23,14 +23,15 @@ class SyncJob:
         station_uuid: denormalizado para sync sin JOIN.
         entity_type: determina endpoint destino.
         entity_db_id: id local del registro en su tabla origen
-            (sensor_data.id, empirical_data.id, etc.).
+            (sensor_data.id para lecturas de sensor).
+            None para entidades sin PK integer (empirical, comment).
         payload: JSON-serializable con los datos a enviar.
     """
 
     event_id: UUID
     station_uuid: UUID
     entity_type: EntityType
-    entity_db_id: int
+    entity_db_id: int | None = None
     payload: dict[str, Any] = field(default_factory=dict)
     payload_version: str = "1.0"
     status: SyncStatus = SyncStatus.PENDING

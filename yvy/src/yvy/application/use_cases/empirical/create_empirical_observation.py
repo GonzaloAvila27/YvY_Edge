@@ -214,7 +214,6 @@ class CreateEmpiricalObservationUseCase:
                 event_id=observation.observation_id,
                 station_uuid=station_uuid,
                 entity_type=EntityType.EMPIRICAL_OBSERVATION,
-                entity_db_id=0,
                 payload=json.dumps(payload_dict, ensure_ascii=False),  # type: ignore[arg-type]
                 status=SyncStatus.PENDING,
                 attempts=0,
