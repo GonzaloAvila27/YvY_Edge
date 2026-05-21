@@ -9,6 +9,7 @@ station_uuid, CUE, school_name, hardware_fingerprint, onboarding_completed_at.
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 
 from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
@@ -58,3 +59,10 @@ class AppConfigRepository:
 
     def is_onboarding_completed(self) -> bool:
         return self.get_timestamp("onboarding_completed_at") is not None
+
+    def get_station_uuid(self) -> uuid.UUID:
+        """Implementa AppConfigReader.get_station_uuid (Protocol)."""
+        value = self.get("station_uuid")
+        if value is None:
+            raise RuntimeError("station_uuid no está configurado en app_config")
+        return uuid.UUID(value)

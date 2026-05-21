@@ -30,6 +30,7 @@ import tkinter as tk
 from dataclasses import dataclass
 from datetime import tzinfo
 from tkinter import ttk
+import uuid
 from typing import TYPE_CHECKING
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -67,6 +68,9 @@ from yvy.presentation.views.admin.logs_view import LogsView
 from yvy.presentation.views.admin.settings_view import SettingsView
 from yvy.presentation.views.admin.users_view import UsersView
 from yvy.presentation.views.dashboard_admin import DashboardAdminView
+from yvy.presentation.views.empirical.detail_modal import EmpiricalDetailModal
+from yvy.presentation.views.empirical.list_view import EmpiricalListView
+from yvy.presentation.views.empirical.wizard_view import EmpiricalWizardView
 from yvy.presentation.views.help_view import HelpView
 from yvy.presentation.views.login_view import LoginView
 from yvy.presentation.views.onboarding.wizard_view import OnboardingWizard
@@ -91,6 +95,7 @@ if TYPE_CHECKING:
         AppConfigRepository,
     )
     from yvy.presentation.controllers.auth_controller import AuthController
+    from yvy.presentation.controllers.empirical_controller import EmpiricalController
     from yvy.presentation.controllers.sync_controller import SyncController
     from yvy.presentation.controllers.users_admin_controller import (
         UsersAdminController,
@@ -157,6 +162,7 @@ class MainApplication(tk.Tk):
         help_repository: HelpRepository | None = None,
         app_config_repo: AppConfigRepository | None = None,
         hardware_fingerprint: str | None = None,
+        empirical_controller: EmpiricalController | None = None,
         iea_name: str = "IEA — sin configurar",
         iea_cue: str = "—",
         local_tz: tzinfo | None = None,
@@ -185,6 +191,7 @@ class MainApplication(tk.Tk):
         self._help_repository = help_repository
         self._app_config_repo = app_config_repo
         self._hardware_fingerprint = hardware_fingerprint
+        self._empirical_controller = empirical_controller
         self._iea_name = iea_name
         self._iea_cue = iea_cue
         self._local_tz = local_tz or ZoneInfo("America/Argentina/Cordoba")
@@ -382,7 +389,7 @@ class MainApplication(tk.Tk):
         self._header.set_connectivity_status("ok", "Online")
 
         # Vista por defecto según rol
-        default_view = "inicio" if user_role == "alumno" else "dashboard"
+        default_view = "formulario" if user_role == "alumno" else "dashboard"
         self._navigate(default_view)
         self._sidebar.set_active(default_view)
 
@@ -477,6 +484,21 @@ class MainApplication(tk.Tk):
                 current_user=current_user if isinstance(current_user, User) else None,
             )
 
+        if key == "formulario" and self._empirical_controller is not None:
+            current_user = (
+                self._auth_controller.current_user
+                if self._auth_controller is not None
+                else None
+            )
+            if isinstance(current_user, User):
+                return EmpiricalListView(
+                    self._content,
+                    controller=self._empirical_controller,
+                    current_user=current_user,
+                    on_open_wizard=self._show_empirical_wizard,
+                    on_open_detail=self._open_empirical_detail,
+                )
+
         if key == "config" and self._update_retention_uc is not None:
             # Solo superadmin puede forzar retention
             is_superadmin = False
@@ -510,6 +532,42 @@ class MainApplication(tk.Tk):
             "datos": "Gestión de datos (Fase 5/7)",
         }
         return labels.get(key, f"View '{key}' no implementada")
+
+    def _show_empirical_wizard(self) -> None:
+        """Reemplaza el área de contenido con el wizard de carga empírica."""
+        if self._content is None or self._empirical_controller is None:
+            return
+        current_user = (
+            self._auth_controller.current_user
+            if self._auth_controller is not None
+            else None
+        )
+        if not isinstance(current_user, User):
+            return
+        for child in self._content.winfo_children():
+            child.pack_forget()
+        wizard = EmpiricalWizardView(
+            self._content,
+            controller=self._empirical_controller,
+            current_user=current_user,
+            on_complete=self._on_empirical_wizard_complete,
+            on_cancel=lambda: self._navigate("formulario"),
+        )
+        wizard.pack(fill="both", expand=True)
+        self._current_view_key = None
+        if self._sidebar is not None:
+            self._sidebar.set_active("formulario")
+
+    def _on_empirical_wizard_complete(self) -> None:
+        self._navigate("formulario")
+        list_view = self._view_cache.get("formulario")
+        if isinstance(list_view, EmpiricalListView):
+            list_view.refresh()
+
+    def _open_empirical_detail(self, observation_id: uuid.UUID) -> None:
+        if self._empirical_controller is None:
+            return
+        EmpiricalDetailModal(self, self._empirical_controller, observation_id)
 
     # ─── Handlers ───────────────────────────────────────────────────────
 

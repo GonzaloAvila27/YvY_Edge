@@ -1,0 +1,13 @@
+# YVY · Dependencias de producción para instalación en IEA
+# Generado desde pyproject.toml (solo prod, sin dev deps)
+# Fase 8.6 · schema v12
+pywws>=25.10.0
+requests>=2.32.0
+cryptography>=43.0.0
+bcrypt>=4.2.0
+pillow>=11.0.0
+matplotlib>=3.9.0
+schedule>=1.2.0
+pydantic-settings>=2.5.0
+pydantic>=2.9.0
+tzdata>=2026.2
