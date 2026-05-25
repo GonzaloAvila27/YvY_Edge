@@ -76,6 +76,7 @@ DEFAULT_PASS = "director2026"
 
 def main() -> int:
     db_path = ROOT / "data" / "yvy.sqlite"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     migrations_dir = ROOT / "migrations"
 
     factory = SQLiteConnectionFactory(path=db_path)
