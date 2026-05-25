@@ -152,9 +152,15 @@ def _cmd_run_app() -> int:
     from yvy import __version__
 
     print(f"YVY v{__version__}")
-    print("Aplicación todavía no implementada.")
-    print("Estado actual: Fase 2 (persistencia + collector) en validación.")
-    print("Para aplicar migraciones: poetry run yvy migrate")
+    print()
+    print("Para arrancar la interfaz gráfica:")
+    print("  python scripts/launch_app.py")
+    print()
+    print("Subcomandos disponibles:")
+    print("  yvy migrate       — aplica migraciones SQL pendientes")
+    print("  yvy retention     — ejecuta job de retención de datos")
+    print("  yvy version       — imprime versión")
+    print("  yvy hero-rescue   — resetea password de admin (emergencia)")
     return 0
 
 

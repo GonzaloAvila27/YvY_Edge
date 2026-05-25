@@ -14,6 +14,9 @@ class SystemClock:
     def now_utc(self) -> datetime:
         return datetime.now(tz=UTC)
 
+    def now_local(self) -> datetime:
+        return datetime.now().astimezone()
+
 
 class FrozenClock:
     """Reloj congelado para tests.
@@ -35,6 +38,9 @@ class FrozenClock:
 
     def now_utc(self) -> datetime:
         return self._now
+
+    def now_local(self) -> datetime:
+        return self._now.astimezone()
 
     def set(self, new_now: datetime) -> None:
         if new_now.tzinfo is None:

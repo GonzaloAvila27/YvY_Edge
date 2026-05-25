@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import threading
 import uuid
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -56,6 +57,11 @@ from yvy.infrastructure.persistence.sqlite_empirical_repository import SQLiteEmp
 from yvy.infrastructure.persistence.sqlite_sensor_repository import SQLiteSensorRepository
 from yvy.infrastructure.persistence.sqlite_sync_repository import SQLiteSyncRepository
 from yvy.infrastructure.persistence.sqlite_user_repository import SQLiteUserRepository
+from yvy.application.use_cases.sensor.capture_live_reading import CaptureLiveReadingUseCase
+from yvy.domain.shared.value_objects import StationUUID
+from yvy.infrastructure.pywws.live_source import PywwsLiveSource
+from yvy.infrastructure.pywws.parser import PywwsPayloadParser
+from yvy.infrastructure.scheduling.sensor_collector import SensorCollectorDaemon
 from yvy.infrastructure.system.clock import SystemClock
 from yvy.presentation.app import MainApplication
 from yvy.presentation.controllers.auth_controller import AuthController
@@ -183,10 +189,36 @@ def main() -> int:
         local_tz=TZ_AR,
     )
 
+    # ── Daemon de captura del sensor WH1081 ──────────────────────────────
+    _sensor_stop = threading.Event()
+    try:
+        _station_uuid_raw = app_config_repo.get("station_uuid")
+        _station_uuid = StationUUID(uuid.UUID(_station_uuid_raw))
+        _capture_uc = CaptureLiveReadingUseCase(
+            sensor_source=PywwsLiveSource(),
+            sensor_repo=sensor_repo,
+            sync_repo=sync_repo,
+            station_uuid=_station_uuid,
+            parser=PywwsPayloadParser(),
+            time_provider=clock,
+        )
+        _collector = SensorCollectorDaemon(
+            factory=factory,
+            use_case=_capture_uc,
+            stop_event=_sensor_stop,
+        )
+        _collector.start()
+        print("[sensor] Daemon de captura iniciado")
+    except Exception as _exc:
+        print(f"[sensor] Daemon no iniciado (sin sensor o pywws no instalado): {_exc}")
+
     print("Iniciando YVY...")
     print(f"  DB: {db_path}")
     print(f"  Usuario: {DEFAULT_USER}  /  Contraseña: {DEFAULT_PASS}")
-    app.mainloop()
+    try:
+        app.mainloop()
+    finally:
+        _sensor_stop.set()
     return 0
 
 

@@ -44,8 +44,5 @@ class SyncJob:
     def __post_init__(self) -> None:
         if self.attempts < 0:
             raise ValueError(f"attempts no puede ser negativo: {self.attempts}")
-        if self.attempts > 10:
-            raise ValueError(
-                f"attempts excede hard cap (10): {self.attempts}. "
-                f"CHECK constraint en sync_queue lo rechazaría."
-            )
+        # Upper bound removido en Fase 9.2 (migración v13): el límite de
+        # reintentos vive ahora en código del sync agent, no en VO ni schema.

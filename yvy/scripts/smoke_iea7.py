@@ -344,7 +344,7 @@ def check_sensor_live(conn: sqlite3.Connection) -> bool:
     from yvy.infrastructure.persistence.sqlite_sensor_repository import SQLiteSensorRepository
     from yvy.infrastructure.persistence.sqlite_sync_repository import SQLiteSyncRepository
     from yvy.infrastructure.pywws.live_source import StubLiveSource
-    from yvy.infrastructure.pywws.parser import PywwsParser
+    from yvy.infrastructure.pywws.parser import PywwsPayloadParser
 
     station_uuid = uuid.uuid4()
     app_config = MagicMock()
@@ -357,7 +357,7 @@ def check_sensor_live(conn: sqlite3.Connection) -> bool:
 
     # Usamos StubLiveSource con el dato real que capturamos
     stub = StubLiveSource(readings=[data])
-    parser = PywwsParser()
+    parser = PywwsPayloadParser()
 
     capture_uc = CaptureLiveReadingUseCase(
         sensor_source=stub,
@@ -379,6 +379,107 @@ def check_sensor_live(conn: sqlite3.Connection) -> bool:
     ok &= _check("sensor_raw tiene filas", n_raw >= 1, f"n={n_raw}")
     ok &= _check("sensor_data tiene filas", n_data >= 1, f"n={n_data}")
 
+    return ok
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CHECK E: SensorCollectorDaemon lifecycle
+# ─────────────────────────────────────────────────────────────────────────────
+
+def check_daemon_lifecycle(tmpdir: Path, *, with_sensor: bool) -> bool:
+    """Verifica que el daemon arranca, captura y se detiene limpiamente.
+
+    sin-sensor: usa StubLiveSource con 1 lectura precargada. Valida que
+                el daemon procesa el sample y escribe en sensor_raw/sensor_data.
+
+    con-sensor: usa PywwsLiveSource real. Espera hasta 60s un sample real.
+                Valida filas en DB.
+
+    Usa su propia SQLiteConnectionFactory (no conn compartida) para que
+    el sub-thread del daemon pueda crear su propia conexión por-thread.
+    """
+    _section("E · SensorCollectorDaemon lifecycle")
+
+    from unittest.mock import MagicMock
+
+    from yvy.application.use_cases.sensor.capture_live_reading import (
+        CaptureLiveReadingUseCase,
+    )
+    from yvy.domain.shared.value_objects import StationUUID
+    from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
+    from yvy.infrastructure.persistence.migrations import run_migrations
+    from yvy.infrastructure.persistence.sqlite_sensor_repository import SQLiteSensorRepository
+    from yvy.infrastructure.persistence.sqlite_sync_repository import SQLiteSyncRepository
+    from yvy.infrastructure.pywws.live_source import StubLiveSource, make_test_reading
+    from yvy.infrastructure.pywws.parser import PywwsPayloadParser
+    from yvy.infrastructure.scheduling.sensor_collector import SensorCollectorDaemon
+
+    # DB propia para este check — necesita factory real para threading.local
+    db_path = tmpdir / "yvy_smoke_daemon.sqlite"
+    factory = SQLiteConnectionFactory(path=db_path)
+    migrations_dir = ROOT / "migrations"
+    run_migrations(factory.get_connection(), migrations_dir=migrations_dir)
+
+    station_uuid = uuid.uuid4()
+    sensor_repo = SQLiteSensorRepository(factory)
+    sync_repo = SQLiteSyncRepository(factory)
+    time_prov = MagicMock()
+    time_prov.now_utc.return_value = datetime.now(UTC)
+    parser = PywwsPayloadParser()
+    shutdown = threading.Event()
+
+    if not with_sensor:
+        # Modo sin sensor: una lectura precargada en el stub.
+        reading = make_test_reading(minute=55)
+        source = StubLiveSource(readings=[reading])
+        wait_s = 3
+    else:
+        # Modo con sensor: fuente real — requiere WH1081 conectado.
+        try:
+            from yvy.infrastructure.pywws.live_source import PywwsLiveSource  # type: ignore[import-not-found]
+            source = PywwsLiveSource()
+        except Exception as exc:
+            _check("PywwsLiveSource importable", False, str(exc))
+            return False
+        _check("PywwsLiveSource importable", True)
+        wait_s = 60
+        print(f"  Esperando hasta {wait_s}s para que el daemon capture un sample real...")
+
+    capture_uc = CaptureLiveReadingUseCase(
+        sensor_source=source,
+        sensor_repo=sensor_repo,
+        sync_repo=sync_repo,
+        station_uuid=StationUUID(station_uuid),
+        parser=parser,
+        time_provider=time_prov,
+    )
+
+    collector = SensorCollectorDaemon(
+        factory=factory,
+        use_case=capture_uc,
+        stop_event=shutdown,
+    )
+
+    ok = True
+
+    collector.start()
+    ok &= _check("Daemon arranca (is_alive)", collector.is_alive())
+
+    # Esperar suficiente para que procese al menos un ciclo.
+    shutdown.wait(timeout=wait_s)
+    shutdown.set()
+    collector.join(timeout=5)
+
+    ok &= _check("Daemon termina tras stop_event", not collector.is_alive())
+
+    # Leer resultados con la conexión del hilo principal.
+    conn = factory.get_connection()
+    n_raw = conn.execute("SELECT COUNT(*) FROM sensor_raw").fetchone()[0]
+    n_data = conn.execute("SELECT COUNT(*) FROM sensor_data").fetchone()[0]
+    ok &= _check("sensor_raw tiene filas tras captura", n_raw >= 1, f"n={n_raw}")
+    ok &= _check("sensor_data tiene filas tras captura", n_data >= 1, f"n={n_data}")
+
+    factory.close_thread_connection()
     return ok
 
 
@@ -416,9 +517,11 @@ def main() -> int:
 
     if args.mode == "con-sensor":
         results.append(check_sensor_live(conn))
+        results.append(check_daemon_lifecycle(tmpdir, with_sensor=True))
     else:
         _section("D · Sensor WH1081 (omitido en modo sin-sensor)")
         print(f"{SKIP} Sensor live — usar --mode=con-sensor en la netbook IEA")
+        results.append(check_daemon_lifecycle(tmpdir, with_sensor=False))
 
     conn.close()
 
