@@ -40,6 +40,11 @@ class SyncJob:
     last_attempt: datetime | None = None
     error_msg: str | None = None
     created_at: datetime | None = None
+    # Fase 9.2 — migración v13: tracking del sync agent
+    attempt_count: int = 0
+    last_attempt_at: datetime | None = None
+    next_retry_at: datetime | None = None
+    last_error: str | None = None
 
     def __post_init__(self) -> None:
         if self.attempts < 0:
