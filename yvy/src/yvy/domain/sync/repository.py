@@ -6,7 +6,7 @@ from datetime import datetime, tzinfo
 from typing import Protocol
 from uuid import UUID
 
-from yvy.domain.sync.enums import SyncStatus
+from yvy.domain.sync.enums import EntityType, SyncStatus
 from yvy.domain.sync.models import SyncJob
 
 
@@ -115,6 +115,70 @@ class SyncRepository(Protocol):
             equivalentes al "00:00 local hoy" y "00:00 local mañana" y
             pasarlos como parámetros a la query como strings ISO. NO usar
             ``date(created_at, 'localtime')`` que depende del tz del SO.
+        """
+        ...
+
+    # ─── Sync agent (Fase 9.2) ──────────────────────────────────────────
+
+    def claim_next_pending(
+        self,
+        *,
+        now_utc: datetime,
+        supported_entity_types: set[EntityType],
+    ) -> tuple[int, SyncJob] | None:
+        """Reserva atómicamente el próximo job pending elegible.
+
+        Filtra por status='pending', entity_type IN supported_entity_types,
+        y next_retry_at IS NULL OR next_retry_at <= now_utc.
+
+        Returns:
+            (job_id, SyncJob) si se reservó un job, None si no hay elegibles.
+        """
+        ...
+
+    def mark_sent(
+        self,
+        *,
+        job_id: int,
+        was_duplicate: bool,
+        sent_at_utc: datetime,
+    ) -> None:
+        """Marca un job como enviado ('sent') o duplicado ('duplicate').
+
+        Libera el lease (claimed_at = NULL). NO incrementa attempt_count.
+        """
+        ...
+
+    def mark_failed(
+        self,
+        *,
+        job_id: int,
+        attempt_count: int,
+        last_error: str,
+        next_retry_at: datetime | None,
+        permanent: bool = False,
+    ) -> None:
+        """Marca un job como fallido, transient o permanente.
+
+        permanent=True → status='error' (DLQ, no se reintenta).
+        permanent=False → status='pending', next_retry_at programado.
+        Libera el lease (claimed_at = NULL).
+        """
+        ...
+
+    def reap_zombies(
+        self,
+        *,
+        now_utc: datetime,
+        lease_timeout_seconds: int,
+    ) -> int:
+        """Rescata jobs zombie (status='sending' con claimed_at vencido).
+
+        Resetea status='pending' y claimed_at=NULL. NO toca attempt_count
+        ni last_error (el zombie es fallo de proceso, no de envío).
+
+        Returns:
+            Count de filas rescatadas.
         """
         ...
 

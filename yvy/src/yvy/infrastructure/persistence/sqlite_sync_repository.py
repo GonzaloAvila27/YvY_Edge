@@ -1,13 +1,16 @@
 """Implementación SQLite del SyncRepository.
 
-Solo expone enqueue + lookups en Fase 2. El claim atómico, retry y
-archive vienen en Fase 9.
+Métodos:
+  - Fase 2: enqueue + lookups.
+  - Fase 4.5: list_recent, count_by_status, count_sent_today.
+  - Fase 5: delete_sent_older_than (retención).
+  - Fase 9.2 (paso 6): claim_next_pending, mark_sent, mark_failed, reap_zombies.
 
 Notas de mapeo:
-- ``error_msg`` es ``NOT NULL DEFAULT ''``. Pasamos string vacío cuando
+- ``error_msg`` (legacy) es ``NOT NULL DEFAULT ''``; pasamos ``''`` cuando
   el dominio tiene None.
-- ``event_id`` y ``station_uuid`` se persisten como string. La regex
-  del CHECK es agnóstica de versión UUID (acepta v4 y v5).
+- ``last_error`` (v13) es ``NULL`` por default, separado de ``error_msg``.
+- ``claim_next_pending`` usa RETURNING (SQLite >= 3.35).
 """
 
 from __future__ import annotations
@@ -23,6 +26,16 @@ from yvy.domain.sync.models import SyncJob
 from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
 
 
+# Columnas que el row mapper espera. Todas las queries SELECT deben
+# respetar este orden. RETURNING también lo sigue.
+_SELECT_COLUMNS = """
+    event_id, station_uuid, entity_type, entity_db_id,
+    payload, payload_version, status,
+    attempts, retry_after, last_attempt, error_msg, created_at,
+    attempt_count, last_attempt_at, next_retry_at, last_error
+"""
+
+
 class SQLiteSyncRepository:
     """Repositorio SQLite de sync_queue.
 
@@ -31,6 +44,8 @@ class SQLiteSyncRepository:
 
     def __init__(self, factory: SQLiteConnectionFactory) -> None:
         self._factory = factory
+
+    # ─── Fase 2: enqueue + lookups ───────────────────────────────────────
 
     def enqueue(self, job: SyncJob) -> int:
         """Encola SyncJob. Devuelve id (existente o nuevo)."""
@@ -80,12 +95,7 @@ class SQLiteSyncRepository:
     def find_by_event_id(self, event_id: UUID) -> SyncJob | None:
         conn = self._factory.get_connection()
         cur = conn.execute(
-            """
-            SELECT event_id, station_uuid, entity_type, entity_db_id,
-                   payload, payload_version, status,
-                   attempts, retry_after, last_attempt, error_msg, created_at
-            FROM sync_queue WHERE event_id = ?
-            """,
+            f"SELECT {_SELECT_COLUMNS} FROM sync_queue WHERE event_id = ?",
             (str(event_id),),
         )
         row = cur.fetchone()
@@ -98,7 +108,7 @@ class SQLiteSyncRepository:
         cur = conn.execute("SELECT COUNT(*) FROM sync_queue")
         return int(cur.fetchone()[0])
 
-    # ─── Listados y agregaciones (Fase 4.5) ─────────────────────────────
+    # ─── Fase 4.5: listados y agregaciones ──────────────────────────────
 
     def list_recent(
         self,
@@ -106,24 +116,17 @@ class SQLiteSyncRepository:
         status_filter: SyncStatus | None = None,
         before_id: int | None = None,
     ) -> list[SyncJob]:
-        """Lista jobs ordenados por id DESC (más recientes primero).
-
-        Cap interno de seguridad: limit > 200 se trunca a 200 para evitar
-        que un bug en la UI pida toda la tabla y consuma memoria.
-        """
-        # Cap defensivo
+        """Lista jobs ordenados por id DESC. Cap interno: max 200."""
         effective_limit = min(max(limit, 0), 200)
         if effective_limit == 0:
             return []
 
-        # Construcción dinámica de WHERE
         clauses: list[str] = []
         params: list[Any] = []
 
         if status_filter is not None:
             clauses.append("status = ?")
             params.append(str(status_filter))
-
         if before_id is not None:
             clauses.append("id < ?")
             params.append(before_id)
@@ -132,72 +135,39 @@ class SQLiteSyncRepository:
         params.append(effective_limit)
 
         sql = f"""
-            SELECT event_id, station_uuid, entity_type, entity_db_id,
-                   payload, payload_version, status,
-                   attempts, retry_after, last_attempt, error_msg, created_at
-            FROM sync_queue
-            {where_sql}
-            ORDER BY id DESC
-            LIMIT ?
+            SELECT {_SELECT_COLUMNS}
+              FROM sync_queue
+              {where_sql}
+             ORDER BY id DESC
+             LIMIT ?
         """
-
         conn = self._factory.get_connection()
         cur = conn.execute(sql, params)
-
         return [_row_to_syncjob(row) for row in cur.fetchall()]
 
     def count_by_status(self) -> dict[SyncStatus, int]:
-        """Cuenta jobs por status. Devuelve dict con las 4 keys siempre."""
         conn = self._factory.get_connection()
         cur = conn.execute(
             "SELECT status, COUNT(*) FROM sync_queue GROUP BY status"
         )
-
-        # Inicializar todas las keys en 0
         result: dict[SyncStatus, int] = dict.fromkeys(SyncStatus, 0)
-
         for row in cur.fetchall():
             try:
                 status = SyncStatus(row[0])
             except ValueError:
-                # Status inesperado en DB (no debería pasar por el CHECK
-                # constraint, pero defensivo)
                 continue
             result[status] = int(row[1])
-
         return result
 
     def count_sent_today(self, tz: tzinfo) -> int:
-        """Cuenta jobs sent del día local actual.
-
-        "Día local actual" = [00:00 local hoy, 00:00 local mañana).
-
-        Implementación: calcula en Python ambos bounds (UTC equivalentes
-        a 00:00 local hoy y 00:00 local mañana), y compara con created_at
-        vía string ISO.
-
-        NO usa ``date(created_at, 'localtime')`` porque eso depende del
-        tz del sistema operativo, no del tz inyectado.
-
-        Sobre el upper bound: jobs con created_at futuros (ej. clock skew
-        del sensor o NTP corrigiendo hacia atrás) NO entran al conteo de
-        hoy. Quedan invisibles hasta que el día local los alcance.
-        """
         from datetime import timedelta
-
-        # 1. "Ahora" en la zona local
         now_local = datetime.now(tz=tz)
-        # 2. Inicio del día local (00:00:00 hora local)
         local_midnight = now_local.replace(
             hour=0, minute=0, second=0, microsecond=0
         )
-        # 3. Inicio del día local de mañana
         local_tomorrow = local_midnight + timedelta(days=1)
-        # 4. Convertir ambos a UTC
         lower_utc = local_midnight.astimezone(UTC)
         upper_utc = local_tomorrow.astimezone(UTC)
-        # 5. Formato ISO compatible con el strftime que usa SQLite por default.
-        # Comparación lexicográfica funciona porque el formato es ordenable.
         lower_iso = lower_utc.strftime("%Y-%m-%dT%H:%M:%S.000Z")
         upper_iso = upper_utc.strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
@@ -205,30 +175,19 @@ class SQLiteSyncRepository:
         cur = conn.execute(
             """
             SELECT COUNT(*) FROM sync_queue
-            WHERE status = ?
-              AND created_at >= ?
-              AND created_at <  ?
+             WHERE status = ?
+               AND created_at >= ?
+               AND created_at <  ?
             """,
             (str(SyncStatus.SENT), lower_iso, upper_iso),
         )
         return int(cur.fetchone()[0])
 
-    # ─── Retención (Fase 5) ──────────────────────────────────────────────
+    # ─── Fase 5: retención ──────────────────────────────────────────────
 
     def delete_sent_older_than(self, threshold_utc: datetime) -> int:
-        """Borra jobs con status='sent' y last_attempt < threshold_utc.
-
-        Atómica: BEGIN IMMEDIATE + DELETE + COMMIT.
-
-        Solo toca status='sent'. Pending/sending/error sobreviven
-        indefinidamente hasta que el sync agent (Fase 9) los procese.
-
-        Defensivo con last_attempt NULL: la query exige
-        ``last_attempt IS NOT NULL`` antes de comparar. Sent jobs sin
-        last_attempt (data inconsistente) se conservan.
-        """
+        """Borra jobs sent con last_attempt < threshold. Atómica."""
         threshold_iso = threshold_utc.strftime("%Y-%m-%dT%H:%M:%S.000Z")
-
         conn = self._factory.get_connection()
         try:
             conn.execute("BEGIN IMMEDIATE")
@@ -248,6 +207,174 @@ class SQLiteSyncRepository:
             conn.execute("ROLLBACK")
             raise
 
+    # ─── Fase 9.2 (paso 6): sync agent ──────────────────────────────────
+
+    def claim_next_pending(
+        self,
+        *,
+        now_utc: datetime,
+        supported_entity_types: set[EntityType],
+    ) -> tuple[int, SyncJob] | None:
+        """Reserva atómicamente el próximo job pending elegible.
+
+        Filtros:
+          - status = 'pending'
+          - entity_type IN supported_entity_types (excluye legacy)
+          - next_retry_at IS NULL OR next_retry_at <= now
+
+        Side effects:
+          - status → 'sending'
+          - claimed_at → now_utc
+          - last_attempt_at → now_utc
+
+        Returns:
+            (job_id, SyncJob) o None si no hay candidatos.
+        """
+        if not supported_entity_types:
+            return None
+
+        now_iso = now_utc.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        types_placeholders = ",".join("?" for _ in supported_entity_types)
+        types_params = [str(t) for t in supported_entity_types]
+
+        # UPDATE atómico con RETURNING (SQLite >= 3.35).
+        # El subselect garantiza que la fila seleccionada es la misma
+        # que se actualiza — SQLite ejecuta esto atómicamente bajo journal.
+        sql = f"""
+            UPDATE sync_queue
+               SET status = 'sending',
+                   claimed_at = ?,
+                   last_attempt_at = ?
+             WHERE id = (
+                 SELECT id FROM sync_queue
+                  WHERE status = 'pending'
+                    AND entity_type IN ({types_placeholders})
+                    AND (next_retry_at IS NULL OR next_retry_at <= ?)
+                  ORDER BY id
+                  LIMIT 1
+             )
+            RETURNING id, {_SELECT_COLUMNS}
+        """
+        params = [now_iso, now_iso, *types_params, now_iso]
+
+        conn = self._factory.get_connection()
+        cur = conn.execute(sql, params)
+        row = cur.fetchone()
+        if row is None:
+            return None
+
+        job_id = int(row["id"])
+        job = _row_to_syncjob(row)
+        return (job_id, job)
+
+    def mark_sent(
+        self,
+        *,
+        job_id: int,
+        was_duplicate: bool,
+        sent_at_utc: datetime,
+    ) -> None:
+        """Marca el job como enviado o duplicado. Libera el lease."""
+        new_status = SyncStatus.DUPLICATE if was_duplicate else SyncStatus.SENT
+        sent_iso = sent_at_utc.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+        conn = self._factory.get_connection()
+        conn.execute(
+            """
+            UPDATE sync_queue
+               SET status = ?,
+                   last_attempt_at = ?,
+                   last_attempt = ?,
+                   claimed_at = NULL,
+                   last_error = NULL,
+                   error_msg = ''
+             WHERE id = ?
+            """,
+            (str(new_status), sent_iso, sent_iso, job_id),
+        )
+
+    def mark_failed(
+        self,
+        *,
+        job_id: int,
+        attempt_count: int,
+        last_error: str,
+        next_retry_at: datetime | None,
+        permanent: bool = False,
+    ) -> None:
+        """Marca fallo transient o permanent. Libera el lease."""
+        now_iso = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        next_retry_iso = (
+            next_retry_at.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+            if next_retry_at
+            else None
+        )
+        new_status = SyncStatus.ERROR if permanent else SyncStatus.PENDING
+
+        conn = self._factory.get_connection()
+        conn.execute(
+            """
+            UPDATE sync_queue
+               SET status = ?,
+                   attempt_count = ?,
+                   attempts = ?,
+                   last_error = ?,
+                   error_msg = ?,
+                   last_attempt_at = ?,
+                   last_attempt = ?,
+                   next_retry_at = ?,
+                   retry_after = ?,
+                   claimed_at = NULL
+             WHERE id = ?
+            """,
+            (
+                str(new_status),
+                attempt_count,
+                attempt_count,  # mirror v13 attempt_count → legacy attempts
+                last_error,
+                last_error,
+                now_iso,
+                now_iso,
+                next_retry_iso,
+                next_retry_iso,
+                job_id,
+            ),
+        )
+
+    def reap_zombies(
+        self,
+        *,
+        now_utc: datetime,
+        lease_timeout_seconds: int,
+    ) -> int:
+        """Rescata jobs zombie. Devuelve count rescatado.
+
+        Resetea status='pending' y claimed_at=NULL en filas con
+        status='sending' AND claimed_at < (now - lease).
+
+        NO incrementa attempt_count. NO toca last_error.
+        """
+        from datetime import timedelta
+        threshold_dt = now_utc - timedelta(seconds=lease_timeout_seconds)
+        threshold_iso = threshold_dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+        conn = self._factory.get_connection()
+        cur = conn.execute(
+            """
+            UPDATE sync_queue
+               SET status = 'pending',
+                   claimed_at = NULL
+             WHERE status = 'sending'
+               AND claimed_at IS NOT NULL
+               AND claimed_at < ?
+            """,
+            (threshold_iso,),
+        )
+        return int(cur.rowcount)
+
+
+# ─── Helpers ─────────────────────────────────────────────────────────────
+
 
 def _json_default(obj: Any) -> Any:
     """Serializa Decimal y datetime para json.dumps."""
@@ -259,15 +386,19 @@ def _json_default(obj: Any) -> Any:
 
 
 def _opt_dt(val: str | None) -> datetime | None:
-    """Convierte ISO string opcional a datetime opcional."""
     return datetime.fromisoformat(val) if val else None
 
 
-def _row_to_syncjob(row: Any) -> SyncJob:
-    """Mapea una fila de sync_queue al modelo de dominio SyncJob.
+def _row_get(row: Any, key: str, default: Any) -> Any:
+    """Lookup defensivo en sqlite3.Row — devuelve default si no existe."""
+    try:
+        return row[key]
+    except (IndexError, KeyError):
+        return default
 
-    Helper compartido por ``find_by_event_id`` y ``list_recent``.
-    """
+
+def _row_to_syncjob(row: Any) -> SyncJob:
+    """Mapea fila → SyncJob. Soporta filas con o sin campos v13."""
     return SyncJob(
         event_id=UUID(row["event_id"]),
         station_uuid=UUID(row["station_uuid"]),
@@ -281,4 +412,9 @@ def _row_to_syncjob(row: Any) -> SyncJob:
         last_attempt=_opt_dt(row["last_attempt"]),
         error_msg=row["error_msg"] or None,
         created_at=_opt_dt(row["created_at"]),
+        # Campos v13 (defaults seguros si la fila no los tiene)
+        attempt_count=_row_get(row, "attempt_count", 0),
+        last_attempt_at=_opt_dt(_row_get(row, "last_attempt_at", None)),
+        next_retry_at=_opt_dt(_row_get(row, "next_retry_at", None)),
+        last_error=_row_get(row, "last_error", None),
     )

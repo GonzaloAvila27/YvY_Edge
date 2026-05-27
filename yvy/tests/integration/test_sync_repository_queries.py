@@ -258,19 +258,14 @@ class TestListRecent:
 
 @pytest.mark.integration
 class TestCountByStatus:
-    """Validación de count_by_status: 4 keys siempre, valores correctos."""
+    """Validación de count_by_status: todas las keys de SyncStatus, valores correctos."""
 
-    def test_returns_all_four_keys_when_empty(
+    def test_returns_all_status_keys_when_empty(
         self, sync_repo: SQLiteSyncRepository
     ) -> None:
         result = sync_repo.count_by_status()
 
-        assert set(result.keys()) == {
-            SyncStatus.PENDING,
-            SyncStatus.SENDING,
-            SyncStatus.SENT,
-            SyncStatus.ERROR,
-        }
+        assert set(result.keys()) == set(SyncStatus)
         assert all(v == 0 for v in result.values())
 
     def test_counts_correctly_with_mixed_statuses(

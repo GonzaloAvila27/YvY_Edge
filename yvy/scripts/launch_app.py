@@ -8,12 +8,26 @@ Credenciales por defecto (si DB vacía):
     usuario:   director
     contraseña: director2026
 
+Sync agent (Fase 9.2):
+    Lee credentials de ``data/station_credentials.json`` (formato del
+    server: {"station_uuid", "key_version", "key_hmac_hex"}).
+    Lee server URL de ``app_config.get("sync_server_url")``.
+
+    Si las credentials o la URL faltan, la app arranca normalmente pero
+    sin sync agent. La UI muestra "Agent: no inicializado (sin
+    credentials)". Esto es deliberado para soportar:
+      - desarrollo local
+      - troubleshooting de UI
+      - deploys parciales
+      - laboratorios sin server
+
 Uso:
     python scripts/launch_app.py
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import sys
 import threading
@@ -44,8 +58,11 @@ from yvy.application.use_cases.empirical.list_get_observations import (
     ListEmpiricalObservationsUseCase,
 )
 from yvy.application.use_cases.retention.run_retention_job import RunRetentionJobUseCase
+from yvy.application.use_cases.sensor.capture_live_reading import CaptureLiveReadingUseCase
+from yvy.application.use_cases.sensor.run_catchup_recovery import RunCatchupRecoveryUseCase
 from yvy.domain.auth.enums import Role
 from yvy.domain.retention.models import RetentionPolicy
+from yvy.domain.shared.value_objects import StationUUID
 from yvy.infrastructure.auth.bcrypt_hasher import BcryptPasswordHasher
 from yvy.infrastructure.help.help_repository import HelpRepository
 from yvy.infrastructure.persistence.app_config_repository import AppConfigRepository
@@ -55,23 +72,30 @@ from yvy.infrastructure.persistence.migrations import run_migrations
 from yvy.infrastructure.persistence.sqlite_audit_log_repository import SQLiteAuditLogRepository
 from yvy.infrastructure.persistence.sqlite_empirical_repository import SQLiteEmpiricalRepository
 from yvy.infrastructure.persistence.sqlite_sensor_repository import SQLiteSensorRepository
+from yvy.infrastructure.persistence.sqlite_sync_agent_state_repository import (
+    SQLiteSyncAgentStateRepository,
+)
 from yvy.infrastructure.persistence.sqlite_sync_repository import SQLiteSyncRepository
 from yvy.infrastructure.persistence.sqlite_user_repository import SQLiteUserRepository
-from yvy.application.use_cases.sensor.capture_live_reading import CaptureLiveReadingUseCase
-from yvy.domain.shared.value_objects import StationUUID
+from yvy.infrastructure.pywws.catchup_source import PywwsCatchupSource
 from yvy.infrastructure.pywws.live_source import PywwsLiveSource
 from yvy.infrastructure.pywws.parser import PywwsPayloadParser
 from yvy.infrastructure.scheduling.sensor_collector import SensorCollectorDaemon
+from yvy.infrastructure.sync.http_client import HttpClient
+from yvy.infrastructure.sync.sync_agent import SyncAgentConfig, SyncAgentDaemon
 from yvy.infrastructure.system.clock import SystemClock
 from yvy.presentation.app import MainApplication
 from yvy.presentation.controllers.auth_controller import AuthController
 from yvy.presentation.controllers.empirical_controller import EmpiricalController
+from yvy.presentation.controllers.sync_controller import SyncController
 from yvy.presentation.controllers.users_admin_controller import UsersAdminController
 
 TZ_AR = ZoneInfo("America/Argentina/Cordoba")
 
 DEFAULT_USER = "director"
 DEFAULT_PASS = "director2026"
+
+STATION_CREDENTIALS_PATH = ROOT / "data" / "station_credentials.json"
 
 
 def main() -> int:
@@ -88,6 +112,7 @@ def main() -> int:
     metrics_repo = AppMetricsRepository(factory)
     sensor_repo = SQLiteSensorRepository(factory)
     sync_repo = SQLiteSyncRepository(factory)
+    sync_agent_state_repo = SQLiteSyncAgentStateRepository(factory)
     empirical_repo = SQLiteEmpiricalRepository(conn)
     app_config_repo = AppConfigRepository(factory)
     hasher = BcryptPasswordHasher(rounds=4)
@@ -169,6 +194,31 @@ def main() -> int:
         actor_user_id_provider=_actor_provider,
     )
 
+    # ── Sync subsystem (Fase 9.2): wiring híbrido ────────────────────────
+    # Si faltan credentials o server_url → UI sigue funcional sin agent.
+    sync_agent = _try_build_sync_agent(
+        app_config_repo=app_config_repo,
+        sync_repo=sync_repo,
+        sync_agent_state_repo=sync_agent_state_repo,
+        time_provider=clock,
+    )
+
+    # Catchup use case (siempre se arma; no depende del agent)
+    catchup_uc = RunCatchupRecoveryUseCase(
+        catchup_source=PywwsCatchupSource(),
+        sensor_repo=sensor_repo,
+        metrics_repo=metrics_repo,
+        time_provider=clock,
+    )
+
+    sync_controller = SyncController(
+        catchup_use_case=catchup_uc,
+        sync_repo=sync_repo,
+        metrics_repo=metrics_repo,
+        local_tz=TZ_AR,
+        sync_agent=sync_agent,
+    )
+
     help_dir = ROOT / "resources" / "help"
     help_repo = HelpRepository(help_dir=help_dir)
 
@@ -185,6 +235,7 @@ def main() -> int:
         help_repository=help_repo,
         app_config_repo=app_config_repo,
         empirical_controller=empirical_controller,
+        sync_controller=sync_controller,
         iea_name="IEA Nº10 — Posadas",
         iea_cue="540178700",
         local_tz=TZ_AR,
@@ -213,14 +264,130 @@ def main() -> int:
     except Exception as _exc:
         print(f"[sensor] Daemon no iniciado (sin sensor o pywws no instalado): {_exc}")
 
+    # ── Sync agent (si se construyó OK) ──────────────────────────────────
+    if sync_agent is not None:
+        try:
+            sync_agent.start()
+            print("[sync] SyncAgentDaemon iniciado")
+        except Exception as _exc:
+            print(f"[sync] SyncAgentDaemon no inició: {_exc}")
+    else:
+        print(
+            "[sync] SyncAgentDaemon NO inicializado "
+            "(faltan credentials o server_url). UI sigue operativa."
+        )
+
     print("Iniciando YVY...")
     print(f"  DB: {db_path}")
     print(f"  Usuario: {DEFAULT_USER}  /  Contraseña: {DEFAULT_PASS}")
     try:
         app.mainloop()
     finally:
+        # Orden de shutdown: agent primero (drena estado del proceso),
+        # después sensor (deja de generar nuevos jobs).
+        if sync_agent is not None:
+            try:
+                sync_agent.stop(timeout_s=10.0)
+                print("[sync] SyncAgentDaemon detenido")
+            except Exception as _exc:
+                print(f"[sync] Error deteniendo SyncAgentDaemon: {_exc}")
         _sensor_stop.set()
     return 0
+
+
+# ─── Helpers de wiring del sync agent ────────────────────────────────────
+
+
+def _try_build_sync_agent(
+    *,
+    app_config_repo,
+    sync_repo,
+    sync_agent_state_repo,
+    time_provider,
+) -> SyncAgentDaemon | None:
+    """Intenta construir el SyncAgentDaemon. None si faltan credentials.
+
+    Lee:
+        - ``data/station_credentials.json`` con {station_uuid, key_version,
+          key_hmac_hex}.
+        - ``app_config.get("sync_server_url")``.
+
+    Si cualquiera falta o es inválido, retorna None y loguea warning.
+    El launcher continúa normalmente — la UI muestra "Agent: no
+    inicializado" pero todo lo demás funciona.
+    """
+    # 1. server URL desde app_config
+    server_url = app_config_repo.get("sync_server_url")
+    if not server_url:
+        print(
+            "[sync] sync_server_url no configurado en app_config. "
+            "Agent deshabilitado."
+        )
+        return None
+
+    # 2. credentials desde JSON en disco
+    if not STATION_CREDENTIALS_PATH.exists():
+        print(
+            f"[sync] {STATION_CREDENTIALS_PATH} no existe. "
+            "Agent deshabilitado."
+        )
+        return None
+
+    try:
+        creds_raw = STATION_CREDENTIALS_PATH.read_text(encoding="utf-8")
+        creds = json.loads(creds_raw)
+    except Exception as exc:
+        print(f"[sync] Error leyendo credentials: {exc}. Agent deshabilitado.")
+        return None
+
+    try:
+        station_uuid = uuid.UUID(creds["station_uuid"])
+        key_version = int(creds["key_version"])
+        key_hex = creds["key_hmac_hex"]
+        key_bytes = bytes.fromhex(key_hex)
+    except (KeyError, ValueError, TypeError) as exc:
+        print(
+            f"[sync] Credentials JSON inválido ({type(exc).__name__}: {exc}). "
+            "Agent deshabilitado."
+        )
+        return None
+
+    # Sanity: la key HMAC debe ser >= 32 bytes (256 bits)
+    if len(key_bytes) < 32:
+        print(
+            f"[sync] key_hmac_hex demasiado corto ({len(key_bytes)} bytes, "
+            "esperado >= 32). Agent deshabilitado."
+        )
+        return None
+
+    # 3. Cross-check station_uuid con el de app_config
+    cfg_station = app_config_repo.get("station_uuid")
+    if cfg_station and uuid.UUID(cfg_station) != station_uuid:
+        print(
+            f"[sync] station_uuid en credentials ({station_uuid}) NO coincide "
+            f"con app_config ({cfg_station}). Agent deshabilitado por "
+            "seguridad — esto indica un mismatch de configuración."
+        )
+        return None
+
+    # 4. Construir HttpClient
+    # verify=True usa la CA del sistema. Si el server piloto usa cert autofirmado,
+    # poner el path al PEM acá: verify = ROOT / "data" / "server_cert.pem"
+    http_client = HttpClient(server_url=server_url, verify=True)
+
+    # 5. Construir el daemon
+    config = SyncAgentConfig()
+    agent = SyncAgentDaemon(
+        sync_repo=sync_repo,
+        agent_state_repo=sync_agent_state_repo,
+        http_client=http_client,
+        time_provider=time_provider,
+        station_uuid=station_uuid,
+        key_version=key_version,
+        key=key_bytes,
+        config=config,
+    )
+    return agent
 
 
 if __name__ == "__main__":

@@ -1,26 +1,27 @@
 """Pantalla de sincronización (Sync).
 
-Layout según mockup pantalla 5 del spec v1:
+Layout según mockup pantalla 5 del spec v1, extendido en Fase 9.2 paso
+6.5 con visibilidad del estado del SyncAgentDaemon.
 
     ┌─ Card grande ──────────────────────────┬─ Stats ────────────┐
     │ Estado de sincronización               │ Pendientes      0  │
     │   ✓ Todo sincronizado                  │ Enviados hoy   24  │
-    │   Última sync: 24/06/2026 08:45        │ Total local   152  │
-    │   Última recuperación: 28/04 15:30     │ Errores         0  │
+    │   Agent: ● healthy                     │ Total local   152  │
+    │   Última sync: 24/06/2026 08:45        │ Errores         0  │
+    │   Última recuperación: 28/04 15:30     │                    │
     │                                        │                    │
     │   [Sincronizar ahora]                  │                    │
     │   [Recuperar buffer histórico]         │                    │
+    │   [Pausar agent]  (condicional)        │                    │
     └────────────────────────────────────────┴────────────────────┘
 
-    ┌─ Últimos eventos ──────────────────────────────────────────────┐
-    │ Fecha       Hora    Evento                Detalle              │
-    ├────────────────────────────────────────────────────────────────┤
-    │ 24/04/2026  08:45   Sincronización compl. 24 registros enviados│
-    │ ...                                                             │
-    └────────────────────────────────────────────────────────────────┘
+El botón "Sincronizar ahora" llama a ``controller.force_wakeup_agent()``.
+Si el agent NO está inyectado (modo dev sin credentials), el botón
+sigue funcional pero solo refresca la vista.
 
-El botón "Sincronizar ahora" es stub (Fase 9 lo implementa con el sync
-agent). El botón "Recuperar buffer histórico" abre CatchupModal.
+El botón "Pausar/Reanudar" se muestra solo cuando hay un agent
+inyectado y cambia su texto/acción según el estado actual del agent.
+Latched states bloquean ambas operaciones con mensaje explícito.
 """
 
 from __future__ import annotations
@@ -28,8 +29,9 @@ from __future__ import annotations
 import logging
 import tkinter as tk
 from datetime import datetime, tzinfo
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
+from yvy.domain.sync.agent_state import AgentState, SyncAgentState, is_latched
 from yvy.domain.sync.enums import SyncStatus
 from yvy.domain.sync.models import SyncJob
 from yvy.presentation.components.catchup_modal import CatchupModal
@@ -64,7 +66,18 @@ _STATUS_DISPLAY: dict[SyncStatus, tuple[str, str]] = {
     SyncStatus.PENDING: ("Pendiente", WARNING),
     SyncStatus.SENDING: ("Enviando", PRIMARY),
     SyncStatus.SENT: ("Enviado", SUCCESS),
+    SyncStatus.DUPLICATE: ("Duplicado", SUCCESS),
     SyncStatus.ERROR: ("Error", DANGER),
+}
+
+# Mapeo AgentState → (label visible, color del dot)
+_AGENT_DISPLAY: dict[AgentState, tuple[str, str]] = {
+    AgentState.HEALTHY: ("● healthy", SUCCESS),
+    AgentState.DEGRADED: ("● degraded", WARNING),
+    AgentState.DISCONNECTED: ("● disconnected", WARNING),
+    AgentState.AUTH_ERROR_LATCHED: ("● auth error (latched)", DANGER),
+    AgentState.CLOCK_ERROR_LATCHED: ("● clock error (latched)", DANGER),
+    AgentState.PAUSED: ("⏸ paused", TEXT_SECONDARY),
 }
 
 
@@ -90,6 +103,7 @@ class SyncStatusView(tk.Frame):
 
         # Refs a labels que se actualizan en refresh
         self._status_summary_label: tk.Label | None = None
+        self._agent_state_label: tk.Label | None = None
         self._last_sync_label: tk.Label | None = None
         self._last_catchup_label: tk.Label | None = None
         self._kpi_pending_value: tk.Label | None = None
@@ -98,6 +112,8 @@ class SyncStatusView(tk.Frame):
         self._kpi_errors_value: tk.Label | None = None
         self._events_tree: ttk.Treeview | None = None
         self._refresh_btn: ttk.Button | None = None
+        # Botón pausar/reanudar (creado solo si hay agent)
+        self._pause_resume_btn: ttk.Button | None = None
 
         self._build()
         self.refresh()
@@ -162,7 +178,7 @@ class SyncStatusView(tk.Frame):
 
         # Resumen visual (icono grande + texto)
         summary_row = tk.Frame(inner, bg=BG_CARD)
-        summary_row.pack(anchor="w", pady=(0, SPACE_MD))
+        summary_row.pack(anchor="w", pady=(0, SPACE_SM))
 
         self._status_summary_label = tk.Label(
             summary_row,
@@ -172,6 +188,17 @@ class SyncStatusView(tk.Frame):
             font=FONT_BODY_BOLD,
         )
         self._status_summary_label.pack(side="left")
+
+        # Estado del agent
+        self._agent_state_label = tk.Label(
+            inner,
+            text="Agent: —",
+            bg=BG_CARD,
+            fg=TEXT_SECONDARY,
+            font=FONT_SMALL,
+            anchor="w",
+        )
+        self._agent_state_label.pack(anchor="w", pady=(0, SPACE_MD))
 
         # Última sync
         self._last_sync_label = tk.Label(
@@ -209,6 +236,16 @@ class SyncStatusView(tk.Frame):
             style="Secondary.TButton",
             command=self._on_catchup_clicked,
         ).pack(fill="x")
+
+        # Botón Pausar/Reanudar — solo si hay agent inyectado
+        if self._controller.has_sync_agent():
+            self._pause_resume_btn = ttk.Button(
+                inner,
+                text="Pausar agent",
+                style="Secondary.TButton",
+                command=self._on_pause_resume_clicked,
+            )
+            self._pause_resume_btn.pack(fill="x", pady=(SPACE_SM, 0))
 
     def _build_kpis_card(self, parent: tk.Misc) -> None:
         """Card derecha con 4 KPIs verticales."""
@@ -318,18 +355,11 @@ class SyncStatusView(tk.Frame):
         self._events_tree.column("attempts", width=80, anchor="center")
 
         # Tags para colorear filas según status
-        self._events_tree.tag_configure(
-            "status_pending", foreground=WARNING
-        )
-        self._events_tree.tag_configure(
-            "status_sent", foreground=SUCCESS
-        )
-        self._events_tree.tag_configure(
-            "status_error", foreground=DANGER
-        )
-        self._events_tree.tag_configure(
-            "status_sending", foreground=PRIMARY
-        )
+        self._events_tree.tag_configure("status_pending", foreground=WARNING)
+        self._events_tree.tag_configure("status_sent", foreground=SUCCESS)
+        self._events_tree.tag_configure("status_error", foreground=DANGER)
+        self._events_tree.tag_configure("status_sending", foreground=PRIMARY)
+        self._events_tree.tag_configure("status_duplicate", foreground=SUCCESS)
 
         scrollbar = ttk.Scrollbar(
             inner, orient="vertical", command=self._events_tree.yview
@@ -371,10 +401,28 @@ class SyncStatusView(tk.Frame):
         if self._status_summary_label is not None:
             self._status_summary_label.configure(text=text, fg=color)
 
+        # Estado del agent
+        if self._agent_state_label is not None:
+            if data.agent_state is None:
+                self._agent_state_label.configure(
+                    text="Agent: no inicializado (sin credentials)",
+                    fg=TEXT_SECONDARY,
+                )
+            else:
+                label_text, label_color = _AGENT_DISPLAY.get(
+                    data.agent_state.state,
+                    (str(data.agent_state.state), TEXT_SECONDARY),
+                )
+                self._agent_state_label.configure(
+                    text=f"Agent: {label_text}",
+                    fg=label_color,
+                )
+
+        # Actualizar texto del botón Pausar/Reanudar según estado
+        self._refresh_pause_resume_button(data.agent_state)
+
         # Timestamps
         last_sync_text = "Última sincronización: —"
-        # Por ahora no tenemos métrica de last_successful_sync (Fase 9).
-        # Aproximamos con sent_today_count > 0.
         if data.sent_today_count > 0:
             last_sync_text = (
                 f"Sincronizaciones de hoy: {data.sent_today_count} eventos"
@@ -410,6 +458,26 @@ class SyncStatusView(tk.Frame):
 
         # Tabla de eventos
         self._populate_events(data.recent_events)
+
+    def _refresh_pause_resume_button(
+        self, agent_state: SyncAgentState | None
+    ) -> None:
+        """Actualiza texto/estado del botón Pausar/Reanudar según el agent."""
+        if self._pause_resume_btn is None:
+            return
+        if agent_state is None:
+            self._pause_resume_btn.configure(state="disabled", text="Pausar agent")
+            return
+        if is_latched(agent_state.state):
+            self._pause_resume_btn.configure(
+                state="disabled",
+                text="Latched — requiere reiniciar",
+            )
+            return
+        if agent_state.state == AgentState.PAUSED:
+            self._pause_resume_btn.configure(state="normal", text="Reanudar agent")
+        else:
+            self._pause_resume_btn.configure(state="normal", text="Pausar agent")
 
     def _populate_events(self, events: list[SyncJob]) -> None:
         if self._events_tree is None:
@@ -449,14 +517,27 @@ class SyncStatusView(tk.Frame):
             "sensor_reading": "Lectura sensor",
             "empirical_record": "Registro empírico",
             "comment": "Comentario",
+            "empirical_observation": "Observación empírica",
+            "empirical_event": "Evento empírico",
         }.get(str(entity_type), str(entity_type))
 
     # ─── Handlers ────────────────────────────────────────────────────────
 
     def _on_sync_now_clicked(self) -> None:
-        """Stub. Fase 9 conecta con el sync agent."""
-        logger.info("Click en 'Sincronizar ahora' (stub — Fase 9)")
-        # Por ahora solo refrescar
+        """Click en 'Sincronizar ahora' — despierta al agent del idle sleep."""
+        logger.info("Click en 'Sincronizar ahora'")
+        if self._controller.has_sync_agent():
+            agent_state = self._controller.get_agent_state()
+            if agent_state is not None and is_latched(agent_state.state):
+                messagebox.showwarning(
+                    "Agent bloqueado",
+                    "El sync agent está en estado latched "
+                    f"({agent_state.state.value}).\n\n"
+                    "Resolver la causa y reiniciar la aplicación.",
+                )
+                return
+            self._controller.force_wakeup_agent()
+        # Siempre refrescar la view
         self.refresh()
 
     def _on_catchup_clicked(self) -> None:
@@ -468,7 +549,6 @@ class SyncStatusView(tk.Frame):
             controller=self._controller,
             local_tz=self._local_tz,
         )
-        # Cuando se cierre, refrescar la view (los KPIs y eventos cambiaron)
         original_close = modal.close
 
         def _close_and_refresh() -> None:
@@ -476,3 +556,32 @@ class SyncStatusView(tk.Frame):
             self.refresh()
 
         modal.close = _close_and_refresh  # type: ignore[method-assign]
+
+    def _on_pause_resume_clicked(self) -> None:
+        """Toggle pausar/reanudar según estado actual."""
+        agent_state = self._controller.get_agent_state()
+        if agent_state is None:
+            return
+        if is_latched(agent_state.state):
+            return  # botón debería estar deshabilitado
+
+        if agent_state.state == AgentState.PAUSED:
+            confirmed = messagebox.askyesno(
+                "Reanudar agent",
+                "¿Reanudar el sync agent y volver a procesar la cola?",
+            )
+            if confirmed:
+                self._controller.resume_agent()
+                logger.info("Agent reanudado por operador desde UI")
+        else:
+            confirmed = messagebox.askyesno(
+                "Pausar agent",
+                "¿Pausar el sync agent? Los datos se siguen "
+                "encolando localmente pero no se envían al servidor "
+                "hasta que se reanude.",
+            )
+            if confirmed:
+                self._controller.pause_agent(reason="operator request from UI")
+                logger.info("Agent pausado por operador desde UI")
+
+        self.refresh()

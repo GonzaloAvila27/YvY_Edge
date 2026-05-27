@@ -11,12 +11,14 @@ class SyncStatus(StrEnum):
     PENDING: listo para enviar.
     SENDING: en envío activo (claim atómico).
     SENT: confirmado por servidor (HTTP 2xx).
-    ERROR: fallo permanente (attempts >= 5).
+    DUPLICATE: aceptado por servidor como duplicado idempotente.
+    ERROR: fallo permanente (SCHEMA o max attempts).
     """
 
     PENDING = "pending"
     SENDING = "sending"
     SENT = "sent"
+    DUPLICATE = "duplicate"
     ERROR = "error"
 
 
