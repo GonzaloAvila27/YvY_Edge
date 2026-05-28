@@ -124,6 +124,8 @@ def main() -> int:
         app_config_repo.set("station_uuid", dev_station_uuid)
         print(f"[dev] station_uuid generado: {dev_station_uuid}")
 
+    _station_uuid = StationUUID(uuid.UUID(app_config_repo.get("station_uuid")))
+
     # Crear usuario por defecto si la DB está vacía
     create_uc = CreateUserUseCase(user_repo=user_repo, audit_repo=audit_repo, hasher=hasher)
     users = user_repo.list_all()
@@ -207,8 +209,11 @@ def main() -> int:
     catchup_uc = RunCatchupRecoveryUseCase(
         catchup_source=PywwsCatchupSource(),
         sensor_repo=sensor_repo,
+        sync_repo=sync_repo,
         metrics_repo=metrics_repo,
+        station_uuid=_station_uuid,
         time_provider=clock,
+        parser=PywwsPayloadParser(),
     )
 
     sync_controller = SyncController(
@@ -244,8 +249,6 @@ def main() -> int:
     # ── Daemon de captura del sensor WH1081 ──────────────────────────────
     _sensor_stop = threading.Event()
     try:
-        _station_uuid_raw = app_config_repo.get("station_uuid")
-        _station_uuid = StationUUID(uuid.UUID(_station_uuid_raw))
         _capture_uc = CaptureLiveReadingUseCase(
             sensor_source=PywwsLiveSource(),
             sensor_repo=sensor_repo,

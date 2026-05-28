@@ -142,6 +142,28 @@ if not exist "!WHEELS!" (
     exit /b 1
 )
 
+:: Paso 4a: build tools primero (necesario para compilar pywws desde sdist)
+"%DESTINO%\.venv\Scripts\python.exe" -m pip install ^
+    --no-index ^
+    --find-links="!WHEELS!" ^
+    setuptools wheel pip ^
+    --quiet
+
+:: Paso 4b: pywws desde sdist con --no-build-isolation (usa los build tools recién instalados)
+"%DESTINO%\.venv\Scripts\python.exe" -m pip install ^
+    --no-index ^
+    --find-links="!WHEELS!" ^
+    --no-build-isolation ^
+    pywws==25.10.0 ^
+    --quiet
+if %errorlevel% neq 0 (
+    echo.
+    echo  AVISO: pywws no se pudo instalar. El sensor no funcionara hasta resolverlo.
+    echo  El resto de la instalacion continua.
+    echo.
+)
+
+:: Paso 4c: resto de dependencias
 "%DESTINO%\.venv\Scripts\python.exe" -m pip install ^
     --no-index ^
     --find-links="!WHEELS!" ^
@@ -188,7 +210,8 @@ echo    1. Conectar el sensor USB
 echo    2. Ejecutar zadig.exe (en este USB)
 echo    3. Seleccionar el dispositivo WH1080 o HID
 echo    4. Click "Install Driver" (libusb-win32 o WinUSB)
-echo    5. Reiniciar YVY
+echo    5. Ejecutar C:\YVY\scripts\VALIDAR_SENSOR.bat para confirmar
+echo    6. Reiniciar YVY
 echo  =====================================================
 echo.
 pause

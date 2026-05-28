@@ -54,8 +54,9 @@ Copy-Item -Force "$ROOT\requirements.prod.txt" "$APPDIR\requirements.prod.txt"
 
 # scripts: solo los necesarios para producción (sin .ps1 ni smoke tests)
 New-Item -ItemType Directory -Force -Path "$APPDIR\scripts" | Out-Null
-Copy-Item -Force "$ROOT\scripts\launch_app.py"  "$APPDIR\scripts\"
-Copy-Item -Force "$ROOT\scripts\INICIAR_YVY.bat" "$APPDIR\scripts\"
+Copy-Item -Force "$ROOT\scripts\launch_app.py"    "$APPDIR\scripts\"
+Copy-Item -Force "$ROOT\scripts\INICIAR_YVY.bat"  "$APPDIR\scripts\"
+Copy-Item -Force "$ROOT\scripts\VALIDAR_SENSOR.bat" "$APPDIR\scripts\"
 
 # resources: puede estar vacío, el directorio debe existir
 if (Test-Path "$ROOT\resources") {
@@ -93,6 +94,14 @@ if ($LASTEXITCODE -ne 0) {
         Write-Error "Error descargando dependencias. Verificar conexión a internet."
     }
 }
+
+# Build chain: necesario para instalar pywws desde sdist sin internet.
+# setuptools/wheel/pip son pure Python — no necesitan restricción de plataforma.
+Write-Host "Descargando build chain (setuptools, wheel, pip, pyusb)..."
+& $PIP download setuptools wheel pip pyusb `
+    -d "$APPDIR\wheels" `
+    --prefer-binary `
+    --quiet
 
 $wheelCount = (Get-ChildItem "$APPDIR\wheels" -File).Count
 Write-Host "  OK $wheelCount archivos en wheels\" -ForegroundColor Green
