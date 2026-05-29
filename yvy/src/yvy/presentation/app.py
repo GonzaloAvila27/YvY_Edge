@@ -437,6 +437,13 @@ class MainApplication(tk.Tk):
     def _build_view(self, key: str) -> tk.Frame:
         assert self._content is not None
 
+        if key == "inicio":
+            # TODO Fase posterior: "Inicio" mostrará novedades, informes
+            # del servidor central y curiosidades para alumnos (contenido
+            # push desde yvy-server, motivacional/educativo). Por ahora
+            # redirige al Dashboard mientras ese módulo no existe.
+            return DashboardAdminView(self._content)
+
         if key == "dashboard":
             return DashboardAdminView(self._content)
 
