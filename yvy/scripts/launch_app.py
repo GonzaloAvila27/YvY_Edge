@@ -125,6 +125,7 @@ def main() -> int:
         print(f"[dev] station_uuid generado: {dev_station_uuid}")
 
     _station_uuid = StationUUID(uuid.UUID(app_config_repo.get("station_uuid")))
+    _parser = PywwsPayloadParser()
 
     # Crear usuario por defecto si la DB está vacía
     create_uc = CreateUserUseCase(user_repo=user_repo, audit_repo=audit_repo, hasher=hasher)
@@ -213,7 +214,7 @@ def main() -> int:
         metrics_repo=metrics_repo,
         station_uuid=_station_uuid,
         time_provider=clock,
-        parser=PywwsPayloadParser(),
+        parser=_parser,
     )
 
     sync_controller = SyncController(
@@ -254,7 +255,7 @@ def main() -> int:
             sensor_repo=sensor_repo,
             sync_repo=sync_repo,
             station_uuid=_station_uuid,
-            parser=PywwsPayloadParser(),
+            parser=_parser,
             time_provider=clock,
         )
         _collector = SensorCollectorDaemon(
