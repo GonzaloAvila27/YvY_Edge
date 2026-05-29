@@ -225,30 +225,10 @@ def main() -> int:
         sync_agent=sync_agent,
     )
 
-    help_dir = ROOT / "resources" / "help"
-    help_repo = HelpRepository(help_dir=help_dir)
-
-    app = MainApplication(
-        auth_controller=auth_controller,
-        users_admin_controller=users_controller,
-        list_audit_logs_uc=list_logs_uc,
-        update_retention_uc=update_retention_uc,
-        retention_use_case=retention_uc,
-        export_data_uc=export_data_uc,
-        export_raw_uc=export_raw_uc,
-        db_factory=factory,
-        metrics_repo=metrics_repo,
-        help_repository=help_repo,
-        app_config_repo=app_config_repo,
-        empirical_controller=empirical_controller,
-        sync_controller=sync_controller,
-        iea_name="IEA Nº10 — Posadas",
-        iea_cue="540178700",
-        local_tz=TZ_AR,
-    )
-
     # ── Daemon de captura del sensor WH1081 ──────────────────────────────
+    # Se construye ANTES de MainApplication para poder pasar sensor_status_fn.
     _sensor_stop = threading.Event()
+    _collector: SensorCollectorDaemon | None = None
     try:
         _capture_uc = CaptureLiveReadingUseCase(
             sensor_source=PywwsLiveSource(),
@@ -267,6 +247,40 @@ def main() -> int:
         print("[sensor] Daemon de captura iniciado")
     except Exception as _exc:
         print(f"[sensor] Daemon no iniciado (sin sensor o pywws no instalado): {_exc}")
+
+    # Callable que MainApplication consulta cada 15s para el indicador del
+    # header. Captura snapshot del ref para que la closure sea estable.
+    _captured_collector = _collector
+
+    def _sensor_status_fn() -> tuple[str, str]:
+        if _captured_collector is None:
+            return "warning", "Sensor: pywws no disponible o USB sin driver"
+        if _captured_collector.is_alive():
+            return "ok", "Sensor: hilo activo · WH1081 detectado"
+        return "error", "Sensor: hilo detenido (verificar USB)"
+
+    help_dir = ROOT / "resources" / "help"
+    help_repo = HelpRepository(help_dir=help_dir)
+
+    app = MainApplication(
+        auth_controller=auth_controller,
+        users_admin_controller=users_controller,
+        list_audit_logs_uc=list_logs_uc,
+        update_retention_uc=update_retention_uc,
+        retention_use_case=retention_uc,
+        export_data_uc=export_data_uc,
+        export_raw_uc=export_raw_uc,
+        db_factory=factory,
+        metrics_repo=metrics_repo,
+        help_repository=help_repo,
+        app_config_repo=app_config_repo,
+        empirical_controller=empirical_controller,
+        sensor_status_fn=_sensor_status_fn,
+        sync_controller=sync_controller,
+        iea_name="IEA Nº10 — Posadas",
+        iea_cue="540178700",
+        local_tz=TZ_AR,
+    )
 
     # ── Sync agent (si se construyó OK) ──────────────────────────────────
     if sync_agent is not None:

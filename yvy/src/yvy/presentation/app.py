@@ -27,11 +27,12 @@ from __future__ import annotations
 import logging
 import threading
 import tkinter as tk
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import tzinfo
 from tkinter import ttk
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
@@ -41,6 +42,7 @@ from yvy.domain.auth.exceptions import (
     UserInactiveError,
 )
 from yvy.domain.auth.models import User
+from yvy.domain.sync.agent_state import AgentState, is_latched
 from yvy.presentation.components import Header, Sidebar, SidebarItem
 from yvy.presentation.theme import (
     BG_CARD,
@@ -101,7 +103,59 @@ if TYPE_CHECKING:
         UsersAdminController,
     )
 
+from yvy.presentation.controllers.sync_controller import SyncDashboardData
+
 logger = logging.getLogger(__name__)
+
+_HEADER_POLL_MS: Final[int] = 15_000  # cada 15 segundos
+
+
+# ─── Funciones de derivación de estado del header ───────────────────────────
+
+
+def _derive_sync_status(data: SyncDashboardData) -> tuple[str, str]:
+    """(state, tooltip) para el indicador Sync."""
+    if data.agent_state is not None and is_latched(data.agent_state.state):
+        return "error", f"Sync: agent bloqueado ({data.agent_state.state.value})"
+    if data.error_count > 0:
+        return "error", f"Sync: {data.error_count} errores en cola"
+    if data.pending_count > 0:
+        return "warning", f"Sync: {data.pending_count} pendientes"
+    if data.agent_state is None:
+        return "neutral", "Sync: sin agent (modo dev)"
+    return "ok", f"Sync: al día · {data.sent_today_count} enviados hoy"
+
+
+def _derive_ntp_status(data: SyncDashboardData) -> tuple[str, str]:
+    """(state, tooltip) para el indicador NTP."""
+    if data.agent_state is None:
+        return "neutral", "NTP: sin datos (sin agent)"
+    offset = data.agent_state.clock_offset_seconds
+    sign = "+" if offset >= 0 else ""
+    tip = f"NTP: desfase {sign}{offset:.1f}s"
+    if abs(offset) < 5.0:
+        return "ok", tip
+    if abs(offset) < 60.0:
+        return "warning", tip
+    return "error", f"NTP: desfase crítico {sign}{offset:.1f}s"
+
+
+def _derive_connectivity_status(data: SyncDashboardData) -> tuple[str, str]:
+    """(state, tooltip) para el indicador de conectividad."""
+    if data.agent_state is None:
+        return "neutral", "Red: sin agent (modo dev)"
+    state = data.agent_state.state
+    if state == AgentState.HEALTHY:
+        return "ok", "Online · servidor accesible"
+    if state == AgentState.DEGRADED:
+        return "warning", "Red: conexión degradada"
+    if state == AgentState.DISCONNECTED:
+        return "warning", "Desconectado del servidor"
+    if state == AgentState.PAUSED:
+        return "neutral", "Agent pausado por operador"
+    if is_latched(state):
+        return "error", f"Error de conexión: {state.value}"
+    return "neutral", str(state)
 
 
 @dataclass(frozen=True)
@@ -163,6 +217,7 @@ class MainApplication(tk.Tk):
         app_config_repo: AppConfigRepository | None = None,
         hardware_fingerprint: str | None = None,
         empirical_controller: EmpiricalController | None = None,
+        sensor_status_fn: Callable[[], tuple[str, str]] | None = None,
         iea_name: str = "IEA — sin configurar",
         iea_cue: str = "—",
         local_tz: tzinfo | None = None,
@@ -192,6 +247,8 @@ class MainApplication(tk.Tk):
         self._app_config_repo = app_config_repo
         self._hardware_fingerprint = hardware_fingerprint
         self._empirical_controller = empirical_controller
+        self._sensor_status_fn = sensor_status_fn
+        self._header_poll_id: str | None = None
         self._iea_name = iea_name
         self._iea_cue = iea_cue
         self._local_tz = local_tz or ZoneInfo("America/Argentina/Cordoba")
@@ -262,6 +319,7 @@ class MainApplication(tk.Tk):
 
     def show_login(self) -> None:
         """Pantalla de login. Limpia el main frame si existía."""
+        self._cancel_header_polling()
         if self._wizard_view is not None:
             self._wizard_view.destroy()
             self._wizard_view = None
@@ -382,16 +440,68 @@ class MainApplication(tk.Tk):
         self._content = tk.Frame(body, bg=BG_CREAM)
         self._content.pack(side="left", fill="both", expand=True)
 
-        # Estados iniciales del header (mock por ahora; real con sync_controller)
-        self._header.set_sensor_status("ok", "Sensor: live")
-        self._header.set_sync_status("ok", "Sync OK")
-        self._header.set_ntp_status("ok", "NTP sincronizado")
-        self._header.set_connectivity_status("ok", "Online")
+        # Arrancar polling de indicadores del header (actualiza cada 15s)
+        self._start_header_polling()
 
         # Vista por defecto según rol
         default_view = "formulario" if user_role == "alumno" else "dashboard"
         self._navigate(default_view)
         self._sidebar.set_active(default_view)
+
+    # ─── Polling de estado del header ───────────────────────────────────
+
+    def _start_header_polling(self) -> None:
+        """Cancela cualquier ciclo previo y dispara el primero inmediatamente."""
+        self._cancel_header_polling()
+        self._poll_header()
+
+    def _cancel_header_polling(self) -> None:
+        if self._header_poll_id is not None:
+            try:
+                self.after_cancel(self._header_poll_id)
+            except Exception:
+                pass
+            self._header_poll_id = None
+
+    def _poll_header(self) -> None:
+        """Actualiza indicadores y reprograma el próximo tick."""
+        if self._header is None:
+            return
+        self._update_header_status()
+        self._header_poll_id = self.after(_HEADER_POLL_MS, self._poll_header)
+
+    def _update_header_status(self) -> None:
+        """Lee estado real de sensor + sync agent y lo refleja en el header."""
+        if self._header is None:
+            return
+
+        # ── Sensor ──────────────────────────────────────────────────────
+        if self._sensor_status_fn is not None:
+            sensor_state, sensor_tip = self._sensor_status_fn()
+        else:
+            sensor_state, sensor_tip = "neutral", "Sensor: sin datos"
+        self._header.set_sensor_status(sensor_state, sensor_tip)
+
+        # ── Sync / NTP / Conectividad — requieren sync_controller ───────
+        if self._sync_controller is None:
+            self._header.set_sync_status("neutral", "Sync: sin controller")
+            self._header.set_ntp_status("neutral", "NTP: sin datos")
+            self._header.set_connectivity_status("neutral", "Red: sin datos")
+            return
+
+        try:
+            data = self._sync_controller.get_dashboard_data(recent_limit=0)
+        except Exception:
+            logger.exception("Error en polling de indicadores del header")
+            return
+
+        sync_s, sync_t = _derive_sync_status(data)
+        ntp_s, ntp_t = _derive_ntp_status(data)
+        conn_s, conn_t = _derive_connectivity_status(data)
+
+        self._header.set_sync_status(sync_s, sync_t)
+        self._header.set_ntp_status(ntp_s, ntp_t)
+        self._header.set_connectivity_status(conn_s, conn_t)
 
     def _get_iea_name(self, user: User | MockUser) -> str:
         if isinstance(user, MockUser):
