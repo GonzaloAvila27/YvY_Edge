@@ -63,20 +63,9 @@ from yvy.application.use_cases.sensor.run_catchup_recovery import RunCatchupReco
 from yvy.domain.auth.enums import Role
 from yvy.domain.retention.models import RetentionPolicy
 from yvy.domain.shared.value_objects import StationUUID
+from yvy.bootstrap import build_core_dependencies
 from yvy.infrastructure.auth.bcrypt_hasher import BcryptPasswordHasher
 from yvy.infrastructure.help.help_repository import HelpRepository
-from yvy.infrastructure.persistence.app_config_repository import AppConfigRepository
-from yvy.infrastructure.persistence.app_metrics_repository import AppMetricsRepository
-from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
-from yvy.infrastructure.persistence.migrations import run_migrations
-from yvy.infrastructure.persistence.sqlite_audit_log_repository import SQLiteAuditLogRepository
-from yvy.infrastructure.persistence.sqlite_empirical_repository import SQLiteEmpiricalRepository
-from yvy.infrastructure.persistence.sqlite_sensor_repository import SQLiteSensorRepository
-from yvy.infrastructure.persistence.sqlite_sync_agent_state_repository import (
-    SQLiteSyncAgentStateRepository,
-)
-from yvy.infrastructure.persistence.sqlite_sync_repository import SQLiteSyncRepository
-from yvy.infrastructure.persistence.sqlite_user_repository import SQLiteUserRepository
 from yvy.infrastructure.pywws.catchup_source import PywwsCatchupSource
 from yvy.infrastructure.pywws.live_source import PywwsLiveSource
 from yvy.infrastructure.pywws.parser import PywwsPayloadParser
@@ -99,26 +88,24 @@ STATION_CREDENTIALS_PATH = ROOT / "data" / "station_credentials.json"
 
 
 def main() -> int:
-    db_path = ROOT / "data" / "yvy.sqlite"
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    migrations_dir = ROOT / "migrations"
+    # Construir deps core vía bootstrap (compartido con CLI python -m yvy)
+    deps = build_core_dependencies(root=ROOT)
+    factory = deps.factory
+    db_path = deps.db_path
+    user_repo = deps.user_repo
+    audit_repo = deps.audit_repo
+    metrics_repo = deps.metrics_repo
+    sensor_repo = deps.sensor_repo
+    sync_repo = deps.sync_repo
+    sync_agent_state_repo = deps.sync_agent_state_repo
+    empirical_repo = deps.empirical_repo
+    app_config_repo = deps.app_config_repo
+    clock = deps.clock
 
-    factory = SQLiteConnectionFactory(path=db_path)
-    conn = factory.get_connection()
-    run_migrations(conn, migrations_dir=migrations_dir)
-
-    user_repo = SQLiteUserRepository(factory)
-    audit_repo = SQLiteAuditLogRepository(factory)
-    metrics_repo = AppMetricsRepository(factory)
-    sensor_repo = SQLiteSensorRepository(factory)
-    sync_repo = SQLiteSyncRepository(factory)
-    sync_agent_state_repo = SQLiteSyncAgentStateRepository(factory)
-    empirical_repo = SQLiteEmpiricalRepository(conn)
-    app_config_repo = AppConfigRepository(factory)
+    # Hasher solo lo usa el launcher (no es dep core)
     hasher = BcryptPasswordHasher(rounds=4)
-    clock = SystemClock()
 
-    # Seed station_uuid si la DB es nueva (modo desarrollo)
+    # Seed station_uuid si la DB es nueva (side effect del launcher, no del bootstrap)
     if app_config_repo.get("station_uuid") is None:
         dev_station_uuid = str(uuid.uuid4())
         app_config_repo.set("station_uuid", dev_station_uuid)
