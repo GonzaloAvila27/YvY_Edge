@@ -249,6 +249,7 @@ class MainApplication(tk.Tk):
         self._empirical_controller = empirical_controller
         self._sensor_status_fn = sensor_status_fn
         self._header_poll_id: str | None = None
+        self._empirical_wizard_active: bool = False  # bloquea navegación lateral
         self._iea_name = iea_name
         self._iea_cue = iea_cue
         self._local_tz = local_tz or ZoneInfo("America/Argentina/Cordoba")
@@ -528,6 +529,24 @@ class MainApplication(tk.Tk):
         if self._current_view_key == key:
             return
 
+        # Bloquear navegación si hay un formulario empírico en progreso
+        if self._empirical_wizard_active:
+            if key == "formulario":
+                # El wizard mismo navega de vuelta a "formulario" al cancelar/completar
+                self._empirical_wizard_active = False
+            else:
+                from tkinter import messagebox
+                salir = messagebox.askyesno(
+                    "Carga en progreso",
+                    "Hay una carga de formulario en progreso.\n\n"
+                    "¿Cancelar la carga y salir de esta pantalla?",
+                    default=messagebox.NO,
+                    icon=messagebox.WARNING,
+                )
+                if not salir:
+                    return
+                self._empirical_wizard_active = False
+
         for child in self._content.winfo_children():
             child.pack_forget()
 
@@ -663,6 +682,7 @@ class MainApplication(tk.Tk):
             return
         for child in self._content.winfo_children():
             child.pack_forget()
+        self._empirical_wizard_active = True
         wizard = EmpiricalWizardView(
             self._content,
             controller=self._empirical_controller,
