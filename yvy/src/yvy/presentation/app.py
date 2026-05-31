@@ -571,10 +571,18 @@ class MainApplication(tk.Tk):
             # del servidor central y curiosidades para alumnos (contenido
             # push desde yvy-server, motivacional/educativo). Por ahora
             # redirige al Dashboard mientras ese módulo no existe.
-            return DashboardAdminView(self._content)
+            return DashboardAdminView(
+                self._content,
+                db_factory=self._db_factory,
+                local_tz=self._local_tz,
+            )
 
         if key == "dashboard":
-            return DashboardAdminView(self._content)
+            return DashboardAdminView(
+                self._content,
+                db_factory=self._db_factory,
+                local_tz=self._local_tz,
+            )
 
         if key == "sync" and self._sync_controller is not None:
             return SyncStatusView(
