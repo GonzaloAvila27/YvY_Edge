@@ -40,7 +40,26 @@ from yvy.presentation.controllers.empirical_controller import (
     CreateObservationCallbacks,
     EmpiricalController,
 )
-from yvy.presentation.theme import COLORS, FONTS, SPACE_LG, SPACE_MD, SPACE_SM
+from yvy.presentation.theme import (
+    BG_CARD,
+    BORDER,
+    COLORS,
+    FONTS,
+    FONT_FORM_INPUT,
+    FONT_FORM_LABEL,
+    FONT_SMALL,
+    FORM_COL_GAP,
+    FORM_LABEL_MB,
+    FORM_PADDING_H,
+    FORM_PADDING_V,
+    FORM_ROW_GAP,
+    PRIMARY,
+    SPACE_LG,
+    SPACE_MD,
+    SPACE_SM,
+    TEXT_PRIMARY,
+    TEXT_SECONDARY,
+)
 from yvy.presentation.views.empirical.event_form_modal import EmpiricalEventFormModal
 
 logger = logging.getLogger(__name__)
@@ -253,75 +272,173 @@ class EmpiricalWizardView(tk.Frame):
     # ════════════════════════════════════════════════════════════════════
 
     def _render_step_quantitative(self) -> None:
-        container = tk.Frame(self._body, bg=COLORS["bg"])
-        container.pack(padx=SPACE_LG, pady=SPACE_LG, fill="both", expand=True)
+        """Step 2 — Mediciones cuantitativas.
+
+        Grid de 2 columnas, label-above-input.
+
+        Fila 0 (col 0 | col 1): Lluvia (mm) | Temperatura (°C)
+        Fila 1 (span 2):        Viento Beaufort 0-12  [Combobox full-width]
+        Fila 2 (span 2):        Dirección viento      [8 RadioButtons]
+        Fila 3 (span 2):        Humedad percibida     [4 RadioButtons]
+        """
+        outer = tk.Frame(self._body, bg=COLORS["bg"])
+        outer.pack(
+            padx=FORM_PADDING_H, pady=FORM_PADDING_V,
+            fill="both", expand=True,
+        )
 
         tk.Label(
-            container, text="Mediciones cuantitativas",
+            outer, text="Mediciones cuantitativas",
             font=FONTS["heading"], bg=COLORS["bg"], fg=COLORS["text"],
         ).pack(anchor="w", pady=(0, SPACE_MD))
         tk.Label(
-            container,
+            outer,
             text="Valores leídos de los instrumentos (pluviómetro, termómetro, etc).",
             font=FONTS["body"], bg=COLORS["bg"], fg=COLORS["text_muted"],
-        ).pack(anchor="w", pady=(0, SPACE_LG))
+        ).pack(anchor="w", pady=(0, FORM_ROW_GAP))
 
-        # Lluvia mm
+        # ── Grid 2 columnas ─────────────────────────────────────────────
+        grid = tk.Frame(outer, bg=COLORS["bg"])
+        grid.pack(fill="x")
+        # Columnas iguales con peso uniforme; "col" fuerza ancho idéntico
+        grid.columnconfigure(0, weight=1, uniform="col")
+        grid.columnconfigure(1, weight=1, uniform="col")
+
+        # ── Fila 0: Lluvia | Temperatura ────────────────────────────────
+        half_gap = FORM_COL_GAP // 2
         self._rain_var = tk.StringVar(value=str(self._state["rain_mm"] or ""))
-        self._add_numeric_row(container, "Lluvia (mm):", self._rain_var, "Pluviómetro manual")
-
-        # Temperatura
         self._temp_var = tk.StringVar(value=str(self._state["temp_c"] or ""))
-        self._add_numeric_row(container, "Temperatura (°C):", self._temp_var, "Termómetro de máx/mín")
 
-        # Beaufort
-        beaufort_frame = tk.Frame(container, bg=COLORS["bg"])
-        beaufort_frame.pack(anchor="w", pady=SPACE_SM, fill="x")
-        tk.Label(beaufort_frame, text="Viento (Beaufort 0-12):", font=FONTS["body"], bg=COLORS["bg"], width=22, anchor="w").pack(side="left")
-        self._beaufort_var = tk.StringVar(value=str(self._state["wind_beaufort"] or ""))
-        beaufort_combo = ttk.Combobox(
-            beaufort_frame,
+        self._place_numeric_field(
+            grid, row=0, col=0,
+            label="Lluvia (mm)",
+            var=self._rain_var,
+            hint="Pluviómetro manual",
+            padx=(0, half_gap),
+        )
+        self._place_numeric_field(
+            grid, row=0, col=1,
+            label="Temperatura (°C)",
+            var=self._temp_var,
+            hint="Termómetro de máx/mín",
+            padx=(half_gap, 0),
+        )
+
+        # ── Fila 1: Viento Beaufort (span 2, full-width) ─────────────────
+        beau_cell = tk.Frame(grid, bg=COLORS["bg"])
+        beau_cell.grid(
+            row=1, column=0, columnspan=2,
+            sticky="ew", pady=(FORM_ROW_GAP, 0),
+        )
+        tk.Label(
+            beau_cell, text="Viento (Beaufort 0-12)",
+            font=FONT_FORM_LABEL, bg=COLORS["bg"], fg=TEXT_PRIMARY, anchor="w",
+        ).pack(anchor="w", pady=(0, FORM_LABEL_MB))
+        self._beaufort_var = tk.StringVar(
+            value=str(self._state["wind_beaufort"] or "")
+        )
+        ttk.Combobox(
+            beau_cell,
             textvariable=self._beaufort_var,
             values=[""] + [BEAUFORT_DESCRIPTIONS[i] for i in range(0, 13)],
             state="readonly",
-            width=50,
+        ).pack(fill="x")
+
+        # ── Fila 2: Dirección viento — 8 radio buttons distribuidos ──────
+        wind_cell = tk.Frame(grid, bg=COLORS["bg"])
+        wind_cell.grid(
+            row=2, column=0, columnspan=2,
+            sticky="ew", pady=(FORM_ROW_GAP, 0),
         )
-        beaufort_combo.pack(side="left", padx=SPACE_SM)
+        tk.Label(
+            wind_cell, text="Dirección del viento",
+            font=FONT_FORM_LABEL, bg=COLORS["bg"], fg=TEXT_PRIMARY, anchor="w",
+        ).pack(anchor="w", pady=(0, FORM_LABEL_MB))
 
-        # Dirección viento (8 puntos cardinales como radio buttons)
-        wind_dir_frame = tk.Frame(container, bg=COLORS["bg"])
-        wind_dir_frame.pack(anchor="w", pady=SPACE_SM, fill="x")
-        tk.Label(wind_dir_frame, text="Dirección viento:", font=FONTS["body"], bg=COLORS["bg"], width=22, anchor="w").pack(side="left")
-        self._wind_dir_var = tk.StringVar(value=self._state["wind_direction"].value if self._state["wind_direction"] else "")
-        for d in WindDirection:
+        radio_wind = tk.Frame(wind_cell, bg=COLORS["bg"])
+        radio_wind.pack(fill="x")
+        # Distribuir 8 puntos cardinales con columnas de peso uniforme
+        # para que el espaciado sea proporcional al ancho disponible.
+        for i, d in enumerate(WindDirection):
+            radio_wind.columnconfigure(i, weight=1)
+        self._wind_dir_var = tk.StringVar(
+            value=self._state["wind_direction"].value
+            if self._state["wind_direction"] else ""
+        )
+        for i, d in enumerate(WindDirection):
             ttk.Radiobutton(
-                wind_dir_frame, text=d.value, variable=self._wind_dir_var, value=d.value,
-            ).pack(side="left", padx=2)
+                radio_wind,
+                text=d.value,
+                variable=self._wind_dir_var,
+                value=d.value,
+            ).grid(row=0, column=i, sticky="w", padx=12)
 
-        # Humedad percibida
-        hum_frame = tk.Frame(container, bg=COLORS["bg"])
-        hum_frame.pack(anchor="w", pady=SPACE_SM, fill="x")
-        tk.Label(hum_frame, text="Humedad percibida:", font=FONTS["body"], bg=COLORS["bg"], width=22, anchor="w").pack(side="left")
-        self._humidity_var = tk.StringVar(value=self._state["humidity_percept"].value if self._state["humidity_percept"] else "")
+        # ── Fila 3: Humedad percibida — 4 radio buttons ───────────────────
+        hum_cell = tk.Frame(grid, bg=COLORS["bg"])
+        hum_cell.grid(
+            row=3, column=0, columnspan=2,
+            sticky="ew", pady=(FORM_ROW_GAP, 0),
+        )
+        tk.Label(
+            hum_cell, text="Humedad percibida",
+            font=FONT_FORM_LABEL, bg=COLORS["bg"], fg=TEXT_PRIMARY, anchor="w",
+        ).pack(anchor="w", pady=(0, FORM_LABEL_MB))
+
+        radio_hum = tk.Frame(hum_cell, bg=COLORS["bg"])
+        radio_hum.pack(fill="x")
+        self._humidity_var = tk.StringVar(
+            value=self._state["humidity_percept"].value
+            if self._state["humidity_percept"] else ""
+        )
         for h in HumidityPercept:
             ttk.Radiobutton(
-                hum_frame, text=h.value.capitalize(), variable=self._humidity_var, value=h.value,
-            ).pack(side="left", padx=SPACE_SM)
+                radio_hum,
+                text=h.value.capitalize(),
+                variable=self._humidity_var,
+                value=h.value,
+            ).pack(side="left", padx=FORM_COL_GAP)
 
-    def _add_numeric_row(
-        self, parent: tk.Misc, label: str, var: tk.StringVar, hint: str
+    def _place_numeric_field(
+        self,
+        parent: tk.Misc,
+        row: int,
+        col: int,
+        label: str,
+        var: tk.StringVar,
+        hint: str,
+        padx: tuple[int, int] = (0, 0),
     ) -> None:
-        """Helper para agregar una fila de input numérico con bloqueo de tipo."""
-        row = tk.Frame(parent, bg=COLORS["bg"])
-        row.pack(anchor="w", pady=SPACE_SM, fill="x")
-        tk.Label(row, text=label, font=FONTS["body"], bg=COLORS["bg"], width=22, anchor="w").pack(side="left")
+        """Celda de grid: label arriba, Entry FONT_FORM_INPUT, hint abajo."""
+        cell = tk.Frame(parent, bg=COLORS["bg"])
+        cell.grid(row=row, column=col, sticky="nsew", padx=padx)
 
-        # Bloqueo de tipo: solo permite dígitos, punto y signo menos
+        tk.Label(
+            cell, text=label,
+            font=FONT_FORM_LABEL, bg=COLORS["bg"],
+            fg=TEXT_PRIMARY, anchor="w",
+        ).pack(anchor="w", pady=(0, FORM_LABEL_MB))
+
         vcmd = (self.register(_validate_numeric_input), "%P")
-        entry = ttk.Entry(row, textvariable=var, validate="key", validatecommand=vcmd, width=12)
-        entry.pack(side="left", padx=SPACE_SM)
+        tk.Entry(
+            cell,
+            textvariable=var,
+            validate="key",
+            validatecommand=vcmd,
+            font=FONT_FORM_INPUT,
+            bg=BG_CARD,
+            fg=TEXT_PRIMARY,
+            relief="flat",
+            bd=0,
+            highlightbackground=BORDER,
+            highlightthickness=1,
+            highlightcolor=PRIMARY,
+        ).pack(fill="x", ipady=7)   # ipady=7 → altura ≈ FORM_INPUT_HEIGHT (34px)
 
-        tk.Label(row, text=hint, font=FONTS["small"], bg=COLORS["bg"], fg=COLORS["text_muted"]).pack(side="left")
+        tk.Label(
+            cell, text=hint,
+            font=FONT_SMALL, bg=COLORS["bg"],
+            fg=TEXT_SECONDARY, anchor="w",
+        ).pack(anchor="w", pady=(FORM_LABEL_MB, 0))
 
     # ════════════════════════════════════════════════════════════════════
     # Step 3: Cualitativas

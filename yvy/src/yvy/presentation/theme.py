@@ -85,6 +85,10 @@ FONT_LOGO: Final[tuple[str, int, str]] = (FONT_FAMILY, 24, "bold")
 FONT_KPI_VALUE: Final[tuple[str, int, str]] = (FONT_FAMILY, 28, "bold")
 FONT_BUTTON: Final[tuple[str, int, str]] = (FONT_FAMILY, 11, "bold")
 
+# Formularios (grid 2 columnas, label-above-input)
+FONT_FORM_INPUT: Final[tuple[str, int]] = (FONT_FAMILY, 12)
+FONT_FORM_LABEL: Final[tuple[str, int]] = (FONT_FAMILY, 10)
+
 # ─── Espaciado (base 4px) ────────────────────────────────────────────────
 
 SPACE_XS: Final[int] = 4
@@ -102,6 +106,15 @@ PAD_INPUT_Y: Final[int] = 12
 PAD_CARD: Final[int] = 24
 PAD_BUTTON_X: Final[int] = 24
 PAD_BUTTON_Y: Final[int] = 12
+
+# Formularios (grid 2 columnas)
+FORM_PADDING_H: Final[int] = 20        # padding horizontal del contenedor
+FORM_PADDING_V: Final[int] = 16        # padding vertical del contenedor
+FORM_COL_GAP: Final[int] = 16          # gap entre columnas
+FORM_ROW_GAP: Final[int] = 16          # gap entre filas
+FORM_LABEL_MB: Final[int] = 4          # margen inferior del label antes del input
+FORM_INPUT_HEIGHT: Final[int] = 34     # altura target del Entry (ipady + font)
+FORM_TEXTAREA_HEIGHT: Final[int] = 80  # altura target del Text area
 
 # ─── Dimensiones de layout ───────────────────────────────────────────────
 
