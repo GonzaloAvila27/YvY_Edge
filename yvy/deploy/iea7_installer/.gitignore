@@ -1,5 +1,0 @@
-# Archivos grandes de instalación — agregar manualmente antes de viajar
-# NO commitear al repo (binarios pesados)
-python-*.zip
-python-*.exe
-get-pip.py
