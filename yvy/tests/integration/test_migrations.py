@@ -49,7 +49,8 @@ class TestMigrationRunner:
         )
         tables = {row[0] for row in cur.fetchall()}
 
-        # Tablas core que deben existir tras 001_initial_v8.sql
+        # Tablas core que deben existir tras todas las migraciones
+        # (empirical_data fue reemplazada por empirical_observation + empirical_event en v11)
         expected = {
             "schema_version",
             "app_config",
@@ -58,7 +59,8 @@ class TestMigrationRunner:
             "sessions",
             "sensor_raw",
             "sensor_data",
-            "empirical_data",
+            "empirical_observation",
+            "empirical_event",
             "comments",
             "sync_queue",
             "sync_archive",

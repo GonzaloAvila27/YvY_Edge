@@ -17,7 +17,7 @@ produzca el mismo ``event_id``.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Final
 
 from yvy.domain.shared.exceptions import InvalidTimestampError
@@ -57,7 +57,7 @@ class CanonicalTimestamp:
             raise InvalidTimestampError(
                 "CanonicalTimestamp requiere datetime timezone-aware"
             )
-        if self.value.tzinfo.utcoffset(self.value) != timezone.utc.utcoffset(self.value):
+        if self.value.tzinfo.utcoffset(self.value) != UTC.utcoffset(self.value):
             raise InvalidTimestampError(
                 f"CanonicalTimestamp debe estar en UTC, recibido tz={self.value.tzinfo}"
             )
@@ -117,7 +117,7 @@ def canonicalize_to_minute_utc(dt: datetime) -> CanonicalTimestamp:
         )
 
     # Convertir a UTC. Si ya está en UTC esto es no-op.
-    dt_utc = dt.astimezone(timezone.utc)
+    dt_utc = dt.astimezone(UTC)
 
     # Truncar al minuto. NO redondear: 14:32:53 → 14:32:00, NO 14:33:00.
     truncated = dt_utc.replace(second=0, microsecond=0)
@@ -166,6 +166,6 @@ def parse_pywws_ts(raw: str | datetime) -> CanonicalTimestamp:
 
     # Política específica de pywws: si viene naive, asumimos UTC.
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
 
     return canonicalize_to_minute_utc(parsed)

@@ -128,10 +128,12 @@ yvy/
 │   │   ├── shared/           # value objects, time utils, exceptions
 │   │   ├── sensor/           # subdominio del sensor
 │   │   ├── empirical/        # observaciones manuales
-│   │   ├── comments/         # comentarios + eventos narrativos
+│   │   ├── comments/         # comentarios + eventos narrativos -solo tiene init
 │   │   ├── auth/             # roles y permisos
 │   │   ├── sync/             # cola de sincronización
-│   │   ├── help/             # HelpSystem (cross-platform core)
+│   │   ├── help/             # HelpSystem (cross-platform core) - solo tiene init en domain
+│   │   ├── retention/        # job de retención sensor raw y sensor data
+│   │   ├── sync/             # Subdominio de cola de sincronización con el servidor central
 │   │   └── station/          # config de la estación
 │   ├── application/          # capa de orquestación
 │   │   ├── ports/            # interfaces (Protocol)
@@ -139,16 +141,17 @@ yvy/
 │   ├── infrastructure/       # adaptadores
 │   │   ├── persistence/      # SQLite implementations
 │   │   ├── pywws/            # adaptador del sensor
-│   │   ├── sync/             # cliente HTTP + HMAC
+│   │   ├── sync/             # cliente HTTP + HMAC - solo tiene init
 │   │   ├── auth/             # bcrypt + sessions
-│   │   ├── updates/          # UpdateManager
+│   │   ├── updates/          # UpdateManager - solo tiene init
 │   │   ├── system/           # NTP, USB, disk
 │   │   ├── logging/          # config de logging
-│   │   └── scheduling/       # threads daemon
-│   ├── presentation/         # UI Tkinter
+│   │   ├── help/             # HelpSystem (Repositorio de artículos de ayuda)
+│   │   └── scheduling/       # threads daemon - solo tiene init
+│   ├── presentation/         # UI Tkinter - init, app y theme en raiz 
 │   │   ├── components/       # widgets reutilizables
 │   │   ├── views/            # pantallas completas
-│   │   ├── help/             # Help UI específico Tkinter
+│   │   ├── help/             # Help UI específico Tkinter - solo init
 │   │   └── controllers/      # mediadores View↔UseCase
 │   ├── config/               # configuración global
 │   └── main.py               # entry point

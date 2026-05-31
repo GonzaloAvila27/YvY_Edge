@@ -23,14 +23,15 @@ class SyncJob:
         station_uuid: denormalizado para sync sin JOIN.
         entity_type: determina endpoint destino.
         entity_db_id: id local del registro en su tabla origen
-            (sensor_data.id, empirical_data.id, etc.).
+            (sensor_data.id para lecturas de sensor).
+            None para entidades sin PK integer (empirical, comment).
         payload: JSON-serializable con los datos a enviar.
     """
 
     event_id: UUID
     station_uuid: UUID
     entity_type: EntityType
-    entity_db_id: int
+    entity_db_id: int | None = None
     payload: dict[str, Any] = field(default_factory=dict)
     payload_version: str = "1.0"
     status: SyncStatus = SyncStatus.PENDING
@@ -39,12 +40,14 @@ class SyncJob:
     last_attempt: datetime | None = None
     error_msg: str | None = None
     created_at: datetime | None = None
+    # Fase 9.2 — migración v13: tracking del sync agent
+    attempt_count: int = 0
+    last_attempt_at: datetime | None = None
+    next_retry_at: datetime | None = None
+    last_error: str | None = None
 
     def __post_init__(self) -> None:
         if self.attempts < 0:
             raise ValueError(f"attempts no puede ser negativo: {self.attempts}")
-        if self.attempts > 10:
-            raise ValueError(
-                f"attempts excede hard cap (10): {self.attempts}. "
-                f"CHECK constraint en sync_queue lo rechazaría."
-            )
+        # Upper bound removido en Fase 9.2 (migración v13): el límite de
+        # reintentos vive ahora en código del sync agent, no en VO ni schema.

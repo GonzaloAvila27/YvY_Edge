@@ -8,7 +8,7 @@ estos tests deben actualizarse junto.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
@@ -148,4 +148,4 @@ class TestCanonicalizationProperties:
     @settings(max_examples=200)
     def test_canonical_result_is_utc(self, dt: datetime) -> None:
         result = canonicalize_to_minute_utc(dt)
-        assert result.value.tzinfo == timezone.utc
+        assert result.value.tzinfo == UTC

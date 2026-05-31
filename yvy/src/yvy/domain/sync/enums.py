@@ -11,12 +11,14 @@ class SyncStatus(StrEnum):
     PENDING: listo para enviar.
     SENDING: en envío activo (claim atómico).
     SENT: confirmado por servidor (HTTP 2xx).
-    ERROR: fallo permanente (attempts >= 5).
+    DUPLICATE: aceptado por servidor como duplicado idempotente.
+    ERROR: fallo permanente (SCHEMA o max attempts).
     """
 
     PENDING = "pending"
     SENDING = "sending"
     SENT = "sent"
+    DUPLICATE = "duplicate"
     ERROR = "error"
 
 
@@ -38,3 +40,5 @@ class EntityType(StrEnum):
     SENSOR_READING = "sensor_reading"
     EMPIRICAL_RECORD = "empirical_record"
     COMMENT = "comment"
+    EMPIRICAL_OBSERVATION = "empirical_observation"
+    EMPIRICAL_EVENT = "empirical_event"

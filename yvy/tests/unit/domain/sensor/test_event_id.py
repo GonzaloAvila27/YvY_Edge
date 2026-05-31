@@ -13,7 +13,7 @@ de idempotencia y puede generar duplicados en la base.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -41,7 +41,7 @@ class TestBuildEventIDDeterminism:
 
     def test_same_inputs_produce_same_event_id(self, station: StationUUID) -> None:
         ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=timezone.utc)
+            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
         )
         result_a = build_event_id(station, ts)
         result_b = build_event_id(station, ts)
@@ -50,7 +50,7 @@ class TestBuildEventIDDeterminism:
     def test_idempotent_over_many_calls(self, station: StationUUID) -> None:
         """Llamar 1000 veces siempre da el mismo UUID."""
         ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=timezone.utc)
+            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
         )
         first = build_event_id(station, ts)
         for _ in range(1000):
@@ -61,16 +61,16 @@ class TestBuildEventIDDeterminism:
     ) -> None:
         """14:32:17 y 14:32:53 son la misma observación física."""
         ts1 = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 17, tzinfo=timezone.utc)
+            datetime(2026, 4, 26, 14, 32, 17, tzinfo=UTC)
         )
         ts2 = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 53, tzinfo=timezone.utc)
+            datetime(2026, 4, 26, 14, 32, 53, tzinfo=UTC)
         )
         assert build_event_id(station, ts1) == build_event_id(station, ts2)
 
     def test_idempotency_across_timezones(self, station: StationUUID) -> None:
         """El mismo instante en distintas TZ produce el mismo event_id."""
-        utc_dt = datetime(2026, 4, 26, 14, 32, 0, tzinfo=timezone.utc)
+        utc_dt = datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
         ar_tz = timezone(timedelta(hours=-3))
         ar_dt = datetime(2026, 4, 26, 11, 32, 0, tzinfo=ar_tz)
 
@@ -87,7 +87,7 @@ class TestBuildEventIDDistinction:
         self, station: StationUUID, other_station: StationUUID
     ) -> None:
         ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=timezone.utc)
+            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
         )
         eid_a = build_event_id(station, ts)
         eid_b = build_event_id(other_station, ts)
@@ -97,10 +97,10 @@ class TestBuildEventIDDistinction:
         self, station: StationUUID
     ) -> None:
         ts1 = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=timezone.utc)
+            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
         )
         ts2 = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 33, 0, tzinfo=timezone.utc)
+            datetime(2026, 4, 26, 14, 33, 0, tzinfo=UTC)
         )
         assert build_event_id(station, ts1) != build_event_id(station, ts2)
 
@@ -108,10 +108,10 @@ class TestBuildEventIDDistinction:
         self, station: StationUUID
     ) -> None:
         ts1 = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=timezone.utc)
+            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
         )
         ts2 = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 15, 32, 0, tzinfo=timezone.utc)
+            datetime(2026, 4, 26, 15, 32, 0, tzinfo=UTC)
         )
         assert build_event_id(station, ts1) != build_event_id(station, ts2)
 
@@ -119,10 +119,10 @@ class TestBuildEventIDDistinction:
         self, station: StationUUID
     ) -> None:
         ts1 = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=timezone.utc)
+            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
         )
         ts2 = canonicalize_to_minute_utc(
-            datetime(2026, 4, 27, 14, 32, 0, tzinfo=timezone.utc)
+            datetime(2026, 4, 27, 14, 32, 0, tzinfo=UTC)
         )
         assert build_event_id(station, ts1) != build_event_id(station, ts2)
 
@@ -133,14 +133,14 @@ class TestBuildEventIDStructure:
 
     def test_returns_event_id_instance(self, station: StationUUID) -> None:
         ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=timezone.utc)
+            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
         )
         result = build_event_id(station, ts)
         assert isinstance(result, EventID)
 
     def test_uuid_version_is_5(self, station: StationUUID) -> None:
         ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=timezone.utc)
+            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
         )
         result = build_event_id(station, ts)
         assert result.value.version == 5
@@ -150,7 +150,7 @@ class TestBuildEventIDStructure:
         from uuid import uuid5
 
         ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=timezone.utc)
+            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
         )
         result = build_event_id(station, ts)
 
@@ -172,7 +172,7 @@ class TestBuildEventIDKnownValues:
     def test_known_value_1(self) -> None:
         station = StationUUID.from_str("12345678-1234-4123-8123-123456789012")
         ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=timezone.utc)
+            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
         )
         result = build_event_id(station, ts)
         # Este valor está fijado para detectar cambios accidentales del algoritmo.
@@ -188,7 +188,7 @@ class TestBuildEventIDKnownValues:
     def test_known_value_with_different_minute(self) -> None:
         station = StationUUID.from_str("12345678-1234-4123-8123-123456789012")
         ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 33, 0, tzinfo=timezone.utc)
+            datetime(2026, 4, 26, 14, 33, 0, tzinfo=UTC)
         )
         result = build_event_id(station, ts)
         from uuid import uuid5
@@ -214,12 +214,12 @@ class TestLiveCatchupIdempotence:
 
         # Path live: timestamp con segundos y microsegundos exactos
         ts_live = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 17, 543_212, tzinfo=timezone.utc)
+            datetime(2026, 4, 26, 14, 32, 17, 543_212, tzinfo=UTC)
         )
 
         # Path catchup: mismo minuto pero pywws devuelve solo precisión de minuto
         ts_catchup = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=timezone.utc)
+            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
         )
 
         eid_live = build_event_id(station, ts_live)
@@ -240,7 +240,7 @@ class TestLiveCatchupIdempotence:
         station = StationUUID(value=uuid4())
 
         # 60 timestamps dentro del mismo minuto
-        base = datetime(2026, 4, 26, 14, 32, 0, tzinfo=timezone.utc)
+        base = datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
         timestamps = [
             canonicalize_to_minute_utc(base.replace(second=s)) for s in range(60)
         ]

@@ -229,6 +229,35 @@ class SQLiteSensorRepository:
         cur = conn.execute("SELECT COUNT(*) FROM sensor_data")
         return int(cur.fetchone()[0])
 
+    # ─── Retención (Fase 5) ──────────────────────────────────────────────
+
+    def delete_raw_older_than(self, threshold_utc: datetime) -> int:
+        """Borra filas de sensor_raw con received_at < threshold_utc.
+
+        Atómica: BEGIN IMMEDIATE + DELETE + COMMIT en una sola
+        transacción. SQLite garantiza que si crashea a mitad, no
+        queda DB en estado inconsistente.
+
+        NO toca sensor_data por decisión institucional (gobernanza).
+        """
+        threshold_iso = threshold_utc.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+        conn = self._factory.get_connection()
+        # BEGIN IMMEDIATE adquiere el write lock al toque, evitando que
+        # otra transacción se intercale. COMMIT finaliza atómicamente.
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            cur = conn.execute(
+                "DELETE FROM sensor_raw WHERE received_at < ?",
+                (threshold_iso,),
+            )
+            deleted = cur.rowcount
+            conn.execute("COMMIT")
+            return int(deleted)
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+
     # ─── Helpers internos ────────────────────────────────────────────────
 
     def _read_station_uuid_from_config(self) -> StationUUID:

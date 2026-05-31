@@ -214,5 +214,6 @@ Apache License 2.0 · Ver `LICENSE`.
 
 ## Contacto
 
-**Autor:** Gonzalo Avila  
-**Contexto:** Pasantía INET / Ministerio de Educación / CGE Misiones · 2026
+Autor: Gonzalo Avila
+Proyecto: YVY
+Año: 2026

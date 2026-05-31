@@ -22,7 +22,7 @@ La política de "campos faltantes": si pywws no reporta una variable
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -34,7 +34,6 @@ from yvy.domain.sensor.exceptions import (
     MismatchedStationError,
 )
 from yvy.domain.sensor.models import RawPayload, SensorReading
-from yvy.domain.shared.exceptions import InvalidTimestampError
 from yvy.domain.shared.time_utils import parse_pywws_ts
 from yvy.domain.shared.value_objects import StationUUID
 
@@ -268,7 +267,7 @@ def _make_json_safe(d: dict[str, Any]) -> dict[str, Any]:
         if isinstance(v, datetime):
             # Aseguramos UTC isoformat
             if v.tzinfo is None:
-                v = v.replace(tzinfo=timezone.utc)
+                v = v.replace(tzinfo=UTC)
             out[k] = v.isoformat()
         elif isinstance(v, Decimal):
             out[k] = str(v)

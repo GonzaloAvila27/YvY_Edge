@@ -61,18 +61,19 @@ class TestSyncJob:
                 attempts=-1,
             )
 
-    def test_attempts_above_hard_cap_rejected(self) -> None:
-        with pytest.raises(ValueError, match="hard cap"):
-            SyncJob(
-                event_id=uuid4(),
-                station_uuid=uuid4(),
-                entity_type=EntityType.SENSOR_READING,
-                entity_db_id=1,
-                attempts=11,
-            )
+    def test_attempts_above_ten_accepted(self) -> None:
+        # Fase 9.2 (migración v13): upper bound removido — el límite vive en
+        # código del sync agent, no en el VO. Valores > 10 deben aceptarse.
+        job = SyncJob(
+            event_id=uuid4(),
+            station_uuid=uuid4(),
+            entity_type=EntityType.SENSOR_READING,
+            entity_db_id=1,
+            attempts=100,
+        )
+        assert job.attempts == 100
 
-    def test_attempts_at_hard_cap_accepted(self) -> None:
-        # 10 es el tope, debe aceptarse
+    def test_attempts_high_count_accepted(self) -> None:
         job = SyncJob(
             event_id=uuid4(),
             station_uuid=uuid4(),

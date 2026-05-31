@@ -30,7 +30,6 @@ from typing import Any
 
 from yvy.application.ports.sensor_source import SensorSource
 from yvy.application.ports.time_provider import TimeProvider
-from yvy.domain.sensor.event_id import build_event_id
 from yvy.domain.sensor.exceptions import (
     FuturisticTimestampError,
     MalformedPayloadError,
@@ -215,7 +214,7 @@ class CaptureLiveReadingUseCase:
 # ─────────────────────────────────────────────────────────────────────────────
 from typing import Protocol  # noqa: E402
 
-from yvy.domain.shared.value_objects import StationUUID as _SU  # noqa: E402, F401
+from yvy.domain.shared.value_objects import StationUUID as _SU  # noqa: E402, F401, N814
 
 
 class PayloadParser(Protocol):
