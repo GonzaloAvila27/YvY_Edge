@@ -58,6 +58,7 @@ from yvy.application.use_cases.empirical.list_get_observations import (
     GetObservationDetailsUseCase,
     ListEmpiricalObservationsUseCase,
 )
+from yvy.application.use_cases.query_sensor_aggregated import QuerySensorAggregatedUseCase
 from yvy.application.use_cases.retention.run_retention_job import RunRetentionJobUseCase
 from yvy.application.use_cases.sensor.capture_live_reading import CaptureLiveReadingUseCase
 from yvy.application.use_cases.sensor.run_catchup_recovery import RunCatchupRecoveryUseCase
@@ -272,6 +273,8 @@ def main() -> int:
     help_dir = ROOT / "resources" / "help"
     help_repo = HelpRepository(help_dir=help_dir)
 
+    query_sensor_aggregated_uc = QuerySensorAggregatedUseCase(factory)
+
     app = MainApplication(
         auth_controller=auth_controller,
         onboarding_use_case=onboarding_uc,
@@ -288,6 +291,7 @@ def main() -> int:
         empirical_controller=empirical_controller,
         sensor_status_fn=_sensor_status_fn,
         sync_controller=sync_controller,
+        query_sensor_aggregated_uc=query_sensor_aggregated_uc,
         iea_name=app_config_repo.get("school_name") or "IEA — sin configurar",
         iea_cue=app_config_repo.get("cue") or "",
         local_tz=TZ_AR,

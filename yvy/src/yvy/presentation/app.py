@@ -89,6 +89,9 @@ if TYPE_CHECKING:
         CompleteOnboardingResult,
         CompleteOnboardingUseCase,
     )
+    from yvy.application.use_cases.query_sensor_aggregated import (
+        QuerySensorAggregatedUseCase,
+    )
     from yvy.application.use_cases.retention.run_retention_job import (
         RunRetentionJobUseCase,
     )
@@ -218,6 +221,7 @@ class MainApplication(tk.Tk):
         hardware_fingerprint: str | None = None,
         empirical_controller: EmpiricalController | None = None,
         sensor_status_fn: Callable[[], tuple[str, str]] | None = None,
+        query_sensor_aggregated_uc: QuerySensorAggregatedUseCase | None = None,
         iea_name: str = "IEA — sin configurar",
         iea_cue: str = "—",
         local_tz: tzinfo | None = None,
@@ -248,6 +252,7 @@ class MainApplication(tk.Tk):
         self._hardware_fingerprint = hardware_fingerprint
         self._empirical_controller = empirical_controller
         self._sensor_status_fn = sensor_status_fn
+        self._query_sensor_aggregated_uc = query_sensor_aggregated_uc
         self._header_poll_id: str | None = None
         self._empirical_wizard_active: bool = False  # bloquea navegación lateral
         self._iea_name = iea_name
@@ -584,6 +589,10 @@ class MainApplication(tk.Tk):
                 self._content,
                 db_factory=self._db_factory,
                 local_tz=self._local_tz,
+                query_sensor_aggregated_uc=self._query_sensor_aggregated_uc,
+                current_user=self._current_user,
+                station_uuid=self._app_config_repo.get("station_uuid")
+                if self._app_config_repo is not None else None,
             )
 
         if key == "dashboard":
@@ -591,6 +600,10 @@ class MainApplication(tk.Tk):
                 self._content,
                 db_factory=self._db_factory,
                 local_tz=self._local_tz,
+                query_sensor_aggregated_uc=self._query_sensor_aggregated_uc,
+                current_user=self._current_user,
+                station_uuid=self._app_config_repo.get("station_uuid")
+                if self._app_config_repo is not None else None,
             )
 
         if key == "sync" and self._sync_controller is not None:

@@ -1,20 +1,26 @@
 """Dashboard del profesor/admin.
 
-Layout:
-    [Título "Dashboard"]                          [Filtro] [Exportar]
-    [Subtítulo "Resumen de los últimos 7 días"]
+Layout general:
 
-    ┌──────────────────────────────────────┐  ┌─────────────────┐
-    │  Gráfico Temp °C / Humedad %         │  │ KPI Temperatura │
-    │  matplotlib — 7 días, promedios/hora │  ├─────────────────┤
-    │  Eje Y izq: temperatura (°C)         │  │ KPI Humedad     │
-    │  Eje Y der: humedad (%)              │  ├─────────────────┤
-    │  Eje X: fecha/hora local             │  │ KPI Presión     │
-    │                                      │  ├─────────────────┤
-    └──────────────────────────────────────┘  │ KPI Lluvia 24h  │
-                                              └─────────────────┘
-    Observaciones empíricas recientes              [Ver todos →]
-    [● 31/5 08:15  Helada detectada  detalle]
+    [Título "Dashboard"]                         [Exportar*]
+    [Subtítulo]
+
+    ┌─ chart card (expand) ──────────────────┐  ┌─ KPI (260px) ──┐
+    │ [controles si no es alumno]            │  │ Temperatura    │
+    │ ─────────────────────────────────────  │  ├────────────────┤
+    │ [ChartWidget — matplotlib embebido]    │  │ Humedad        │
+    └────────────────────────────────────────┘  ├────────────────┤
+                                                │ Presión        │
+    [Observaciones empíricas recientes]         ├────────────────┤
+                                                │ Lluvia 24h     │
+                                                └────────────────┘
+
+* Exportar decorativo — TODO
+
+Role gating del área de gráfico:
+    alumno      → sin selectores, fijo: Temperatura / 24h
+    otros       → Combobox "Gráfico" + radio "Período" (24h/7d/30d)
+                  Default: Temperatura exterior / 7d
 """
 
 from __future__ import annotations
@@ -22,19 +28,19 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta, tzinfo
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import tkinter as tk
 from tkinter import ttk
 
+from yvy.presentation.charts import SENSOR_CHARTS
+from yvy.presentation.components.chart_widget import ChartWidget
 from yvy.presentation.theme import (
     ACCENT_GOLD,
     BG_CARD,
     BG_CREAM,
     BORDER,
-    DANGER,
     FONT_BODY,
-    FONT_BODY_BOLD,
     FONT_KPI_VALUE,
     FONT_SMALL,
     FONT_TINY,
@@ -46,10 +52,12 @@ from yvy.presentation.theme import (
     SUCCESS,
     TEXT_PRIMARY,
     TEXT_SECONDARY,
-    WARNING,
 )
 
 if TYPE_CHECKING:
+    from yvy.application.use_cases.query_sensor_aggregated import (
+        QuerySensorAggregatedUseCase,
+    )
     from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
 
 logger = logging.getLogger(__name__)
@@ -58,8 +66,19 @@ _DAYS = 7
 _NO_DATA = "—"
 _NO_DATA_DELTA = "sin datos suficientes"
 
+# Mapa display label → clave en SENSOR_CHARTS (preserva orden de inserción)
+_CHART_LABEL_TO_KEY: dict[str, str] = {
+    chart.label: key for key, chart in SENSOR_CHARTS.items()
+}
+_CHART_LABELS: list[str] = list(_CHART_LABEL_TO_KEY.keys())
+_DEFAULT_CHART_LABEL = SENSOR_CHARTS["temperatura"].label   # "Temperatura exterior"
+_DEFAULT_PERIOD = "7d"
+_PERIODS = ["24h", "7d", "30d"]
 
-# ─── Datos del dashboard ─────────────────────────────────────────────────────
+_KPI_CARD_WIDTH = 260
+
+
+# ─── Dataclasses internos ─────────────────────────────────────────────────────
 
 
 @dataclass
@@ -69,13 +88,6 @@ class _KpiData:
     avg_pressure: float | None = None
     last_rain_24h: float | None = None
     row_count: int = 0
-
-
-@dataclass
-class _ChartPoint:
-    ts: datetime
-    temp: float | None
-    hum: float | None
 
 
 @dataclass
@@ -89,29 +101,68 @@ class _EventRow:
 @dataclass
 class _DashboardData:
     kpi: _KpiData = field(default_factory=_KpiData)
-    chart_points: list[_ChartPoint] = field(default_factory=list)
     events: list[_EventRow] = field(default_factory=list)
 
 
-# ─── View ────────────────────────────────────────────────────────────────────
+# ─── View ─────────────────────────────────────────────────────────────────────
 
 
 class DashboardAdminView(tk.Frame):
-    """Dashboard con KPIs y gráfico en vivo desde sensor_data."""
+    """Dashboard con KPIs reales, gráfico seleccionable y eventos empíricos.
+
+    Args:
+        parent: widget padre.
+        db_factory: conexión DB para KPIs y eventos. Si None, muestra «—».
+        local_tz: zona horaria para timestamps de eventos.
+        query_sensor_aggregated_uc: use case para los gráficos. Si None,
+            el área de gráfico muestra "Sin conexión al sistema de sensores".
+        current_user: usuario activo (User o MockUser). Determina role gating.
+        station_uuid: UUID de la estación para las queries de gráfico.
+    """
 
     def __init__(
         self,
         parent: tk.Misc,
         db_factory: SQLiteConnectionFactory | None = None,
         local_tz: tzinfo | None = None,
+        query_sensor_aggregated_uc: QuerySensorAggregatedUseCase | None = None,
+        current_user: Any = None,
+        station_uuid: str | None = None,
     ) -> None:
         super().__init__(parent, bg=BG_CREAM)
+
         self._db_factory = db_factory
         self._local_tz = local_tz or UTC
+        self._query_uc = query_sensor_aggregated_uc
+        self._current_user = current_user
+        self._station_uuid = station_uuid or ""
+
+        # Widgets del área de gráfico (inicializados en _build)
+        self._chart_widget: ChartWidget | None = None
+        self._chart_combo: ttk.Combobox | None = None
+        self._period_var: tk.StringVar | None = None
+        # Para alumno (sin selectors), el chart key y period son fijos
+        self._alumno_chart_key: str = "temperatura"
+        self._alumno_period: str = "24h"
+
         self._data = self._load_data()
         self._build()
 
-    # ─── Carga de datos ──────────────────────────────────────────────────
+    # ─── Helpers de rol ──────────────────────────────────────────────────
+
+    def _get_role(self) -> str:
+        """Rol normalizado en minúsculas desde User o MockUser."""
+        role = getattr(self._current_user, "role", None)
+        if role is None:
+            return "alumno"
+        if hasattr(role, "value"):          # Role enum
+            return role.value.lower()
+        return str(role).lower()
+
+    def _is_alumno(self) -> bool:
+        return self._get_role() == "alumno"
+
+    # ─── Queries de KPI y eventos ────────────────────────────────────────
 
     def _load_data(self) -> _DashboardData:
         if self._db_factory is None:
@@ -120,7 +171,6 @@ class DashboardAdminView(tk.Frame):
             conn = self._db_factory.get_connection()
             return _DashboardData(
                 kpi=self._query_kpis(conn),
-                chart_points=self._query_chart(conn),
                 events=self._query_events(conn),
             )
         except Exception:
@@ -134,10 +184,10 @@ class DashboardAdminView(tk.Frame):
         row = conn.execute(
             """
             SELECT
-                AVG(CASE WHEN temp_outdoor IS NOT NULL THEN temp_outdoor END) AS avg_temp,
-                AVG(CASE WHEN hum_outdoor  IS NOT NULL THEN hum_outdoor  END) AS avg_hum,
-                AVG(CASE WHEN pressure_rel IS NOT NULL THEN pressure_rel END) AS avg_pres,
-                COUNT(*) AS row_count
+                AVG(CASE WHEN temp_outdoor IS NOT NULL THEN temp_outdoor END),
+                AVG(CASE WHEN hum_outdoor  IS NOT NULL THEN hum_outdoor  END),
+                AVG(CASE WHEN pressure_rel IS NOT NULL THEN pressure_rel END),
+                COUNT(*)
             FROM sensor_data
             WHERE observed_at >= ? AND is_valid = 1
             """,
@@ -149,51 +199,20 @@ class DashboardAdminView(tk.Frame):
             SELECT rain_24h FROM sensor_data
             WHERE rain_24h IS NOT NULL AND is_valid = 1
             ORDER BY observed_at DESC LIMIT 1
-            """,
+            """
         ).fetchone()
 
         return _KpiData(
             avg_temp=float(row[0]) if row and row[0] is not None else None,
             avg_hum=float(row[1]) if row and row[1] is not None else None,
             avg_pressure=float(row[2]) if row and row[2] is not None else None,
-            last_rain_24h=float(rain_row[0]) if rain_row and rain_row[0] is not None else None,
+            last_rain_24h=(
+                float(rain_row[0]) if rain_row and rain_row[0] is not None else None
+            ),
             row_count=int(row[3]) if row else 0,
         )
 
-    def _query_chart(self, conn) -> list[_ChartPoint]:  # type: ignore[no-untyped-def]
-        """Promedios horarios de temperatura y humedad, últimos 7 días."""
-        since = (datetime.now(UTC) - timedelta(days=_DAYS)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
-        rows = conn.execute(
-            """
-            SELECT
-                strftime('%Y-%m-%dT%H:00:00Z', observed_at) AS hour,
-                AVG(temp_outdoor) AS temp,
-                AVG(hum_outdoor)  AS hum
-            FROM sensor_data
-            WHERE observed_at >= ? AND is_valid = 1
-            GROUP BY hour
-            ORDER BY hour ASC
-            """,
-            (since,),
-        ).fetchall()
-
-        points = []
-        for r in rows:
-            try:
-                ts = datetime.fromisoformat(r[0].replace("Z", "+00:00"))
-            except Exception:
-                continue
-            points.append(_ChartPoint(
-                ts=ts,
-                temp=float(r[1]) if r[1] is not None else None,
-                hum=float(r[2]) if r[2] is not None else None,
-            ))
-        return points
-
     def _query_events(self, conn) -> list[_EventRow]:  # type: ignore[no-untyped-def]
-        """Últimas observaciones empíricas de cualquier usuario."""
         try:
             rows = conn.execute(
                 """
@@ -208,7 +227,7 @@ class DashboardAdminView(tk.Frame):
         except Exception:
             return []
 
-        events = []
+        events: list[_EventRow] = []
         for r in rows:
             try:
                 ts = datetime.fromisoformat(
@@ -216,7 +235,7 @@ class DashboardAdminView(tk.Frame):
                 ).astimezone(self._local_tz)
                 ts_label = ts.strftime("%d/%m %H:%M")
             except Exception:
-                ts_label = str(r[0])[:16] if r[0] else "—"
+                ts_label = str(r[0])[:16] if r[0] else _NO_DATA
 
             title = str(r[1]) if r[1] else "Observación"
             detail = str(r[2]) if r[2] else ""
@@ -254,125 +273,80 @@ class DashboardAdminView(tk.Frame):
 
         actions = tk.Frame(row, bg=BG_CREAM)
         actions.pack(side="right")
-        combo = ttk.Combobox(
+        # TODO: implementar exportación de datos en fase posterior
+        ttk.Button(
             actions,
-            values=[f"Últimos {_DAYS} días"],
-            state="readonly",
-            width=18,
-            font=FONT_BODY,
-        )
-        combo.set(f"Últimos {_DAYS} días")
-        combo.pack(side="left", padx=(0, SPACE_SM))
-        ttk.Button(actions, text="Exportar", style="Secondary.TButton").pack(side="left")
+            text="Exportar",
+            style="Secondary.TButton",
+            state="disabled",
+        ).pack(side="left")
 
     def _build_body(self, parent: tk.Misc) -> None:
         body = tk.Frame(parent, bg=BG_CREAM)
         body.pack(fill="both", expand=True, pady=(0, SPACE_LG))
 
-        # Gráfico izquierda
+        # Área de gráfico — izquierda, expande
         chart_card = _make_card(body)
         chart_card.pack(side="left", fill="both", expand=True, padx=(0, SPACE_LG))
-        self._build_chart_card(chart_card)
+        self._build_chart_area(chart_card)
 
-        # KPIs derecha
-        kpis = tk.Frame(body, bg=BG_CREAM, width=260)
-        kpis.pack(side="right", fill="y")
-        kpis.pack_propagate(False)
-        self._build_kpis(kpis)
+        # KPI cards — derecha, ancho fijo
+        kpi_col = tk.Frame(body, bg=BG_CREAM, width=_KPI_CARD_WIDTH)
+        kpi_col.pack(side="right", fill="y")
+        kpi_col.pack_propagate(False)
+        self._build_kpis(kpi_col)
 
-    def _build_chart_card(self, card: tk.Frame) -> None:
-        inner = tk.Frame(card, bg=BG_CARD, padx=SPACE_XL, pady=SPACE_XL)
+    def _build_chart_area(self, card: tk.Frame) -> None:
+        inner = tk.Frame(card, bg=BG_CARD, padx=SPACE_XL, pady=SPACE_LG)
         inner.pack(fill="both", expand=True)
 
-        ttk.Label(
-            inner,
-            text="Temperatura °C y Humedad % — últimos 7 días",
-            style="CardH3.TLabel",
-        ).pack(anchor="w", pady=(0, SPACE_MD))
+        if not self._is_alumno():
+            self._build_chart_controls(inner)
 
-        pts = [p for p in self._data.chart_points
-               if p.temp is not None or p.hum is not None]
+        self._chart_widget = ChartWidget(inner, width_px=560, height_px=290)
+        self._chart_widget.pack(fill="both", expand=True)
 
-        if not pts:
-            no_data = tk.Frame(inner, bg="#F0EDE3")
-            no_data.pack(fill="both", expand=True)
-            tk.Label(
-                no_data,
-                text="Sin datos de sensor en los últimos 7 días",
-                bg="#F0EDE3",
-                fg=TEXT_SECONDARY,
-                font=FONT_SMALL,
-            ).pack(expand=True)
-            return
+        # Primer render diferido 80ms para que Tk asiente el layout
+        self.after(80, self._trigger_render)
 
-        self._embed_chart(inner, pts)
+    def _build_chart_controls(self, parent: tk.Frame) -> None:
+        """Barra de selectores: Combobox de gráfico + radio de período."""
+        bar = tk.Frame(parent, bg=BG_CARD)
+        bar.pack(fill="x", pady=(0, SPACE_MD))
 
-    def _embed_chart(self, parent: tk.Misc, pts: list[_ChartPoint]) -> None:
-        try:
-            import matplotlib
-            matplotlib.use("TkAgg")
-            from matplotlib.figure import Figure
-            from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-            import matplotlib.dates as mdates
-        except ImportError:
-            tk.Label(
-                parent,
-                text="matplotlib no disponible",
-                bg=BG_CARD,
-                fg=TEXT_SECONDARY,
-                font=FONT_SMALL,
-            ).pack(expand=True)
-            return
+        # ── Selector de gráfico ────────────────────────────────────────
+        tk.Label(
+            bar, text="Gráfico:", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY
+        ).pack(side="left", padx=(0, SPACE_SM))
 
-        temps = [p for p in pts if p.temp is not None]
-        hums = [p for p in pts if p.hum is not None]
+        self._chart_combo = ttk.Combobox(
+            bar,
+            values=_CHART_LABELS,
+            state="readonly",
+            width=22,
+            font=FONT_BODY,
+        )
+        self._chart_combo.set(_DEFAULT_CHART_LABEL)
+        self._chart_combo.pack(side="left")
+        self._chart_combo.bind("<<ComboboxSelected>>", lambda _: self._trigger_render())
 
-        fig = Figure(figsize=(5, 2.8), dpi=90, facecolor=BG_CARD)
-        ax1 = fig.add_subplot(111)
-        ax1.set_facecolor(BG_CARD)
-        fig.subplots_adjust(left=0.10, right=0.88, top=0.92, bottom=0.18)
+        # ── Separador visual ───────────────────────────────────────────
+        tk.Frame(bar, bg=BG_CARD, width=SPACE_XL).pack(side="left")
 
-        color_temp = "#C2362A"   # DANGER / rojo
-        color_hum = "#3B5F82"    # PRIMARY_LIGHT / azul
+        # ── Selector de período ────────────────────────────────────────
+        tk.Label(
+            bar, text="Período:", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY
+        ).pack(side="left", padx=(0, SPACE_SM))
 
-        if temps:
-            xs_t = [p.ts for p in temps]
-            ys_t = [p.temp for p in temps]
-            ax1.plot(xs_t, ys_t, color=color_temp, linewidth=1.4, label="Temp °C")
-        ax1.set_ylabel("Temperatura (°C)", fontsize=7, color=color_temp)
-        ax1.tick_params(axis="y", labelsize=6, colors=color_temp)
-        ax1.tick_params(axis="x", labelsize=6)
-
-        if hums:
-            ax2 = ax1.twinx()
-            ax2.set_facecolor(BG_CARD)
-            xs_h = [p.ts for p in hums]
-            ys_h = [p.hum for p in hums]
-            ax2.plot(xs_h, ys_h, color=color_hum, linewidth=1.4,
-                     linestyle="--", label="Humedad %")
-            ax2.set_ylabel("Humedad (%)", fontsize=7, color=color_hum)
-            ax2.tick_params(axis="y", labelsize=6, colors=color_hum)
-            ax2.set_ylim(0, 105)
-
-        # Formato eje X
-        ax1.xaxis.set_major_formatter(mdates.DateFormatter("%d/%m %H:%M",
-                                                            tz=self._local_tz))
-        fig.autofmt_xdate(rotation=35, ha="right")
-
-        # Leyenda combinada
-        lines1, labels1 = ax1.get_legend_handles_labels()
-        if hums:
-            lines2, labels2 = ax2.get_legend_handles_labels()
-            lines1 += lines2
-            labels1 += labels2
-        ax1.legend(lines1, labels1, fontsize=6, loc="upper left",
-                   framealpha=0.7)
-
-        ax1.grid(axis="x", linestyle=":", linewidth=0.5, alpha=0.5)
-
-        canvas = FigureCanvasTkAgg(fig, master=parent)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill="both", expand=True)
+        self._period_var = tk.StringVar(value=_DEFAULT_PERIOD)
+        for p in _PERIODS:
+            ttk.Radiobutton(
+                bar,
+                text=p,
+                variable=self._period_var,
+                value=p,
+                command=self._trigger_render,
+            ).pack(side="left", padx=(0, SPACE_SM))
 
     def _build_kpis(self, parent: tk.Misc) -> None:
         d = self._data.kpi
@@ -385,36 +359,41 @@ class DashboardAdminView(tk.Frame):
                 return _NO_DATA_DELTA, TEXT_SECONDARY
             return f"Prom. últimos {_DAYS} días", TEXT_SECONDARY
 
-        t_val, t_dlt = fmt(d.avg_temp), delta(d.avg_temp)
-        h_val, h_dlt = fmt(d.avg_hum, 0), delta(d.avg_hum)
-        p_val, p_dlt = fmt(d.avg_pressure, 0), delta(d.avg_pressure)
-        r_val = fmt(d.last_rain_24h) if d.last_rain_24h is not None else _NO_DATA
-        r_dlt = ("Última lectura disponible", TEXT_SECONDARY) if d.last_rain_24h is not None \
+        t_delta = delta(d.avg_temp)
+        h_delta = delta(d.avg_hum)
+        p_delta = delta(d.avg_pressure)
+        r_delta = (
+            ("Última lectura disponible", TEXT_SECONDARY)
+            if d.last_rain_24h is not None
             else (_NO_DATA_DELTA, TEXT_SECONDARY)
+        )
 
-        _make_kpi(parent, "Temperatura exterior", t_val, "°C", t_dlt[0], t_dlt[1])
-        _make_kpi(parent, "Humedad exterior",     h_val, "%",  h_dlt[0], h_dlt[1])
-        _make_kpi(parent, "Presión atmosférica",  p_val, "hPa", p_dlt[0], p_dlt[1])
-        _make_kpi(parent, "Lluvia últimas 24h",   r_val, "mm", r_dlt[0], r_dlt[1])
+        _make_kpi(parent, "Temperatura exterior", fmt(d.avg_temp),       "°C",  t_delta[0], t_delta[1])
+        _make_kpi(parent, "Humedad exterior",     fmt(d.avg_hum, 0),     "%",   h_delta[0], h_delta[1])
+        _make_kpi(parent, "Presión atmosférica",  fmt(d.avg_pressure, 0), "hPa", p_delta[0], p_delta[1])
+        _make_kpi(parent, "Lluvia últimas 24h",   fmt(d.last_rain_24h),  "mm",  r_delta[0], r_delta[1])
 
     def _build_events(self, parent: tk.Misc) -> None:
         card = _make_card(parent)
         card.pack(fill="x")
 
-        inner = tk.Frame(card, bg=BG_CARD, padx=SPACE_XL, pady=SPACE_XL)
+        inner = tk.Frame(card, bg=BG_CARD, padx=SPACE_XL, pady=SPACE_LG)
         inner.pack(fill="x")
 
         hdr = tk.Frame(inner, bg=BG_CARD)
         hdr.pack(fill="x", pady=(0, SPACE_MD))
-        ttk.Label(hdr, text="Observaciones empíricas recientes",
-                  style="CardH3.TLabel").pack(side="left")
-        tk.Label(hdr, text="Ver todos →", bg=BG_CARD, fg=PRIMARY,
-                 font=FONT_SMALL, cursor="hand2").pack(side="right")
+        ttk.Label(
+            hdr, text="Observaciones empíricas recientes", style="CardH3.TLabel"
+        ).pack(side="left")
+        tk.Label(
+            hdr, text="Ver todos →", bg=BG_CARD, fg=PRIMARY,
+            font=FONT_SMALL, cursor="hand2"
+        ).pack(side="right")
 
         if not self._data.events:
             tk.Label(
                 inner,
-                text="Sin observaciones empíricas registradas todavía.",
+                text="Sin eventos recientes.",
                 bg=BG_CARD,
                 fg=TEXT_SECONDARY,
                 font=FONT_SMALL,
@@ -424,8 +403,51 @@ class DashboardAdminView(tk.Frame):
         for ev in self._data.events:
             _make_event_row(inner, ev.ts_label, ev.title, ev.detail, ev.dot_color)
 
+    # ─── Render del gráfico ───────────────────────────────────────────────
 
-# ─── Helpers módulo-nivel ─────────────────────────────────────────────────────
+    def _current_chart_key(self) -> str:
+        if self._is_alumno():
+            return self._alumno_chart_key
+        if self._chart_combo is not None:
+            label = self._chart_combo.get()
+            return _CHART_LABEL_TO_KEY.get(label, "temperatura")
+        return "temperatura"
+
+    def _current_period(self) -> str:
+        if self._is_alumno():
+            return self._alumno_period
+        if self._period_var is not None:
+            return self._period_var.get()
+        return _DEFAULT_PERIOD
+
+    def _trigger_render(self) -> None:
+        """Dispara o re-dispara el chart con la selección actual."""
+        if self._chart_widget is None:
+            return
+
+        if self._query_uc is None:
+            self._chart_widget.show_empty("Sin conexión al sistema de sensores")
+            return
+
+        chart_key = self._current_chart_key()
+        period = self._current_period()
+        station_uuid = self._station_uuid
+        query_uc = self._query_uc
+
+        chart = SENSOR_CHARTS.get(chart_key)
+        if chart is None:
+            self._chart_widget.show_error(f"Gráfico '{chart_key}' no encontrado")
+            return
+
+        # Captura explícita de variables para evitar closure tardío en el thread
+        self._chart_widget.render(
+            lambda fig, ax, c=chart, p=period, s=station_uuid: c.render(
+                fig, ax, p, s, query_uc
+            )
+        )
+
+
+# ─── Helpers módulo-nivel ──────────────────────────────────────────────────────
 
 
 def _make_card(parent: tk.Misc) -> tk.Frame:
@@ -447,22 +469,26 @@ def _make_kpi(
 ) -> None:
     card = _make_card(parent)
     card.pack(fill="x", pady=(0, SPACE_SM))
+
     inner = tk.Frame(card, bg=BG_CARD, padx=SPACE_LG, pady=SPACE_MD)
     inner.pack(fill="x")
 
-    tk.Label(inner, text=label, bg=BG_CARD, fg=TEXT_SECONDARY,
-             font=FONT_TINY, anchor="w").pack(fill="x")
+    tk.Label(
+        inner, text=label, bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_TINY, anchor="w"
+    ).pack(fill="x")
 
     val_row = tk.Frame(inner, bg=BG_CARD)
     val_row.pack(fill="x", pady=(2, 0))
+    tk.Label(val_row, text=value, bg=BG_CARD, fg=TEXT_PRIMARY, font=FONT_KPI_VALUE).pack(
+        side="left"
+    )
+    tk.Label(
+        val_row, text=unit, bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY
+    ).pack(side="left", padx=(SPACE_SM, 0), pady=(SPACE_MD, 0))
 
-    tk.Label(val_row, text=value, bg=BG_CARD, fg=TEXT_PRIMARY,
-             font=FONT_KPI_VALUE).pack(side="left")
-    tk.Label(val_row, text=unit, bg=BG_CARD, fg=TEXT_SECONDARY,
-             font=FONT_BODY).pack(side="left", padx=(SPACE_SM, 0),
-                                  pady=(SPACE_MD, 0))
-    tk.Label(inner, text=delta, bg=BG_CARD, fg=delta_color,
-             font=FONT_TINY, anchor="w").pack(fill="x")
+    tk.Label(
+        inner, text=delta, bg=BG_CARD, fg=delta_color, font=FONT_TINY, anchor="w"
+    ).pack(fill="x")
 
 
 def _make_event_row(
@@ -475,11 +501,17 @@ def _make_event_row(
     row = tk.Frame(parent, bg=BG_CARD)
     row.pack(fill="x", pady=2)
 
-    tk.Label(row, text="●", bg=BG_CARD, fg=dot_color,
-             font=("DejaVu Sans", 12)).pack(side="left", padx=(0, SPACE_SM))
-    tk.Label(row, text=timestamp, bg=BG_CARD, fg=TEXT_SECONDARY,
-             font=FONT_BODY, width=12, anchor="w").pack(side="left")
-    tk.Label(row, text=title, bg=BG_CARD, fg=TEXT_PRIMARY,
-             font=FONT_BODY_BOLD, anchor="w").pack(side="left", padx=(SPACE_SM, 0))
-    tk.Label(row, text=detail, bg=BG_CARD, fg=TEXT_SECONDARY,
-             font=FONT_BODY, anchor="e").pack(side="right")
+    tk.Label(
+        row, text="●", bg=BG_CARD, fg=dot_color, font=("DejaVu Sans", 12)
+    ).pack(side="left", padx=(0, SPACE_SM))
+    tk.Label(
+        row, text=timestamp, bg=BG_CARD, fg=TEXT_SECONDARY,
+        font=FONT_BODY, width=12, anchor="w"
+    ).pack(side="left")
+    tk.Label(
+        row, text=title, bg=BG_CARD, fg=TEXT_PRIMARY,
+        font=FONT_BODY, anchor="w"
+    ).pack(side="left", padx=(SPACE_SM, 0))
+    tk.Label(
+        row, text=detail, bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY, anchor="e"
+    ).pack(side="right")

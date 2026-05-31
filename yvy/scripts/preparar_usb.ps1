@@ -106,9 +106,10 @@ Write-Host "Descargando build chain (setuptools, wheel, pip, pyusb)..."
 $wheelCount = (Get-ChildItem "$APPDIR\wheels" -File).Count
 Write-Host "  OK $wheelCount archivos en wheels\" -ForegroundColor Green
 
-# ── Copiar instalador al root del USB ─────────────────────────────────────────
-Copy-Item -Force "$ROOT\scripts\INSTALAR.bat" "$DIST\INSTALAR.bat"
-Write-Host "  OK INSTALAR.bat copiado" -ForegroundColor Green
+# ── Copiar scripts al root del USB ───────────────────────────────────────────
+Copy-Item -Force "$ROOT\scripts\INSTALAR.bat"           "$DIST\INSTALAR.bat"
+Copy-Item -Force "$ROOT\scripts\CONFIGURAR_WINDOWS.bat" "$DIST\CONFIGURAR_WINDOWS.bat"
+Write-Host "  OK INSTALAR.bat + CONFIGURAR_WINDOWS.bat copiados" -ForegroundColor Green
 
 # ── Resumen final ─────────────────────────────────────────────────────────────
 $sizeMB = [math]::Round(
