@@ -178,7 +178,7 @@ _SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem(key="inicio", label="Inicio", icon_char="⌂"),
     SidebarItem(key="formulario", label="Formulario", icon_char="📋"),
     SidebarItem(key="dashboard", label="Dashboard", icon_char="📊"),
-    SidebarItem(key="sync", label="Sync", icon_char="↻"),
+    SidebarItem(key="sync", label="Sync", icon_char="↻", alumno_hidden=True),
     SidebarItem(key="ayuda", label="Ayuda", icon_char="?"),
     SidebarItem(key="usuarios", label="Usuarios", icon_char="👥", admin_only=True),
     SidebarItem(key="logs", label="Logs", icon_char="📜", admin_only=True),
@@ -430,11 +430,13 @@ class MainApplication(tk.Tk):
         body.pack(fill="both", expand=True)
 
         is_admin = self._user_is_admin(user)
+        is_alumno = self._user_is_alumno(user)
         self._sidebar = Sidebar(
             body,
             items=_SIDEBAR_ITEMS,
             on_select=self._navigate,
             is_admin=is_admin,
+            is_alumno=is_alumno,
         )
         self._sidebar.pack(side="left", fill="y")
 
@@ -519,6 +521,13 @@ class MainApplication(tk.Tk):
         if isinstance(user, User):
             return user.is_admin
         return user.role.lower() in ("admin", "superadmin")
+
+    @staticmethod
+    def _user_is_alumno(user: User | MockUser) -> bool:
+        if isinstance(user, User):
+            from yvy.domain.auth.enums import Role
+            return user.role == Role.ALUMNO
+        return user.role.lower() == "alumno"
 
     # ─── Navegación ─────────────────────────────────────────────────────
 

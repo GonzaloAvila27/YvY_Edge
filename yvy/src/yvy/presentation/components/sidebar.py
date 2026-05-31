@@ -56,6 +56,7 @@ class SidebarItem:
     label: str
     icon_char: str  # placeholder unicode hasta tener PNG Lucide
     admin_only: bool = False
+    alumno_hidden: bool = False  # True → no visible para rol alumno
 
 
 class Sidebar(tk.Frame):
@@ -81,6 +82,7 @@ class Sidebar(tk.Frame):
         items: list[SidebarItem],
         on_select: Callable[[str], None],
         is_admin: bool = False,
+        is_alumno: bool = False,
         admin_separator_label: str = "Admin",
     ) -> None:
         super().__init__(
@@ -93,6 +95,7 @@ class Sidebar(tk.Frame):
         self._items = items
         self._on_select = on_select
         self._is_admin = is_admin
+        self._is_alumno = is_alumno
         self._admin_sep_label = admin_separator_label
 
         self._collapsed = False
@@ -160,6 +163,8 @@ class Sidebar(tk.Frame):
 
         for item in self._items:
             if item.admin_only and not self._is_admin:
+                continue
+            if item.alumno_hidden and self._is_alumno:
                 continue
 
             # Separador antes del primer item admin

@@ -180,4 +180,78 @@ self._livestock_notes_text # → self._state["livestock_notes"]
 
 ---
 
+## 2026-05-31 · Pestaña Sync oculta para rol alumno
+
+**Archivos modificados:**
+- `src/yvy/presentation/components/sidebar.py` — `SidebarItem` + `Sidebar`
+- `src/yvy/presentation/app.py` — `_SIDEBAR_ITEMS`, `show_main()`, nuevo método `_user_is_alumno()`
+
+### Motivación
+
+Los alumnos no deben ver ni acceder a la pantalla de Sincronización. Es una herramienta operativa (forzar sync, pausar el agente, recuperar buffer histórico) que no corresponde al flujo de carga de observaciones del alumno.
+
+### Mecanismo — `alumno_hidden` en SidebarItem
+
+Se replicó el patrón existente de `admin_only` para un nuevo flag `alumno_hidden`:
+
+```python
+@dataclass(frozen=True)
+class SidebarItem:
+    key: str
+    label: str
+    icon_char: str
+    admin_only: bool = False
+    alumno_hidden: bool = False  # True → no visible para rol alumno
+```
+
+En `Sidebar._render_items()` se agrega el filtro inmediatamente después del de `admin_only`:
+
+```python
+for item in self._items:
+    if item.admin_only and not self._is_admin:
+        continue
+    if item.alumno_hidden and self._is_alumno:   # ← nuevo
+        continue
+```
+
+`Sidebar.__init__` recibe el nuevo parámetro `is_alumno: bool = False`.
+
+### Cambios en `app.py`
+
+Item marcado:
+```python
+SidebarItem(key="sync", label="Sync", icon_char="↻", alumno_hidden=True),
+```
+
+Nuevo método estático:
+```python
+@staticmethod
+def _user_is_alumno(user: User | MockUser) -> bool:
+    if isinstance(user, User):
+        from yvy.domain.auth.enums import Role
+        return user.role == Role.ALUMNO
+    return user.role.lower() == "alumno"
+```
+
+Pasado a `Sidebar` en `show_main()`:
+```python
+is_alumno = self._user_is_alumno(user)
+self._sidebar = Sidebar(..., is_alumno=is_alumno, ...)
+```
+
+### Visibilidad de Sync por rol
+
+| Rol | ¿Ve Sync? | Razón |
+|---|---|---|
+| `superadmin` | ✅ | Administración total |
+| `admin` | ✅ | Administración operativa |
+| `profesor` | ✅ | Monitoreo del estado de datos capturados |
+| `alumno` | ❌ | Flujo solo de carga de observaciones |
+
+### Extensibilidad
+
+Para ocultar otros items a alumnos en el futuro: agregar `alumno_hidden=True` al `SidebarItem` correspondiente. Sin cambios en `Sidebar` ni en `app.py`.
+
+---
+
 *Próximas refactorizaciones: agregar en este mismo archivo.*
