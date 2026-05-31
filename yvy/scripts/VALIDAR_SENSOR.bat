@@ -97,9 +97,16 @@ print('  Diagnostico completo.')
 
 echo.
 echo  =====================================================
-echo  Si ves [FALLA] en pywws o pyusb: ejecutar INSTALAR.bat
-echo  Si ves [AVISO] en libusb:        ejecutar zadig.exe
-echo  Si ves [NO ENCONTRADO] en sensor: verificar cable USB
+echo  Si ves [FALLA] en pywws o pyusb:   ejecutar INSTALAR.bat
+echo  Si ves [AVISO] en libusb:
+echo    1. Conectar sensor WH1081 al USB
+echo    2. Abrir zadig.exe
+echo    3. Options -^> List All Devices
+echo    4. Buscar dispositivo VID=1941 PID=8021
+echo    5. Elegir driver WinUSB y click Replace Driver
+echo    ATENCION: no hacer Replace Driver sobre otro HID
+echo    (puede ser teclado o mouse)
+echo  Si ves [NO ENCONTRADO] en sensor:  verificar cable USB
 echo  =====================================================
 echo.
 pause

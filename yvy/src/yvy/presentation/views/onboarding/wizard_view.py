@@ -55,13 +55,18 @@ logger = logging.getLogger(__name__)
 class _WizardState:
     """State acumulado a lo largo del wizard. NO es frozen — se muta en cada step."""
 
-    # Step 1
+    # Step 1 — IEA
     cue: str = ""
     school_name: str = ""
     school_short_name: str = ""
     timezone: str = "America/Argentina/Cordoba"
 
-    # Step 2
+    # Step 2 — Sync (opcional)
+    sync_server_url: str = ""
+    station_credentials_json: str = ""  # JSON crudo pegado por el operador
+    skip_sync: bool = False
+
+    # Step 3 — Admins
     primary_username: str = ""
     primary_full_name: str = ""
     primary_password: str = ""
@@ -75,6 +80,7 @@ class _WizardState:
     hardware_fingerprint: str | None = None
 
     def to_onboarding_data(self) -> OnboardingData:
+        import json as _json
         primary = AdminCreationData(
             username=self.primary_username.strip(),
             full_name=self.primary_full_name.strip(),
@@ -87,6 +93,14 @@ class _WizardState:
                 full_name=self.secondary_full_name.strip(),
                 password=self.secondary_password,
             )
+
+        station_credentials = None
+        if not self.skip_sync and self.station_credentials_json.strip():
+            try:
+                station_credentials = _json.loads(self.station_credentials_json)
+            except Exception:
+                pass  # validación ya pasó en el step; no debería llegar acá corrupto
+
         return OnboardingData(
             cue=self.cue.strip(),
             school_name=self.school_name.strip(),
@@ -96,6 +110,8 @@ class _WizardState:
             primary_admin=primary,
             secondary_admin=secondary,
             hardware_fingerprint=self.hardware_fingerprint,
+            sync_server_url=self.sync_server_url.strip() if not self.skip_sync else None,
+            station_credentials=station_credentials,
         )
 
 
@@ -175,15 +191,17 @@ class OnboardingWizard(tk.Frame):
         for w in self._footer.winfo_children():
             w.destroy()
 
-        self._step_label.configure(text=f"Configuración inicial · Paso {self._step + 1} de 4")
+        self._step_label.configure(text=f"Configuración inicial · Paso {self._step + 1} de 5")
 
         if self._step == 0:
             self._render_welcome()
         elif self._step == 1:
             self._render_iea_config()
         elif self._step == 2:
-            self._render_admins()
+            self._render_sync_config()
         elif self._step == 3:
+            self._render_admins()
+        elif self._step == 4:
             self._render_confirmation()
 
     # ─── Step 0: bienvenida ─────────────────────────────────────────────
@@ -221,8 +239,9 @@ class OnboardingWizard(tk.Frame):
 
         for line in (
             "1.  Datos de la institución (CUE, nombre, zona horaria)",
-            "2.  Cuentas administrativas (1 superadmin obligatorio + 1 admin opcional)",
-            "3.  Confirmación y auto-inicio de sesión",
+            "2.  Conexión con YVY Core (credentials y URL del servidor — opcional)",
+            "3.  Cuentas administrativas (1 superadmin obligatorio + 1 admin opcional)",
+            "4.  Confirmación y auto-inicio de sesión",
         ):
             tk.Label(
                 self._body,
@@ -340,7 +359,127 @@ class OnboardingWizard(tk.Frame):
         self._state.school_short_name = short or name[:30]
         self._next()
 
-    # ─── Step 2: admins ─────────────────────────────────────────────────
+    # ─── Step 2: conexión con YVY Core ──────────────────────────────────
+
+    def _render_sync_config(self) -> None:
+        tk.Label(
+            self._body,
+            text="Conexión con YVY Core",
+            bg=BG_CARD, fg=TEXT_PRIMARY, font=FONT_H2,
+        ).pack(anchor="w")
+
+        tk.Label(
+            self._body,
+            text=(
+                "Este paso configura la sincronización automática con el servidor central.\n"
+                "Si no tenés las credentials todavía, podés saltear este paso."
+            ),
+            bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL,
+            wraplength=560, justify="left",
+        ).pack(anchor="w", pady=(0, SPACE_MD))
+
+        # URL del servidor
+        url_var = tk.StringVar(value=self._state.sync_server_url)
+        self._field(self._body, "URL del servidor (ej. https://yvy.tucumanaedu.ar)", url_var)
+        self._sync_url_var = url_var
+
+        # Credentials JSON
+        tk.Label(
+            self._body,
+            text="Credentials JSON (pegá el contenido del archivo station_credentials.json):",
+            bg=BG_CARD, fg=TEXT_PRIMARY, font=FONT_SMALL,
+        ).pack(anchor="w", pady=(SPACE_MD, 2))
+
+        creds_frame = tk.Frame(self._body, bg=BG_CARD)
+        creds_frame.pack(fill="x")
+        self._creds_text = tk.Text(
+            creds_frame,
+            height=5, width=60,
+            font=("Courier", 9),
+            bg="#F8F8F8", relief="solid", bd=1,
+        )
+        self._creds_text.pack(side="left", fill="x", expand=True)
+        if self._state.station_credentials_json:
+            self._creds_text.insert("1.0", self._state.station_credentials_json)
+
+        # Saltear checkbox
+        skip_var = tk.BooleanVar(value=self._state.skip_sync)
+        ttk.Checkbutton(
+            self._body,
+            text="Configurar sincronización más tarde (el sistema funciona sin ella)",
+            variable=skip_var,
+        ).pack(anchor="w", pady=(SPACE_MD, 0))
+        self._skip_sync_var = skip_var
+
+        # Footer
+        ttk.Button(
+            self._footer, text="← Atrás", command=self._prev,
+            style="Secondary.TButton",
+        ).pack(side="left")
+        ttk.Button(
+            self._footer, text="Siguiente →", command=self._next_from_sync,
+            style="Primary.TButton",
+        ).pack(side="right")
+
+    def _next_from_sync(self) -> None:
+        import json as _json
+
+        skip = self._skip_sync_var.get()
+        self._state.skip_sync = skip
+
+        if skip:
+            self._state.sync_server_url = ""
+            self._state.station_credentials_json = ""
+            self._next()
+            return
+
+        url = self._sync_url_var.get().strip()
+        creds_raw = self._creds_text.get("1.0", "end").strip()
+
+        # Validar URL si fue ingresada
+        if url and not (url.startswith("http://") or url.startswith("https://")):
+            messagebox.showerror(
+                "URL inválida",
+                "La URL del servidor debe empezar con https://",
+            )
+            return
+
+        # Validar credentials si fue ingresado
+        if creds_raw:
+            try:
+                creds = _json.loads(creds_raw)
+            except _json.JSONDecodeError as exc:
+                messagebox.showerror(
+                    "JSON inválido",
+                    f"El contenido no es JSON válido:\n{exc}",
+                )
+                return
+
+            required = {"station_uuid", "key_version", "key_hmac_hex"}
+            missing = required - creds.keys()
+            if missing:
+                messagebox.showerror(
+                    "Credentials incompletas",
+                    f"Faltan campos: {', '.join(sorted(missing))}",
+                )
+                return
+
+            try:
+                from uuid import UUID
+                UUID(creds["station_uuid"])
+                int(creds["key_version"])
+                key_bytes = bytes.fromhex(creds["key_hmac_hex"])
+                if len(key_bytes) < 32:
+                    raise ValueError("key_hmac_hex muy corto (< 32 bytes)")
+            except (ValueError, TypeError) as exc:
+                messagebox.showerror("Credentials inválidas", str(exc))
+                return
+
+        self._state.sync_server_url = url
+        self._state.station_credentials_json = creds_raw
+        self._next()
+
+    # ─── Step 3: admins ─────────────────────────────────────────────────
 
     def _render_admins(self) -> None:
         tk.Label(
@@ -513,6 +652,13 @@ class OnboardingWizard(tk.Frame):
                 f"{self._state.secondary_username} ({self._state.secondary_full_name})",
             ))
 
+        if self._state.skip_sync or not self._state.sync_server_url:
+            rows.append(("Sincronización", "Configurar más tarde"))
+        else:
+            rows.append(("Servidor sync", self._state.sync_server_url))
+            if self._state.station_credentials_json:
+                rows.append(("Credentials", "✓ cargadas"))
+
         if self._state.hardware_fingerprint:
             rows.append((
                 "Identificador hardware",
@@ -581,7 +727,7 @@ class OnboardingWizard(tk.Frame):
     # ─── Navegación ─────────────────────────────────────────────────────
 
     def _next(self) -> None:
-        if self._step < 3:
+        if self._step < 4:
             self._step += 1
             self._render_step()
 

@@ -205,13 +205,23 @@ echo  Credenciales iniciales:
 echo    Usuario:    director
 echo    Contrasena: director2026
 echo.
-echo  PROXIMO PASO — Sensor WH1080/WH1081:
-echo    1. Conectar el sensor USB
-echo    2. Ejecutar zadig.exe (en este USB)
-echo    3. Seleccionar el dispositivo WH1080 o HID
-echo    4. Click "Install Driver" (libusb-win32 o WinUSB)
-echo    5. Ejecutar C:\YVY\scripts\VALIDAR_SENSOR.bat para confirmar
-echo    6. Reiniciar YVY
+echo  PROXIMO PASO - Sensor WH1081 (UNA SOLA VEZ):
+echo.
+echo    1. Conectar el sensor WH1081 al puerto USB antes de abrir Zadig.
+echo    2. Ejecutar zadig.exe (esta en el USB).
+echo    3. En el menu Options, tildar "List All Devices".
+echo    4. En el dropdown principal, buscar el dispositivo con:
+echo         USB ID:  VID = 1941  /  PID = 8021
+echo    5. Si NO aparece ese VID/PID, NO continuar. Verificar cable y sensor.
+echo    6. Con ese dispositivo seleccionado, elegir driver "WinUSB" a la derecha.
+echo    7. Click en "Replace Driver" y esperar mensaje de exito.
+echo.
+echo  ATENCION: NUNCA hacer Replace Driver sobre otro dispositivo.
+echo  Cualquier HID que no sea VID=1941 PID=8021 puede ser el
+echo  teclado o mouse. Reemplazar su driver lo dejara inutilizable.
+echo.
+echo    8. Ejecutar C:\YVY\scripts\VALIDAR_SENSOR.bat para confirmar.
+echo    9. Reiniciar YVY.
 echo  =====================================================
 echo.
 pause

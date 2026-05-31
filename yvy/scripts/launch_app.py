@@ -48,6 +48,7 @@ from yvy.application.use_cases.admin.export_raw_csv import ExportRawCsvUseCase
 from yvy.application.use_cases.admin.list_audit_logs import ListAuditLogsUseCase
 from yvy.application.use_cases.admin.update_retention_policy import UpdateRetentionPolicyUseCase
 from yvy.application.use_cases.auth.change_password import ChangePasswordUseCase
+from yvy.application.use_cases.auth.complete_onboarding import CompleteOnboardingUseCase
 from yvy.application.use_cases.auth.create_user import CreateUserUseCase
 from yvy.application.use_cases.auth.login import LoginUseCase
 from yvy.application.use_cases.auth.manage_user import SetUserActiveUseCase, ToggleExportFlagUseCase
@@ -105,29 +106,51 @@ def main() -> int:
     # Hasher solo lo usa el launcher (no es dep core)
     hasher = BcryptPasswordHasher(rounds=4)
 
-    # Seed station_uuid si la DB es nueva (side effect del launcher, no del bootstrap)
-    if app_config_repo.get("station_uuid") is None:
-        dev_station_uuid = str(uuid.uuid4())
-        app_config_repo.set("station_uuid", dev_station_uuid)
-        print(f"[dev] station_uuid generado: {dev_station_uuid}")
+    create_uc = CreateUserUseCase(user_repo=user_repo, audit_repo=audit_repo, hasher=hasher)
+
+    # Use case de onboarding — se pasa a MainApplication para que lo invoque
+    # automáticamente en primer arranque.
+    onboarding_uc = CompleteOnboardingUseCase(
+        create_user_uc=create_uc,
+        audit_repo=audit_repo,
+        app_config_repo=app_config_repo,
+        credentials_root=ROOT,
+    )
+
+    onboarding_done = app_config_repo.is_onboarding_completed()
+
+    if onboarding_done:
+        # Instalación existente: seed defensivo para compat dev.
+        if app_config_repo.get("station_uuid") is None:
+            dev_uuid = str(uuid.uuid4())
+            app_config_repo.set("station_uuid", dev_uuid)
+            print(f"[dev] station_uuid generado: {dev_uuid}")
+
+        # Usuario de emergencia si la DB quedó sin usuarios (no debería pasar).
+        users = user_repo.list_all()
+        if not users:
+            print(f"DB sin usuarios. Creando superadmin '{DEFAULT_USER}' / '{DEFAULT_PASS}'")
+            create_uc.execute(
+                username=DEFAULT_USER,
+                full_name="Director IEA",
+                password=DEFAULT_PASS,
+                role=Role.SUPERADMIN,
+                can_export_raw=True,
+            )
+        else:
+            print(f"Usuarios existentes: {[u.username for u in users]}")
+    else:
+        # Primera instalación: el wizard se encargará de station_uuid y usuarios.
+        # Seed temporal para que los use cases se puedan construir.
+        if app_config_repo.get("station_uuid") is None:
+            temp_uuid = str(uuid.uuid4())
+            app_config_repo.set("station_uuid", temp_uuid)
+            app_config_repo.set("station_uuid_is_temporary", "true")
+            print(f"[onboarding] UUID temporal: {temp_uuid} (el wizard lo reemplazará)")
+        print("[onboarding] Primera instalación — el wizard configurará la estación.")
 
     _station_uuid = StationUUID(uuid.UUID(app_config_repo.get("station_uuid")))
     _parser = PywwsPayloadParser()
-
-    # Crear usuario por defecto si la DB está vacía
-    create_uc = CreateUserUseCase(user_repo=user_repo, audit_repo=audit_repo, hasher=hasher)
-    users = user_repo.list_all()
-    if not users:
-        print(f"DB sin usuarios. Creando superadmin '{DEFAULT_USER}' / '{DEFAULT_PASS}'")
-        create_uc.execute(
-            username=DEFAULT_USER,
-            full_name="Director IEA",
-            password=DEFAULT_PASS,
-            role=Role.SUPERADMIN,
-            can_export_raw=True,
-        )
-    else:
-        print(f"Usuarios existentes: {[u.username for u in users]}")
 
     login_uc = LoginUseCase(user_repo=user_repo, audit_repo=audit_repo, hasher=hasher, time_provider=clock)
     change_uc = ChangePasswordUseCase(user_repo=user_repo, audit_repo=audit_repo, hasher=hasher)
@@ -251,6 +274,7 @@ def main() -> int:
 
     app = MainApplication(
         auth_controller=auth_controller,
+        onboarding_use_case=onboarding_uc,
         users_admin_controller=users_controller,
         list_audit_logs_uc=list_logs_uc,
         update_retention_uc=update_retention_uc,
@@ -264,8 +288,8 @@ def main() -> int:
         empirical_controller=empirical_controller,
         sensor_status_fn=_sensor_status_fn,
         sync_controller=sync_controller,
-        iea_name="IEA Nº10 — Posadas",
-        iea_cue="540178700",
+        iea_name=app_config_repo.get("school_name") or "IEA — sin configurar",
+        iea_cue=app_config_repo.get("cue") or "",
         local_tz=TZ_AR,
     )
 

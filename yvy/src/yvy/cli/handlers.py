@@ -228,8 +228,8 @@ def compute_info(deps: CoreDependencies) -> dict[str, Any]:
             "value": None,
         })
 
-    # IEA name (de app_config)
-    iea_name = deps.app_config_repo.get("iea_name") or "no configurado"
+    # IEA name — guardada por el wizard como "school_name"
+    iea_name = deps.app_config_repo.get("school_name") or "no configurado"
     checks.append({
         "name": "IEA",
         "status": "info",
@@ -237,8 +237,8 @@ def compute_info(deps: CoreDependencies) -> dict[str, Any]:
         "value": iea_name,
     })
 
-    # CUE
-    cue = deps.app_config_repo.get("iea_cue") or "no configurado"
+    # CUE — guardada por el wizard como "cue"
+    cue = deps.app_config_repo.get("cue") or "no configurado"
     checks.append({
         "name": "CUE",
         "status": "info",

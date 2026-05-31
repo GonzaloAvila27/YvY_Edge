@@ -22,9 +22,11 @@ permitiendo corregir.
 
 from __future__ import annotations
 
+import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from uuid import uuid4
 
 from yvy.application.use_cases.auth.create_user import CreateUserUseCase
@@ -43,6 +45,8 @@ KEY_STATION_UUID = "station_uuid"
 KEY_TIMEZONE = "timezone"
 KEY_HARDWARE_FINGERPRINT = "hardware_fingerprint"
 KEY_ONBOARDING_COMPLETED_AT = "onboarding_completed_at"
+KEY_SYNC_SERVER_URL = "sync_server_url"
+KEY_STATION_UUID_TEMPORARY = "station_uuid_is_temporary"
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +69,9 @@ class OnboardingData:
     primary_admin: AdminCreationData
     secondary_admin: AdminCreationData | None = None
     hardware_fingerprint: str | None = None  # None si no se pudo leer
+    # Sync (Fase 9.2) — opcionales: el operador puede saltear este paso
+    sync_server_url: str | None = None
+    station_credentials: dict | None = None  # dict con station_uuid, key_version, key_hmac_hex
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +92,8 @@ class CompleteOnboardingUseCase:
     # AppConfigRepository inyectado pero sin tipo explícito en domain
     # (es de infrastructure). Se valida estructuralmente.
     app_config_repo: object
+    # Raíz del proyecto para escribir data/station_credentials.json
+    credentials_root: Path = field(default_factory=Path.cwd)
 
     def execute(self, data: OnboardingData) -> CompleteOnboardingResult:
         """Ejecuta los 5 pasos del onboarding.
@@ -97,7 +106,11 @@ class CompleteOnboardingUseCase:
             CompleteOnboardingResult con station_uuid generado y los ids.
         """
         # 1. Persistir config institucional (incluso si admins fallan después)
-        station_uuid = str(uuid4())
+        # UUID definitivo: viene de credentials si se proveyeron; aleatorio si no.
+        if data.station_credentials and "station_uuid" in data.station_credentials:
+            station_uuid = str(data.station_credentials["station_uuid"])
+        else:
+            station_uuid = str(uuid4())
         self._persist_config(data, station_uuid)
 
         # 2. Crear primer admin (siempre superadmin)
@@ -168,3 +181,23 @@ class CompleteOnboardingUseCase:
         repo.set(KEY_TIMEZONE, data.timezone)  # type: ignore[attr-defined]
         if data.hardware_fingerprint is not None:
             repo.set(KEY_HARDWARE_FINGERPRINT, data.hardware_fingerprint)  # type: ignore[attr-defined]
+
+        # Sync (Fase 9.2)
+        if data.sync_server_url:
+            repo.set(KEY_SYNC_SERVER_URL, data.sync_server_url)  # type: ignore[attr-defined]
+        if data.station_credentials:
+            self._write_credentials(data.station_credentials)
+            # UUID definitivo viene de credentials, no de generación aleatoria
+            repo.set(KEY_STATION_UUID, data.station_credentials["station_uuid"])  # type: ignore[attr-defined]
+            # Limpiar flag temporal si estaba seteado
+            repo.delete(KEY_STATION_UUID_TEMPORARY)  # type: ignore[attr-defined]
+
+    def _write_credentials(self, creds: dict) -> None:
+        """Escribe data/station_credentials.json en el filesystem."""
+        creds_dir = self.credentials_root / "data"
+        creds_dir.mkdir(parents=True, exist_ok=True)
+        creds_path = creds_dir / "station_credentials.json"
+        creds_path.write_text(
+            json.dumps(creds, indent=2), encoding="utf-8"
+        )
+        logger.info("station_credentials.json escrito en %s", creds_path)

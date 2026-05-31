@@ -128,7 +128,7 @@ def _cmd_status(root: Path, no_migrate: bool) -> int:
     )
     report = compute_status(deps)
 
-    iea_name = deps.app_config_repo.get("iea_name") or "—"
+    iea_name = deps.app_config_repo.get("school_name") or "—"
     print_report(report, title="YVY Edge — Estado", subtitle=iea_name)
     return 0 if report["ok"] else 1
 
