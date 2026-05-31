@@ -106,4 +106,78 @@ Los radio buttons de viento usan grid con `weight=1` y `sticky="w"`, por lo que 
 
 ---
 
+## 2026-05-31 · Step 3 wizard empírico — grid 2 columnas, scroll reducido
+
+**Archivo:** `src/yvy/presentation/views/empirical/wizard_view.py`  
+**Función afectada:** `_render_step_qualitative()`
+
+### Motivación
+
+El layout original apilaba todos los grupos verticalmente con un scroll canvas de ancho fijo (`width=900`). A 1280×768, el scroll siempre era necesario. Con la nueva distribución en 2 columnas el contenido entra en pantalla sin scroll en resoluciones ≥1280px.
+
+### Nuevo layout del Step 3
+
+```
+┌─ inner (padx=20, pady=16) ─────────────────────────────────────────┐
+│  "Observaciones a simple vista"  [FONT_H2]                          │
+│                                                                      │
+│  ┌─ grid (2 col, weight=1 uniform) ──────────────────────────────┐ │
+│  │  Fila 0 span 2: "Cobertura del cielo"                         │ │
+│  │  [0%]  [25%]  [50%]  [75%]  [100%]  ← radios en línea        │ │
+│  ├────────────────────┬──────────────────────────────────────────┤ │
+│  │ col 0              │ col 1                                    │ │
+│  │ ┌─ Tipo de nubes ─┐│ ┌─ Estado del suelo ──────────────────┐ │ │
+│  │ │ ○ Despejado     ││ │ ○ Seco  ○ Húmedo  ○ ...             │ │ │
+│  │ │ ○ Parcial       ││ └────────────────────────────────────-─┘ │ │
+│  │ │ ○ Cubierto      ││ ┌─ Visibilidad ───────────────────────┐ │ │
+│  │ │ ○ Cúmulos       ││ │ ○ Buena  ○ Moderada  ○ ...         │ │ │
+│  │ │ ○ Tormenta      ││ └─────────────────────────────────────┘ │ │
+│  │ │ ○ Sin datos     ││ ┌─ Precipitación al momento ──────────┐ │ │
+│  │ └─────────────────┘│ │ ○ Nada  ○ Llovizna  ○ ...          │ │ │
+│  │                    │ └─────────────────────────────────────┘ │ │
+│  ├────────────────────┴──────────────────────────────────────────┤ │
+│  │  Fila 2 span 2: "Fenología de cultivos"                       │ │
+│  │  [Text fill=x, height=FORM_TEXTAREA_HEIGHT//20 filas]         │ │
+│  ├────────────────────┬──────────────────────────────────────────┤ │
+│  │ col 0              │ col 1                                    │ │
+│  │ ┌─ Estado ganado ─┐│ "Observaciones del ganado:"              │ │
+│  │ │ ○ Bien  ○ ...   ││ [Text fill=x, height=3]                  │ │
+│  │ └─────────────────┘│                                          │ │
+│  └────────────────────┴──────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Detalles técnicos
+
+**Canvas dinámico:** en vez del `width=900` fijo del original, el contenido sigue el ancho del canvas via `canvas.itemconfig(win_id, width=e.width)` en `<Configure>`. Elimina el scroll horizontal en cualquier resolución.
+
+**Alineamiento LabelFrame de nubes vs columna derecha:** `uniform="col"` en `columnconfigure(0)` y `columnconfigure(1)` fuerza columnas de ancho idéntico aunque las opciones de nubes sean más largas que cualquier elemento de la derecha. El LabelFrame usa `sticky="nsew"` para rellenar su celda.
+
+**`_textarea_rows`:** calculado como `max(3, FORM_TEXTAREA_HEIGHT // 20)` → 4 filas con la fuente FONT_BODY (11px, line height ≈ 20px).
+
+**Texto de ganado:** mantenido como `tk.Text` (no `Entry`) porque `_capture_current_step()` lo captura con `.get("1.0", "end").strip()`. Visualmente se estilizó con borde highlight igual que los otros Text.
+
+### Bindings preservados sin cambio
+
+```python
+self._sky_var              # → self._state["sky_coverage_pct"]
+self._cloud_var            # → self._state["cloud_type"]
+self._soil_var             # → self._state["soil_state"]
+self._vis_var              # → self._state["visibility"]
+self._precip_var           # → self._state["precipitation_now"]
+self._phenology_text       # → self._state["phenology_notes"]
+self._livestock_var        # → self._state["livestock_state"]
+self._livestock_notes_text # → self._state["livestock_notes"]
+```
+
+### Comportamiento scroll a distintas resoluciones
+
+| Alto disponible | Contenido aprox | Resultado |
+|---|---|---|
+| ≥768px (1280×768) | ~620px | Sin scroll en operación normal |
+| 600px (1024×600) | ~620px | Scroll leve (~20px) |
+| <600px | ~620px | Scroll activo |
+
+---
+
 *Próximas refactorizaciones: agregar en este mismo archivo.*

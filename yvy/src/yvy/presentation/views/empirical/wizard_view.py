@@ -53,6 +53,7 @@ from yvy.presentation.theme import (
     FORM_PADDING_H,
     FORM_PADDING_V,
     FORM_ROW_GAP,
+    FORM_TEXTAREA_HEIGHT,
     PRIMARY,
     SPACE_LG,
     SPACE_MD,
@@ -445,81 +446,203 @@ class EmpiricalWizardView(tk.Frame):
     # ════════════════════════════════════════════════════════════════════
 
     def _render_step_qualitative(self) -> None:
-        # Scroll container para que no se corte en pantallas pequeñas
+        """Step 3 — Observaciones a simple vista.
+
+        Grid de 2 columnas. Canvas con scrollbar solo activo cuando el
+        contenido supera el área visible (poco probable a ≥1280px).
+
+        Fila 0 (span 2): Cobertura del cielo — 5 radios en línea
+        Fila 1 col 0:    LabelFrame Tipo de nubes (6 radios verticales)
+        Fila 1 col 1:    Suelo + Visibilidad + Precipitación apilados
+        Fila 2 (span 2): Fenología — Text FORM_TEXTAREA_HEIGHT
+        Fila 3 col 0:    LabelFrame Estado del ganado (4 radios horiz)
+        Fila 3 col 1:    Observaciones del ganado — Text
+        """
+        # Canvas con scrollbar — se activa solo si el contenido desborda
         outer = tk.Frame(self._body, bg=COLORS["bg"])
         outer.pack(fill="both", expand=True)
+
         canvas = tk.Canvas(outer, bg=COLORS["bg"], highlightthickness=0)
         scrollbar = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
         canvas.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
         canvas.pack(side="left", fill="both", expand=True)
 
-        container = tk.Frame(canvas, bg=COLORS["bg"])
-        canvas.create_window((0, 0), window=container, anchor="nw", width=900)
-        container.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        content = tk.Frame(canvas, bg=COLORS["bg"])
+        win_id = canvas.create_window((0, 0), window=content, anchor="nw")
 
-        inner = tk.Frame(container, bg=COLORS["bg"])
-        inner.pack(padx=SPACE_LG, pady=SPACE_LG, fill="both", expand=True)
+        # El contenido sigue el ancho del canvas (sin scroll horizontal)
+        canvas.bind(
+            "<Configure>",
+            lambda e: canvas.itemconfig(win_id, width=e.width),
+        )
+        content.bind(
+            "<Configure>",
+            lambda _: canvas.configure(scrollregion=canvas.bbox("all")),
+        )
+
+        inner = tk.Frame(content, bg=COLORS["bg"])
+        inner.pack(padx=FORM_PADDING_H, pady=FORM_PADDING_V, fill="both", expand=True)
 
         tk.Label(
             inner, text="Observaciones a simple vista",
             font=FONTS["heading"], bg=COLORS["bg"], fg=COLORS["text"],
         ).pack(anchor="w", pady=(0, SPACE_MD))
 
-        # Cobertura cielo (radio 5 valores)
-        self._sky_var = tk.StringVar(value=str(self._state["sky_coverage_pct"]) if self._state["sky_coverage_pct"] is not None else "")
-        sky_frame = tk.Frame(inner, bg=COLORS["bg"])
-        sky_frame.pack(anchor="w", pady=SPACE_SM, fill="x")
-        tk.Label(sky_frame, text="Cobertura del cielo:", font=FONTS["body_bold"], bg=COLORS["bg"]).pack(side="left", padx=(0, SPACE_MD))
+        # ── Grid 2 columnas ──────────────────────────────────────────────
+        grid = tk.Frame(inner, bg=COLORS["bg"])
+        grid.pack(fill="both", expand=True)
+        # uniform="col" garantiza columnas de ancho idéntico aunque el
+        # LabelFrame de nubes tenga opciones más largas que la derecha.
+        grid.columnconfigure(0, weight=1, uniform="col")
+        grid.columnconfigure(1, weight=1, uniform="col")
+
+        half_gap = FORM_COL_GAP // 2
+        _rg = FORM_ROW_GAP    # alias local para legibilidad
+
+        # ── Fila 0: Cobertura del cielo (span 2, radios en línea) ────────
+        self._sky_var = tk.StringVar(
+            value=str(self._state["sky_coverage_pct"])
+            if self._state["sky_coverage_pct"] is not None else ""
+        )
+        sky_cell = tk.Frame(grid, bg=COLORS["bg"])
+        sky_cell.grid(row=0, column=0, columnspan=2, sticky="ew",
+                      pady=(0, _rg))
+
+        tk.Label(
+            sky_cell, text="Cobertura del cielo",
+            font=FONT_FORM_LABEL, bg=COLORS["bg"], fg=TEXT_PRIMARY, anchor="w",
+        ).pack(anchor="w", pady=(0, FORM_LABEL_MB))
+
+        sky_radios = tk.Frame(sky_cell, bg=COLORS["bg"])
+        sky_radios.pack(anchor="w")
         for pct in [0, 25, 50, 75, 100]:
-            ttk.Radiobutton(sky_frame, text=f"{pct}%", variable=self._sky_var, value=str(pct)).pack(side="left", padx=SPACE_SM)
+            ttk.Radiobutton(
+                sky_radios, text=f"{pct}%",
+                variable=self._sky_var, value=str(pct),
+            ).pack(side="left", padx=FORM_COL_GAP)
 
-        # Tipo de nubes (radio 6 valores)
-        self._cloud_var = tk.StringVar(value=self._state["cloud_type"].value if self._state["cloud_type"] else "")
-        cloud_frame = tk.LabelFrame(inner, text="Tipo de nubes predominantes", bg=COLORS["bg"], padx=SPACE_SM, pady=SPACE_SM)
-        cloud_frame.pack(anchor="w", pady=SPACE_SM, fill="x")
+        # ── Fila 1 col 0: Tipo de nubes — 6 radios verticales ────────────
+        self._cloud_var = tk.StringVar(
+            value=self._state["cloud_type"].value if self._state["cloud_type"] else ""
+        )
+        cloud_lf = tk.LabelFrame(
+            grid, text="Tipo de nubes predominantes",
+            bg=COLORS["bg"], padx=SPACE_SM, pady=SPACE_SM,
+        )
+        cloud_lf.grid(row=1, column=0, sticky="nsew",
+                      padx=(0, half_gap), pady=(0, _rg))
         for ct in CloudType:
-            label = CLOUD_TYPE_DESCRIPTIONS[ct]
-            ttk.Radiobutton(cloud_frame, text=label, variable=self._cloud_var, value=ct.value).pack(anchor="w")
+            ttk.Radiobutton(
+                cloud_lf, text=CLOUD_TYPE_DESCRIPTIONS[ct],
+                variable=self._cloud_var, value=ct.value,
+            ).pack(anchor="w", pady=2)
 
-        # Estado del suelo
-        self._soil_var = tk.StringVar(value=self._state["soil_state"].value if self._state["soil_state"] else "")
-        soil_frame = tk.LabelFrame(inner, text="Estado del suelo", bg=COLORS["bg"], padx=SPACE_SM, pady=SPACE_SM)
-        soil_frame.pack(anchor="w", pady=SPACE_SM, fill="x")
+        # ── Fila 1 col 1: Suelo + Visibilidad + Precipitación apilados ───
+        right_col = tk.Frame(grid, bg=COLORS["bg"])
+        right_col.grid(row=1, column=1, sticky="nsew",
+                       padx=(half_gap, 0), pady=(0, _rg))
+
+        self._soil_var = tk.StringVar(
+            value=self._state["soil_state"].value if self._state["soil_state"] else ""
+        )
+        soil_lf = tk.LabelFrame(
+            right_col, text="Estado del suelo",
+            bg=COLORS["bg"], padx=SPACE_SM, pady=SPACE_SM,
+        )
+        soil_lf.pack(fill="x", pady=(0, SPACE_SM))
         for s in SoilState:
-            ttk.Radiobutton(soil_frame, text=s.value.capitalize(), variable=self._soil_var, value=s.value).pack(side="left", padx=SPACE_SM)
+            ttk.Radiobutton(
+                soil_lf, text=s.value.capitalize(),
+                variable=self._soil_var, value=s.value,
+            ).pack(side="left", padx=SPACE_SM)
 
-        # Visibilidad
-        self._vis_var = tk.StringVar(value=self._state["visibility"].value if self._state["visibility"] else "")
-        vis_frame = tk.LabelFrame(inner, text="Visibilidad", bg=COLORS["bg"], padx=SPACE_SM, pady=SPACE_SM)
-        vis_frame.pack(anchor="w", pady=SPACE_SM, fill="x")
+        self._vis_var = tk.StringVar(
+            value=self._state["visibility"].value if self._state["visibility"] else ""
+        )
+        vis_lf = tk.LabelFrame(
+            right_col, text="Visibilidad",
+            bg=COLORS["bg"], padx=SPACE_SM, pady=SPACE_SM,
+        )
+        vis_lf.pack(fill="x", pady=(0, SPACE_SM))
         for v in Visibility:
-            ttk.Radiobutton(vis_frame, text=v.value.capitalize(), variable=self._vis_var, value=v.value).pack(side="left", padx=SPACE_SM)
+            ttk.Radiobutton(
+                vis_lf, text=v.value.capitalize(),
+                variable=self._vis_var, value=v.value,
+            ).pack(side="left", padx=SPACE_SM)
 
-        # Precipitación ahora
-        self._precip_var = tk.StringVar(value=self._state["precipitation_now"].value if self._state["precipitation_now"] else "")
-        precip_frame = tk.LabelFrame(inner, text="Precipitación al momento", bg=COLORS["bg"], padx=SPACE_SM, pady=SPACE_SM)
-        precip_frame.pack(anchor="w", pady=SPACE_SM, fill="x")
+        self._precip_var = tk.StringVar(
+            value=self._state["precipitation_now"].value
+            if self._state["precipitation_now"] else ""
+        )
+        precip_lf = tk.LabelFrame(
+            right_col, text="Precipitación al momento",
+            bg=COLORS["bg"], padx=SPACE_SM, pady=SPACE_SM,
+        )
+        precip_lf.pack(fill="x")
         for p in PrecipitationNow:
-            ttk.Radiobutton(precip_frame, text=p.value.replace("_", " ").capitalize(), variable=self._precip_var, value=p.value).pack(side="left", padx=SPACE_SM)
+            ttk.Radiobutton(
+                precip_lf, text=p.value.replace("_", " ").capitalize(),
+                variable=self._precip_var, value=p.value,
+            ).pack(side="left", padx=SPACE_SM)
 
-        # Fenología (textarea libre)
-        tk.Label(inner, text="Fenología de cultivos (texto libre):", font=FONTS["body_bold"], bg=COLORS["bg"]).pack(anchor="w", pady=(SPACE_LG, SPACE_SM))
-        self._phenology_text = tk.Text(inner, height=3, width=80, font=FONTS["body"])
-        self._phenology_text.pack(anchor="w", fill="x")
+        # ── Fila 2: Fenología (span 2) ────────────────────────────────────
+        pheno_cell = tk.Frame(grid, bg=COLORS["bg"])
+        pheno_cell.grid(row=2, column=0, columnspan=2, sticky="ew",
+                        pady=(0, _rg))
+
+        tk.Label(
+            pheno_cell, text="Fenología de cultivos (texto libre):",
+            font=FONT_FORM_LABEL, bg=COLORS["bg"], fg=TEXT_PRIMARY, anchor="w",
+        ).pack(anchor="w", pady=(0, FORM_LABEL_MB))
+
+        # Altura en líneas: FORM_TEXTAREA_HEIGHT / altura_línea_aprox
+        _textarea_rows = max(3, FORM_TEXTAREA_HEIGHT // 20)
+        self._phenology_text = tk.Text(
+            pheno_cell, height=_textarea_rows,
+            font=FONTS["body"],
+            bg=BG_CARD, fg=TEXT_PRIMARY, relief="flat", bd=0,
+            highlightbackground=BORDER, highlightthickness=1,
+            highlightcolor=PRIMARY,
+        )
+        self._phenology_text.pack(fill="x")
         if self._state["phenology_notes"]:
             self._phenology_text.insert("1.0", self._state["phenology_notes"])
 
-        # Ganado
-        self._livestock_var = tk.StringVar(value=self._state["livestock_state"].value if self._state["livestock_state"] else "")
-        livestock_frame = tk.LabelFrame(inner, text="Estado del ganado", bg=COLORS["bg"], padx=SPACE_SM, pady=SPACE_SM)
-        livestock_frame.pack(anchor="w", pady=SPACE_SM, fill="x")
+        # ── Fila 3 col 0: Estado del ganado — 4 radios horizontales ───────
+        self._livestock_var = tk.StringVar(
+            value=self._state["livestock_state"].value
+            if self._state["livestock_state"] else ""
+        )
+        livestock_lf = tk.LabelFrame(
+            grid, text="Estado del ganado",
+            bg=COLORS["bg"], padx=SPACE_SM, pady=SPACE_SM,
+        )
+        livestock_lf.grid(row=3, column=0, sticky="nsew",
+                          padx=(0, half_gap))
         for ls in LivestockState:
-            ttk.Radiobutton(livestock_frame, text=ls.value.capitalize(), variable=self._livestock_var, value=ls.value).pack(side="left", padx=SPACE_SM)
+            ttk.Radiobutton(
+                livestock_lf, text=ls.value.capitalize(),
+                variable=self._livestock_var, value=ls.value,
+            ).pack(side="left", padx=SPACE_SM)
 
-        tk.Label(inner, text="Observaciones del ganado:", font=FONTS["body"], bg=COLORS["bg"]).pack(anchor="w", pady=(SPACE_SM, 0))
-        self._livestock_notes_text = tk.Text(inner, height=2, width=80, font=FONTS["body"])
-        self._livestock_notes_text.pack(anchor="w", fill="x")
+        # ── Fila 3 col 1: Observaciones del ganado ────────────────────────
+        notes_cell = tk.Frame(grid, bg=COLORS["bg"])
+        notes_cell.grid(row=3, column=1, sticky="nsew",
+                        padx=(half_gap, 0))
+
+        tk.Label(
+            notes_cell, text="Observaciones del ganado:",
+            font=FONT_FORM_LABEL, bg=COLORS["bg"], fg=TEXT_PRIMARY, anchor="w",
+        ).pack(anchor="w", pady=(0, FORM_LABEL_MB))
+        self._livestock_notes_text = tk.Text(
+            notes_cell, height=3,
+            font=FONTS["body"],
+            bg=BG_CARD, fg=TEXT_PRIMARY, relief="flat", bd=0,
+            highlightbackground=BORDER, highlightthickness=1,
+            highlightcolor=PRIMARY,
+        )
+        self._livestock_notes_text.pack(fill="x", expand=True)
         if self._state["livestock_notes"]:
             self._livestock_notes_text.insert("1.0", self._state["livestock_notes"])
 
