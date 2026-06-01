@@ -25,6 +25,7 @@ from __future__ import annotations
 import logging
 import tkinter as tk
 from collections.abc import Callable
+from pathlib import Path
 
 from yvy.presentation.components.status_indicator import State, StatusIndicator
 from yvy.presentation.theme import (
@@ -45,6 +46,10 @@ from yvy.presentation.theme import (
 )
 
 logger = logging.getLogger(__name__)
+
+_LOGO_PATH = Path(__file__).resolve().parents[4] / "resources" / "logo.png"
+# Tamaño del logo en el header (cabe en 60px de alto con padding 10px vertical)
+_LOGO_W, _LOGO_H = 160, 40
 
 
 class Header(tk.Frame):
@@ -88,7 +93,7 @@ class Header(tk.Frame):
     # ─── Subsecciones ────────────────────────────────────────────────────
 
     def _build_logo(self) -> None:
-        """Logo YVY Edge a la izquierda. Texto hasta recibir PNG definitivo."""
+        """Logo YVY Edge — PNG si existe resources/logo.png, texto fallback."""
         logo_frame = tk.Frame(self, bg=PRIMARY, width=200)
         logo_frame.pack(side="left", fill="y", padx=(SPACE_XL, 0))
         logo_frame.pack_propagate(False)
@@ -96,22 +101,20 @@ class Header(tk.Frame):
         inner = tk.Frame(logo_frame, bg=PRIMARY)
         inner.pack(expand=True, fill="y")
 
-        tk.Label(
-            inner,
-            text="YVY",
-            bg=PRIMARY,
-            fg=SUCCESS,
-            font=FONT_LOGO,
-            anchor="w",
-        ).pack(anchor="w")
-        tk.Label(
-            inner,
-            text="Edge",
-            bg=PRIMARY,
-            fg="#7A9E1F",  # SUCCESS más apagado para jerarquía
-            font=("DejaVu Sans", 10, "bold"),
-            anchor="w",
-        ).pack(anchor="w")
+        photo = _load_logo(_LOGO_PATH, _LOGO_W, _LOGO_H)
+        if photo is not None:
+            lbl = tk.Label(inner, image=photo, bg=PRIMARY, cursor="arrow")
+            lbl.image = photo  # evitar garbage collection
+            lbl.pack(expand=True)
+        else:
+            # Fallback texto (mientras no haya PNG)
+            tk.Label(
+                inner, text="YVY", bg=PRIMARY, fg=SUCCESS, font=FONT_LOGO, anchor="w",
+            ).pack(anchor="w")
+            tk.Label(
+                inner, text="Edge", bg=PRIMARY, fg="#7A9E1F",
+                font=("DejaVu Sans", 10, "bold"), anchor="w",
+            ).pack(anchor="w")
 
     def _build_identity(self, iea_name: str, iea_cue: str) -> None:
         """Nombre IEA + CUE en el centro."""
@@ -344,8 +347,32 @@ class Header(tk.Frame):
         if count > 0:
             text = str(count) if count < 10 else "9+"
             self._notif_badge.configure(text=text)
-            # Ubicación: superpuesto al bell, esquina superior derecha.
-            # En Tkinter sin overlap absoluto, mejor a la derecha del bell.
             self._notif_badge.pack(side="left", padx=(2, 0))
         else:
             self._notif_badge.pack_forget()
+
+
+# ─── Helper de carga de logo ──────────────────────────────────────────────────
+
+
+def _load_logo(path: Path, width: int, height: int) -> "tk.PhotoImage | None":
+    """Carga un PNG y lo escala a (width, height). Retorna None si falla.
+
+    Usa Pillow si está disponible (escalado de calidad); fallback a
+    tk.PhotoImage nativo (solo funciona si el PNG ya tiene el tamaño exacto).
+    """
+    if not path.exists():
+        return None
+    try:
+        from PIL import Image, ImageTk
+        img = Image.open(path).convert("RGBA")
+        img = img.resize((width, height), Image.LANCZOS)
+        return ImageTk.PhotoImage(img)
+    except Exception:
+        pass
+    try:
+        import tkinter as _tk
+        return _tk.PhotoImage(file=str(path))
+    except Exception:
+        logger.warning("logo.load.failed", extra={"path": str(path)})
+        return None

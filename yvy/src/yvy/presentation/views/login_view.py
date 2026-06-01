@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import tkinter as tk
 from collections.abc import Callable
+from pathlib import Path
 from tkinter import ttk
 
 from yvy.presentation.components.status_indicator import StatusIndicator
@@ -39,6 +40,10 @@ from yvy.presentation.theme import (
 )
 
 logger = logging.getLogger(__name__)
+
+_LOGO_LOGIN_PATH = Path(__file__).resolve().parents[4] / "resources" / "logo_login.png"
+# Ancho y alto del logo en el login card (sobre fondo blanco del card)
+_LOGO_LOGIN_W, _LOGO_LOGIN_H = 220, 70
 
 
 class LoginView(tk.Frame):
@@ -101,46 +106,45 @@ class LoginView(tk.Frame):
             justify="center",
         ).pack(pady=(SPACE_SM, 0))
 
-        # Logo placeholder (cuadrado con iniciales)
+        # Logo — PNG si existe, fallback a texto
         logo_frame = tk.Frame(card, bg=BG_CARD)
         logo_frame.pack(pady=(SPACE_2XL, SPACE_MD))
 
-        logo_canvas = tk.Canvas(
-            logo_frame,
-            width=80,
-            height=80,
-            bg=BG_CARD,
-            highlightthickness=0,
-        )
-        logo_canvas.pack()
-        logo_canvas.create_rectangle(
-            0, 0, 79, 79, fill=PRIMARY, outline=PRIMARY
-        )
-        logo_canvas.create_text(
-            40, 36, text="YVY",
-            fill=SUCCESS, font=("DejaVu Sans", 16, "bold"),
-        )
-        logo_canvas.create_text(
-            40, 57, text="Edge",
-            fill="#7A9E1F", font=("DejaVu Sans", 9, "bold"),
-        )
-
-        # Título
-        tk.Label(
-            card,
-            text="YVY Edge",
-            bg=BG_CARD,
-            fg=PRIMARY,
-            font=FONT_DISPLAY,
-        ).pack()
-
-        tk.Label(
-            card,
-            text="Sistema Meteorológico Escolar",
-            bg=BG_CARD,
-            fg=TEXT_SECONDARY,
-            font=FONT_SMALL,
-        ).pack(pady=(0, SPACE_MD))
+        photo = _load_logo(_LOGO_LOGIN_PATH, _LOGO_LOGIN_W, _LOGO_LOGIN_H)
+        if photo is not None:
+            lbl = tk.Label(logo_frame, image=photo, bg=BG_CARD)
+            lbl.image = photo  # evitar garbage collection
+            lbl.pack()
+            # Con PNG no mostramos título de texto redundante
+            tk.Label(
+                card,
+                text="Sistema Meteorológico Escolar",
+                bg=BG_CARD,
+                fg=TEXT_SECONDARY,
+                font=FONT_SMALL,
+            ).pack(pady=(0, SPACE_MD))
+        else:
+            # Fallback: canvas con texto (sin rectángulo azul)
+            logo_canvas = tk.Canvas(
+                logo_frame, width=80, height=80, bg=BG_CARD, highlightthickness=0,
+            )
+            logo_canvas.pack()
+            logo_canvas.create_text(
+                40, 36, text="YVY", fill=PRIMARY, font=("DejaVu Sans", 22, "bold"),
+            )
+            logo_canvas.create_text(
+                40, 58, text="Edge", fill=SUCCESS, font=("DejaVu Sans", 11, "bold"),
+            )
+            tk.Label(
+                card, text="YVY Edge", bg=BG_CARD, fg=PRIMARY, font=FONT_DISPLAY,
+            ).pack()
+            tk.Label(
+                card,
+                text="Sistema Meteorológico Escolar",
+                bg=BG_CARD,
+                fg=TEXT_SECONDARY,
+                font=FONT_SMALL,
+            ).pack(pady=(0, SPACE_MD))
 
         # Línea decorativa oliva
         line = tk.Frame(card, bg=SUCCESS, height=2, width=200)
@@ -281,3 +285,24 @@ class LoginView(tk.Frame):
         self._user_entry.delete(0, "end")
         self._pwd_entry.delete(0, "end")
         self._user_entry.focus_set()
+
+
+# ─── Helper ───────────────────────────────────────────────────────────────────
+
+
+def _load_logo(path: Path, width: int, height: int) -> "tk.PhotoImage | None":
+    """Carga PNG y escala a (width, height). None si falla o no existe."""
+    if not path.exists():
+        return None
+    try:
+        from PIL import Image, ImageTk
+        img = Image.open(path).convert("RGBA")
+        img = img.resize((width, height), Image.LANCZOS)
+        return ImageTk.PhotoImage(img)
+    except Exception:
+        pass
+    try:
+        return tk.PhotoImage(file=str(path))
+    except Exception:
+        logger.warning("logo_login.load.failed", extra={"path": str(path)})
+        return None
