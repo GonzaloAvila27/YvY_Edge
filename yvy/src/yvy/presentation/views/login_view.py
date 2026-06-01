@@ -42,8 +42,7 @@ from yvy.presentation.theme import (
 logger = logging.getLogger(__name__)
 
 _LOGO_LOGIN_PATH = Path(__file__).resolve().parents[4] / "resources" / "logo_login.png"
-# Ancho y alto del logo en el login card (sobre fondo blanco del card)
-_LOGO_LOGIN_W, _LOGO_LOGIN_H = 220, 70
+_LOGO_LOGIN_W, _LOGO_LOGIN_H = 100, 100
 
 
 class LoginView(tk.Frame):
@@ -115,13 +114,13 @@ class LoginView(tk.Frame):
             lbl = tk.Label(logo_frame, image=photo, bg=BG_CARD)
             lbl.image = photo  # evitar garbage collection
             lbl.pack()
-            # Con PNG no mostramos título de texto redundante
+            # El ícono no tiene texto — mostramos título y subtítulo debajo
             tk.Label(
-                card,
-                text="Sistema Meteorológico Escolar",
-                bg=BG_CARD,
-                fg=TEXT_SECONDARY,
-                font=FONT_SMALL,
+                card, text="YVY Edge", bg=BG_CARD, fg=PRIMARY, font=FONT_DISPLAY,
+            ).pack(pady=(SPACE_SM, 0))
+            tk.Label(
+                card, text="Sistema Meteorológico Escolar",
+                bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL,
             ).pack(pady=(0, SPACE_MD))
         else:
             # Fallback: canvas con texto (sin rectángulo azul)
