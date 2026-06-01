@@ -218,15 +218,21 @@ class ChartWidget(ttk.Frame):
     # ─── Privados ─────────────────────────────────────────────────────────
 
     def _set_state(self, text: str, color: str) -> None:
-        """Muestra el overlay de estado con texto y color dados."""
+        """Muestra el overlay de estado, oculta el canvas matplotlib."""
         self._state_label.configure(text=text, fg=color)
-        self._state_frame.lift()
+        # Quitar canvas del grid y mostrar el overlay. Usar grid_remove()
+        # en lugar de lift(): un tk.Canvas interpreta 'raise' como comando
+        # de items internos (requiere tagOrId) y no como elevación de ventana.
+        self._canvas_widget.grid_remove()
+        self._state_frame.grid(row=0, column=0, sticky="nsew")
 
     def _flush_canvas(self) -> None:
         """Redibuja el canvas matplotlib. Siempre en el main thread."""
         try:
             self._mpl_canvas.draw()
-            self._canvas_widget.lift()
+            # Ocultar overlay y mostrar canvas
+            self._state_frame.grid_remove()
+            self._canvas_widget.grid(row=0, column=0, sticky="nsew")
         except Exception as exc:
             logger.warning("chart.flush.failed", extra={"error": str(exc)})
             self._set_state(f"Error al renderizar: {exc}", DANGER)
