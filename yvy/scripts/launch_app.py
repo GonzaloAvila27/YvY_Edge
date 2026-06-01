@@ -248,23 +248,17 @@ def main() -> int:
         parser=_parser,
     )
 
-    sync_controller = SyncController(
-        catchup_use_case=catchup_uc,
-        sync_repo=sync_repo,
-        metrics_repo=metrics_repo,
-        local_tz=TZ_AR,
-        sync_agent=sync_agent,
-        app_config_repo=app_config_repo,
-        update_check_trigger=update_check_trigger,
-    )
-
     # ── Daemon de captura del sensor WH1081 ──────────────────────────────
     # Se construye ANTES de MainApplication para poder pasar sensor_status_fn.
+    # _live_source se guarda en variable separada para pasarlo al sync_controller
+    # y coordinar la pausa durante catchup (ver SyncController.trigger_catchup).
     _sensor_stop = threading.Event()
     _collector: SensorCollectorDaemon | None = None
+    _live_source: PywwsLiveSource | None = None
     try:
+        _live_source = PywwsLiveSource()
         _capture_uc = CaptureLiveReadingUseCase(
-            sensor_source=PywwsLiveSource(),
+            sensor_source=_live_source,
             sensor_repo=sensor_repo,
             sync_repo=sync_repo,
             station_uuid=_station_uuid,
@@ -280,6 +274,17 @@ def main() -> int:
         print("[sensor] Daemon de captura iniciado")
     except Exception as _exc:
         print(f"[sensor] Daemon no iniciado (sin sensor o pywws no instalado): {_exc}")
+
+    sync_controller = SyncController(
+        catchup_use_case=catchup_uc,
+        sync_repo=sync_repo,
+        metrics_repo=metrics_repo,
+        local_tz=TZ_AR,
+        sync_agent=sync_agent,
+        app_config_repo=app_config_repo,
+        update_check_trigger=update_check_trigger,
+        live_source=_live_source,  # None si el sensor no está disponible
+    )
 
     # Callable que MainApplication consulta cada 15s para el indicador del
     # header. Captura snapshot del ref para que la closure sea estable.

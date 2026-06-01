@@ -56,12 +56,15 @@ class LoginView(tk.Frame):
         self,
         parent: tk.Misc,
         on_login: Callable[[str, str], None],
-        version: str = "0.4.0",
+        version: str | None = None,
+        installer_version: str | None = None,
     ) -> None:
         super().__init__(parent, bg=BG_CREAM)
 
+        from yvy import __installer_version__, __version__
+        self._version = version or __version__
+        self._installer_version = installer_version or __installer_version__
         self._on_login = on_login
-        self._version = version
         self._password_visible = False
 
         self._build_card()
@@ -70,14 +73,7 @@ class LoginView(tk.Frame):
     # ─── Card central ────────────────────────────────────────────────────
 
     def _build_card(self) -> None:
-        """Card centrado con form de login.
-
-        Estrategia: un Frame externo que sirve como background + borde.
-        Dentro, los hijos (logo, título, inputs, botón) usan `pack` con
-        `padx=SPACE_2XL` simétrico, lo que produce un ancho efectivo
-        de aproximadamente LOGIN_CARD_WIDTH cuando el contenido más
-        ancho es el botón INGRESAR full-width.
-        """
+        """Card centrado con form de login."""
         center = tk.Frame(self, bg=BG_CREAM)
         center.pack(expand=True, fill="both")
 
@@ -91,6 +87,19 @@ class LoginView(tk.Frame):
             highlightthickness=1,
         )
         card.pack()
+
+        # Créditos debajo del card — pequeño, no invasivo
+        tk.Label(
+            wrapper,
+            text=(
+                f"Desarrollado por Gonzalo Rubens Avila · 2026\n"
+                f"v{self._version}  ·  instalador v{self._installer_version}"
+            ),
+            bg=BG_CREAM,
+            fg=TEXT_SECONDARY,
+            font=FONT_TINY,
+            justify="center",
+        ).pack(pady=(SPACE_SM, 0))
 
         # Logo placeholder (cuadrado con iniciales)
         logo_frame = tk.Frame(card, bg=BG_CARD)
@@ -108,17 +117,18 @@ class LoginView(tk.Frame):
             0, 0, 79, 79, fill=PRIMARY, outline=PRIMARY
         )
         logo_canvas.create_text(
-            40,
-            40,
-            text="YVY",
-            fill=SUCCESS,
-            font=("DejaVu Sans", 18, "bold"),
+            40, 36, text="YVY",
+            fill=SUCCESS, font=("DejaVu Sans", 16, "bold"),
+        )
+        logo_canvas.create_text(
+            40, 57, text="Edge",
+            fill="#7A9E1F", font=("DejaVu Sans", 9, "bold"),
         )
 
         # Título
         tk.Label(
             card,
-            text="YVY",
+            text="YVY Edge",
             bg=BG_CARD,
             fg=PRIMARY,
             font=FONT_DISPLAY,
@@ -126,7 +136,7 @@ class LoginView(tk.Frame):
 
         tk.Label(
             card,
-            text="Sistema YVY",
+            text="Sistema Meteorológico Escolar",
             bg=BG_CARD,
             fg=TEXT_SECONDARY,
             font=FONT_SMALL,

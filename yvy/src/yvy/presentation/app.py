@@ -228,7 +228,7 @@ class MainApplication(tk.Tk):
     ) -> None:
         super().__init__()
 
-        self.title("YVY — Sistema meteorológico escolar")
+        self.title("YVY Edge — Sistema meteorológico escolar")
         self.geometry(f"{WINDOW_DEFAULT_WIDTH}x{WINDOW_DEFAULT_HEIGHT}")
         self.minsize(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT)
 
@@ -455,6 +455,103 @@ class MainApplication(tk.Tk):
         default_view = "formulario" if user_role == "alumno" else "dashboard"
         self._navigate(default_view)
         self._sidebar.set_active(default_view)
+
+        # Oferta de catchup al arranque — delay 2 s para que la UI se asiente
+        self.after(2000, self._maybe_offer_startup_catchup)
+
+    # ─── Catchup al arranque ─────────────────────────────────────────────
+
+    def _maybe_offer_startup_catchup(self) -> None:
+        """Ofrece recuperar el buffer histórico si hay un gap desde el último dato.
+
+        Se llama 2 s después de show_main() para dar tiempo a que la UI se
+        asiente. Si el último registro del sensor tiene más de 10 minutos de
+        antigüedad (o no hay ninguno), muestra un diálogo de confirmación.
+        Si el usuario acepta, abre CatchupModal en modo automático (sin date picker).
+        """
+        if self._sync_controller is None or self._db_factory is None:
+            return
+
+        since_utc, last_ts_local = self._calculate_catchup_since()
+        if since_utc is None:
+            return  # Gap insignificante — no molestar
+
+        from datetime import UTC, datetime, timedelta
+        from tkinter import messagebox
+
+        if last_ts_local is not None:
+            last_str = last_ts_local.strftime("%d/%m/%Y %H:%M")
+            est_slots = int((datetime.now(UTC) - since_utc).total_seconds() / 300)
+            msg = (
+                f"Último dato registrado: {last_str}\n\n"
+                f"Hay aproximadamente {est_slots} lecturas pendientes de recuperar "
+                f"del buffer del sensor.\n\n"
+                f"¿Desea realizar el recupero ahora?"
+            )
+        else:
+            msg = (
+                "No hay datos del sensor registrados en la base de datos.\n\n"
+                "¿Desea recuperar el buffer histórico del sensor (hasta 14 días)?"
+            )
+
+        if not messagebox.askyesno("Recuperar datos del sensor", msg, parent=self):
+            return
+
+        from yvy.presentation.components.catchup_modal import CatchupModal
+        CatchupModal(
+            parent=self,
+            controller=self._sync_controller,
+            local_tz=self._local_tz,
+            auto_since=since_utc,
+        )
+
+    def _calculate_catchup_since(self):  # type: ignore[return]
+        """Calcula el datetime desde donde hacer catchup.
+
+        Returns:
+            (since_utc, last_ts_local) si hay gap > 10 minutos.
+            (None, None) si no es necesario ofrecer catchup.
+
+        Lógica:
+            - Lee MAX(observed_at) de sensor_data.
+            - Si no hay datos: since = ahora - 14 días (límite del buffer WH1081).
+            - Si hay datos y el gap > 10 min: since = último observed_at.
+            - Si el último dato es más antiguo que 14 días: since = ahora - 14 días.
+        """
+        from datetime import UTC, datetime, timedelta
+
+        MAX_BUFFER_DAYS = 14
+        GAP_THRESHOLD_S  = 600   # 10 minutos
+
+        now_utc   = datetime.now(UTC)
+        max_since = now_utc - timedelta(days=MAX_BUFFER_DAYS)
+
+        # Consultar último registro válido
+        last_ts_utc = None
+        try:
+            conn = self._db_factory.get_connection()  # type: ignore[union-attr]
+            row = conn.execute(
+                "SELECT MAX(observed_at) FROM sensor_data WHERE is_valid = 1"
+            ).fetchone()
+            raw = row[0] if row else None
+            if raw is not None:
+                ts = datetime.fromisoformat(str(raw).replace(" ", "T"))
+                last_ts_utc = ts.replace(tzinfo=UTC) if ts.tzinfo is None else ts
+        except Exception:
+            logger.warning("startup_catchup: no se pudo consultar sensor_data")
+            return None, None
+
+        if last_ts_utc is None:
+            # DB vacía: ofrecer recupero completo del buffer
+            return max_since, None
+
+        gap_s = (now_utc - last_ts_utc).total_seconds()
+        if gap_s < GAP_THRESHOLD_S:
+            return None, None  # Datos frescos — no hay nada que recuperar
+
+        since_utc   = max(last_ts_utc, max_since)
+        last_local  = last_ts_utc.astimezone(self._local_tz)
+        return since_utc, last_local
 
     # ─── Polling de estado del header ───────────────────────────────────
 

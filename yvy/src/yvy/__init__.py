@@ -1,4 +1,4 @@
-"""YVY · Sistema meteorológico escolar offline-first.
+"""YVY Edge · Sistema meteorológico escolar offline-first.
 
 Sistema de captura, persistencia y sincronización de datos meteorológicos
 para Instituciones de Educación Agropecuaria de Misiones, Argentina.
@@ -10,5 +10,7 @@ Arquitectura: DDD + Hexagonal.
 - presentation/: UI Tkinter.
 """
 
-__version__ = "0.9.2"
-__author__ = "Gonzalo Avila"
+__version__ = "1.0.0"
+__installer_version__ = "1.0.0"
+__author__ = "Gonzalo Rubens Avila"
+__year__ = "2026"

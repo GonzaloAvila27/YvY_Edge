@@ -72,12 +72,15 @@ class CatchupModal(Modal):
         controller: SyncController,
         local_tz: tzinfo,
         default_days_back: int = 7,
+        auto_since: datetime | None = None,
     ) -> None:
         self._controller = controller
         self._local_tz = local_tz
         self._default_days_back = default_days_back
+        self._auto_since = auto_since  # si se pasa, saltea CONFIG y dispara solo
 
-        self._state: _State = _State.CONFIG
+        # Si hay auto_since, arrancamos directo en RUNNING
+        self._state: _State = _State.RUNNING if auto_since is not None else _State.CONFIG
         self._body_frame: tk.Frame | None = None
         self._footer_frame: tk.Frame | None = None
 
@@ -100,6 +103,10 @@ class CatchupModal(Modal):
             width=520,
             on_close=None,
         )
+
+        # Disparo automático cuando viene de startup (sin date picker)
+        if self._auto_since is not None:
+            self.after(100, self._run_auto_catchup)
 
     # ─── Hooks de Modal ──────────────────────────────────────────────────
 
@@ -469,6 +476,27 @@ class CatchupModal(Modal):
         ).pack(anchor="w")
 
     # ─── Handlers ────────────────────────────────────────────────────────
+
+    def _run_auto_catchup(self) -> None:
+        """Disparo automático desde startup — saltea el date picker."""
+        assert self._auto_since is not None
+        since_utc = (
+            self._auto_since
+            if self._auto_since.tzinfo is not None
+            else self._auto_since.replace(tzinfo=UTC)
+        )
+        self._controller.trigger_catchup(
+            since=since_utc,
+            on_progress=lambda msg: self._safe_after(
+                lambda: self._update_progress(msg)
+            ),
+            on_done=lambda result: self._safe_after(
+                lambda: self._handle_done(result)
+            ),
+            on_error=lambda exc: self._safe_after(
+                lambda: self._handle_error(exc)
+            ),
+        )
 
     def _on_execute_clicked(self) -> None:
         """Click en 'Ejecutar': valida fecha, transiciona a RUNNING, dispara."""

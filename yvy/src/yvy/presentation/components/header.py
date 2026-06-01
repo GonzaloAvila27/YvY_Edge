@@ -88,20 +88,30 @@ class Header(tk.Frame):
     # ─── Subsecciones ────────────────────────────────────────────────────
 
     def _build_logo(self) -> None:
-        """Logo YVY a la izquierda. Por ahora texto; PNG después."""
+        """Logo YVY Edge a la izquierda. Texto hasta recibir PNG definitivo."""
         logo_frame = tk.Frame(self, bg=PRIMARY, width=200)
         logo_frame.pack(side="left", fill="y", padx=(SPACE_XL, 0))
         logo_frame.pack_propagate(False)
 
-        logo_label = tk.Label(
-            logo_frame,
+        inner = tk.Frame(logo_frame, bg=PRIMARY)
+        inner.pack(expand=True, fill="y")
+
+        tk.Label(
+            inner,
             text="YVY",
             bg=PRIMARY,
-            fg=SUCCESS,  # oliva luz
+            fg=SUCCESS,
             font=FONT_LOGO,
             anchor="w",
-        )
-        logo_label.pack(fill="both", expand=True, side="left")
+        ).pack(anchor="w")
+        tk.Label(
+            inner,
+            text="Edge",
+            bg=PRIMARY,
+            fg="#7A9E1F",  # SUCCESS más apagado para jerarquía
+            font=("DejaVu Sans", 10, "bold"),
+            anchor="w",
+        ).pack(anchor="w")
 
     def _build_identity(self, iea_name: str, iea_cue: str) -> None:
         """Nombre IEA + CUE en el centro."""

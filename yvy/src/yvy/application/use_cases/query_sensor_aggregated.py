@@ -12,10 +12,10 @@ Campos soportados (ver ``_FIELD_MAP`` para aliases):
     pressure_rel, pressure_abs, wind_speed, wind_gust,
     uv_index, solar_radiation.
 
-Periodos y tamaños de bucket:
-    "24h"  → 5 minutos  (300 s)
-    "7d"   → 30 minutos (1800 s)
-    "30d"  → 2 horas    (7200 s)
+Periodos y tamaños de bucket (reducidos para mejorar render en hardware IEA):
+    "24h"  → 30 minutos (1800 s)   ~48 puntos
+    "7d"   → 3 horas    (10800 s)  ~56 puntos
+    "30d"  → 12 horas   (43200 s)  ~60 puntos
 
 Semántica de lluvia diaria:
     La columna ``rain_total`` es el acumulador corriente del sensor (mm
@@ -40,9 +40,9 @@ logger = logging.getLogger(__name__)
 # ─── Configuración de períodos ────────────────────────────────────────────────
 
 _PERIOD_CONFIG: dict[str, tuple[timedelta, int]] = {
-    "24h": (timedelta(hours=24), 300),    # 5 min
-    "7d":  (timedelta(days=7),  1800),    # 30 min
-    "30d": (timedelta(days=30), 7200),    # 2 h
+    "24h": (timedelta(hours=24),  1800),   # 30 min → ~48 puntos  (era 5 min, ~288)
+    "7d":  (timedelta(days=7),   10800),   # 3 h    → ~56 puntos  (era 30 min, ~336)
+    "30d": (timedelta(days=30),  43200),   # 12 h   → ~60 puntos  (era 2 h, ~360)
 }
 
 # ─── Mapeo de alias a columnas reales ────────────────────────────────────────

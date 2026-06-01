@@ -1,14 +1,15 @@
-"""Wizard de onboarding (4 pantallas).
+"""Wizard de onboarding (5 pantallas).
 
 Diseño: UNA view que cambia su contenido según el step interno
-(0..3). Más simple que 4 frames separados — el state vive en un solo
+(0..4). Más simple que 5 frames separados — el state vive en un solo
 lugar y la transición es inmediata.
 
 Pantallas:
     Step 0 — Bienvenida: explica qué va a configurar.
-    Step 1 — Config IEA: CUE, school_name, timezone (auto del CUE en el futuro).
-    Step 2 — Crear admins: 1 obligatorio (superadmin), 1 opcional (admin).
-    Step 3 — Confirmación: resumen + "Comenzar a usar YVY" → auto-login.
+    Step 1 — Config IEA: CUE, school_name, timezone.
+    Step 2 — Sync YVY Core: URL + credentials JSON (opcional, salteable).
+    Step 3 — Admins: 1 superadmin obligatorio + 1 admin opcional.
+    Step 4 — Confirmación: resumen + "Comenzar a usar YVY" → auto-login.
 
 El wizard llama a ``CompleteOnboardingUseCase.execute()`` solo en
 el último step. Todo lo previo es state local.
@@ -152,14 +153,15 @@ class OnboardingWizard(tk.Frame):
         outer = tk.Frame(self, bg=BG_CREAM)
         outer.pack(fill="both", expand=True)
 
-        # Card centrada
+        # Card centrada — 600px de alto para dar espacio al paso de admins
+        # (6 campos cuando el admin secundario está habilitado).
         self._card = tk.Frame(
             outer,
             bg=BG_CARD,
             highlightbackground=BORDER,
             highlightthickness=1,
         )
-        self._card.place(relx=0.5, rely=0.5, anchor="center", width=640, height=520)
+        self._card.place(relx=0.5, rely=0.5, anchor="center", width=640, height=600)
 
         # Header del card (azul)
         self._header_frame = tk.Frame(self._card, bg=PRIMARY, height=56)
@@ -176,13 +178,17 @@ class OnboardingWizard(tk.Frame):
         )
         self._step_label.pack(side="left", fill="y")
 
-        # Body (cambia según step)
-        self._body = tk.Frame(self._card, bg=BG_CARD, padx=SPACE_XL, pady=SPACE_LG)
-        self._body.pack(fill="both", expand=True)
-
-        # Footer (siempre presente)
+        # Footer (siempre presente) — se empaqueta ANTES que el body para que
+        # tkinter reserve su espacio al fondo antes de que el body consuma el
+        # resto con expand=True. Si se empaqueta después, el body puede
+        # desplazarlo fuera del card cuando el contenido es alto.
         self._footer = tk.Frame(self._card, bg=BG_CREAM, padx=SPACE_XL, pady=SPACE_MD)
         self._footer.pack(fill="x", side="bottom")
+
+        # Body (cambia según step) — va después del footer para que expand=True
+        # solo ocupe el espacio que quedó libre.
+        self._body = tk.Frame(self._card, bg=BG_CARD, padx=SPACE_XL, pady=SPACE_LG)
+        self._body.pack(fill="both", expand=True)
 
     def _render_step(self) -> None:
         """Limpia body y footer, redibuja según self._step."""
@@ -209,7 +215,7 @@ class OnboardingWizard(tk.Frame):
     def _render_welcome(self) -> None:
         tk.Label(
             self._body,
-            text="Bienvenido a YVY",
+            text="Bienvenido a YVY Edge",
             bg=BG_CARD,
             fg=TEXT_PRIMARY,
             font=FONT_H1,
@@ -239,7 +245,7 @@ class OnboardingWizard(tk.Frame):
 
         for line in (
             "1.  Datos de la institución (CUE, nombre, zona horaria)",
-            "2.  Conexión con YVY Core (credentials y URL del servidor — opcional)",
+            "2.  Conexión con YVY Core (URL del servidor y credentials — opcional)",
             "3.  Cuentas administrativas (1 superadmin obligatorio + 1 admin opcional)",
             "4.  Confirmación y auto-inicio de sesión",
         ):
@@ -697,7 +703,7 @@ class OnboardingWizard(tk.Frame):
             style="Secondary.TButton",
         ).pack(side="left")
         ttk.Button(
-            self._footer, text="Comenzar a usar YVY",
+            self._footer, text="Comenzar a usar YVY Edge",
             command=self._submit,
             style="Primary.TButton",
         ).pack(side="right")

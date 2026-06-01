@@ -87,6 +87,7 @@ class SyncController:
         sync_agent: SyncAgentDaemon | None = None,
         app_config_repo: object | None = None,
         update_check_trigger: threading.Event | None = None,
+        live_source: object | None = None,
     ) -> None:
         self._catchup_use_case = catchup_use_case
         self._sync_repo = sync_repo
@@ -95,6 +96,10 @@ class SyncController:
         self._sync_agent = sync_agent
         self._app_config_repo = app_config_repo
         self._update_check_trigger = update_check_trigger
+        # PywwsLiveSource inyectado para coordinar la pausa durante catchup.
+        # Si es None (modo dev / sin sensor), el catchup intenta abrir el USB
+        # directamente (puede fallar con ACCESS si el live ya lo tiene).
+        self._live_source = live_source
 
         self._catchup_thread: threading.Thread | None = None
         self._catchup_lock = threading.Lock()
@@ -171,7 +176,27 @@ class SyncController:
             return
 
         def _run() -> None:
+            paused_live = False
             try:
+                # ── Coordinar pausa del live source ──────────────────────────
+                # Si hay un live source activo, esperar a que ceda el USB antes
+                # de intentar abrir el WeatherStation desde el catchup.
+                # El live lo cede después de su próxima lectura (~48 s máximo).
+                if self._live_source is not None:
+                    if on_progress:
+                        on_progress(
+                            "Esperando ventana libre del sensor "
+                            "(próxima lectura, hasta 120 s)..."
+                        )
+                    _request = getattr(self._live_source, "request_pause", None)
+                    if _request is not None:
+                        paused_live = _request(timeout=120.0)
+                        if not paused_live:
+                            raise RuntimeError(
+                                "El live source no liberó el USB en 120 s. "
+                                "Catchup cancelado."
+                            )
+
                 if on_progress:
                     on_progress("Recuperando datos del buffer histórico...")
 
@@ -189,6 +214,11 @@ class SyncController:
                 if on_error:
                     on_error(exc)
             finally:
+                # Reanudar live source SIEMPRE, incluso si el catchup falló.
+                if paused_live and self._live_source is not None:
+                    _resume = getattr(self._live_source, "signal_resume", None)
+                    if _resume is not None:
+                        _resume()
                 self._catchup_thread = None
                 self._catchup_lock.release()
 

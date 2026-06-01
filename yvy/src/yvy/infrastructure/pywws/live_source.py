@@ -29,6 +29,7 @@ Notas sobre pywws 25.x:
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -179,6 +180,85 @@ class PywwsLiveSource:
         self._live_iter: Iterator[Any] | None = None
         self._consecutive_errors = 0
 
+        # ── Coordinación pausa/reanudación para catchup ──────────────────
+        # El catchup necesita el USB exclusivo. Estos tres eventos permiten
+        # que el live source ceda el handle después de su próxima lectura:
+        #   _pause_req : catchup pide pausa
+        #   _paused    : live confirma que el WS fue liberado
+        #   _resume    : catchup indica que terminó y el live puede continuar
+        self._pause_req = threading.Event()
+        self._paused    = threading.Event()
+        self._resume    = threading.Event()
+
+    # ── API de pausa para catchup ─────────────────────────────────────────
+
+    def request_pause(self, timeout: float = 120.0) -> bool:
+        """Pide al live source que libere el USB después de la próxima lectura.
+
+        Bloquea hasta que el live source confirme que liberó el WeatherStation
+        o hasta que pase el timeout.
+
+        Returns:
+            True si el live cedió el USB a tiempo. False si expiró el timeout
+            (en ese caso la pausa fue cancelada y el live sigue corriendo).
+        """
+        self._paused.clear()
+        self._resume.clear()
+        self._pause_req.set()
+        if self._paused.wait(timeout=timeout):
+            return True
+        # Timeout: cancelar la solicitud para no dejar al live colgado
+        self._pause_req.clear()
+        logger.warning(
+            "PywwsLiveSource: timeout esperando pausa (%.0f s) — catchup cancelado",
+            timeout,
+        )
+        return False
+
+    def signal_resume(self) -> None:
+        """Indica al live source que el catchup terminó y puede retomar."""
+        self._resume.set()
+
+    def _check_pause(self) -> None:
+        """Llamado al inicio de cada read_live(). Cede el USB si fue pedido.
+
+        Si hay una solicitud de pausa pendiente:
+        1. Destruye live_iter y cierra WeatherStation (libera el handle USB).
+        2. Señaliza _paused para que el catchup sepa que puede abrir el USB.
+        3. Bloquea hasta recibir _resume.
+        4. Limpia los eventos y retorna (read_live() reabrirá el WS lazy).
+        """
+        if not self._pause_req.is_set():
+            return
+
+        logger.info("PywwsLiveSource: cediendo USB para catchup")
+
+        # Cerrar el iterator primero (deja de hacer polling al sensor)
+        self._live_iter = None
+
+        # Cerrar el WeatherStation para liberar el handle USB de libusb-1.0
+        if self._ws is not None:
+            _close = getattr(self._ws, "close", None)
+            if _close is not None:
+                try:
+                    _close()
+                except Exception as exc:
+                    logger.debug("PywwsLiveSource: ws.close() falló (ignorado): %s", exc)
+            self._ws = None
+
+        # Confirmar al catchup que el USB quedó libre
+        self._paused.set()
+
+        # Esperar hasta que el catchup libere el USB
+        self._resume.wait()
+
+        # Limpiar estado — el WS se reabrirá lazy en el próximo read_live()
+        self._pause_req.clear()
+        self._paused.clear()
+        self._resume.clear()
+        self._consecutive_errors = 0
+        logger.info("PywwsLiveSource: reanudando captura live")
+
     def _ensure_ws_loaded(self) -> Any:
         """Lazy init de WeatherStation. Captura USB el primer call.
 
@@ -226,6 +306,10 @@ class PywwsLiveSource:
     def read_live(self) -> dict[str, Any] | None:
         """Devuelve el próximo sample del sensor, o ``None`` si hay error.
 
+        Al inicio de cada llamada se verifica si el catchup solicitó una pausa.
+        Si es así, el USB se libera aquí (antes de bloquear en next(live_iter))
+        y se espera la señal de reanudación. Ver ``request_pause()``.
+
         **Bloquea hasta ~48s** esperando la próxima transmisión del sensor
         exterior por radio.
 
@@ -238,6 +322,8 @@ class PywwsLiveSource:
         Si hay 5 errores consecutivos, loguea como error y reintenta igual.
         Recuperación queda a cargo del thread daemon (sleep + reintentar).
         """
+        self._check_pause()  # cede USB al catchup si fue solicitado
+
         try:
             live_iter = self._ensure_iter_loaded()
             emission = next(live_iter)
