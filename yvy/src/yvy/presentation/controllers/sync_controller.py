@@ -85,22 +85,17 @@ class SyncController:
         metrics_repo: AppMetricsRepository,
         local_tz: tzinfo,
         sync_agent: SyncAgentDaemon | None = None,
+        app_config_repo: object | None = None,
+        update_check_trigger: threading.Event | None = None,
     ) -> None:
-        """Init del controller.
-
-        Args:
-            catchup_use_case, sync_repo, metrics_repo, local_tz: como antes.
-            sync_agent: opcional. Si está, los métodos *_agent delegan
-                al daemon. Si es None (modo dev sin credentials), los
-                métodos *_agent loguean warning y devuelven None.
-        """
         self._catchup_use_case = catchup_use_case
         self._sync_repo = sync_repo
         self._metrics_repo = metrics_repo
         self._local_tz = local_tz
         self._sync_agent = sync_agent
+        self._app_config_repo = app_config_repo
+        self._update_check_trigger = update_check_trigger
 
-        # Para gestión interna del thread de catchup
         self._catchup_thread: threading.Thread | None = None
         self._catchup_lock = threading.Lock()
 
@@ -265,3 +260,48 @@ class SyncController:
             return False
         self._sync_agent.resume()
         return True
+
+    # ─── Canal Core → Edge: update checker ───────────────────────────────
+
+    def has_update_checker(self) -> bool:
+        """True si el UpdateCheckerDaemon está disponible."""
+        return self._update_check_trigger is not None
+
+    def trigger_update_check(self) -> bool:
+        """Dispara una verificación inmediata. Retorna True si hay checker."""
+        if self._update_check_trigger is None:
+            return False
+        self._update_check_trigger.set()
+        return True
+
+    def get_update_info(self) -> dict:
+        """Datos para la sección de actualizaciones en SyncStatusView.
+
+        Retorna dict con:
+            current_version: str
+            last_sync_version: int
+            last_checked_at: str | None  (ISO 8601)
+            pending: dict | None         (metadata del update, o None)
+            has_update_checker: bool
+        """
+        from yvy import __version__
+
+        last_sync_version = 0
+        last_checked_at = None
+        pending = None
+
+        if self._app_config_repo is not None:
+            try:
+                last_sync_version = self._app_config_repo.get_last_sync_version()  # type: ignore[union-attr]
+                last_checked_at = self._app_config_repo.get("update.last_checked_at")  # type: ignore[union-attr]
+                pending = self._app_config_repo.get_pending_update()  # type: ignore[union-attr]
+            except Exception:
+                logger.exception("Error leyendo datos de update checker")
+
+        return {
+            "current_version": __version__,
+            "last_sync_version": last_sync_version,
+            "last_checked_at": last_checked_at,
+            "pending": pending,
+            "has_update_checker": self.has_update_checker(),
+        }

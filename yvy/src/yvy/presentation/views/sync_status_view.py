@@ -115,6 +115,11 @@ class SyncStatusView(tk.Frame):
         # Botón pausar/reanudar (creado solo si hay agent)
         self._pause_resume_btn: ttk.Button | None = None
 
+        # Sección actualizaciones
+        self._upd_status_label: tk.Label | None = None
+        self._upd_detail_label: tk.Label | None = None
+        self._upd_check_btn: ttk.Button | None = None
+
         self._build()
         self.refresh()
 
@@ -156,6 +161,9 @@ class SyncStatusView(tk.Frame):
 
         # Card inferior: tabla de eventos
         self._build_events_card(container)
+
+        # Card de actualizaciones de software (siempre visible)
+        self._build_updates_card(container)
 
     def _build_status_card(self, parent: tk.Misc) -> None:
         """Card grande izquierda con estado + botones de acción."""
@@ -379,6 +387,8 @@ class SyncStatusView(tk.Frame):
             logger.exception("Error obteniendo datos para SyncStatusView")
             return
 
+        self._refresh_updates_section()
+
         self._apply_dashboard_data(data)
 
     # ─── Render ──────────────────────────────────────────────────────────
@@ -520,6 +530,135 @@ class SyncStatusView(tk.Frame):
             "empirical_observation": "Observación empírica",
             "empirical_event": "Evento empírico",
         }.get(str(entity_type), str(entity_type))
+
+    # ─── Card de actualizaciones ──────────────────────────────────────────
+
+    def _build_updates_card(self, parent: tk.Misc) -> None:
+        """Card inferior: estado de actualizaciones de software."""
+        card = tk.Frame(
+            parent,
+            bg=BG_CARD,
+            highlightbackground=BORDER,
+            highlightthickness=1,
+        )
+        card.pack(fill="x", pady=(SPACE_LG, 0))
+
+        inner = tk.Frame(card, bg=BG_CARD, padx=SPACE_XL, pady=SPACE_LG)
+        inner.pack(fill="x")
+
+        hdr = tk.Frame(inner, bg=BG_CARD)
+        hdr.pack(fill="x", pady=(0, SPACE_SM))
+        ttk.Label(hdr, text="Actualizaciones de software", style="CardH3.TLabel").pack(
+            side="left"
+        )
+
+        self._upd_status_label = tk.Label(
+            inner, text="Verificando...", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY,
+            anchor="w"
+        )
+        self._upd_status_label.pack(anchor="w")
+
+        self._upd_detail_label = tk.Label(
+            inner, text="", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL,
+            anchor="w", wraplength=700, justify="left"
+        )
+        self._upd_detail_label.pack(anchor="w", pady=(SPACE_SM, SPACE_MD))
+
+        btn_row = tk.Frame(inner, bg=BG_CARD)
+        btn_row.pack(anchor="w")
+
+        self._upd_check_btn = ttk.Button(
+            btn_row,
+            text="Verificar ahora",
+            style="Secondary.TButton",
+            command=self._on_check_updates_clicked,
+        )
+        self._upd_check_btn.pack(side="left", padx=(0, SPACE_SM))
+
+        ttk.Button(
+            btn_row,
+            text="Descargar actualización",
+            style="Secondary.TButton",
+            state="disabled",
+        ).pack(side="left")
+
+        tk.Label(
+            inner,
+            text="(La descarga e instalación estarán disponibles en una próxima versión.)",
+            bg=BG_CARD,
+            fg=TEXT_SECONDARY,
+            font=FONT_SMALL,
+            anchor="w",
+        ).pack(anchor="w", pady=(SPACE_SM, 0))
+
+    def _refresh_updates_section(self) -> None:
+        """Actualiza los labels de la sección de actualizaciones."""
+        if self._upd_status_label is None:
+            return
+
+        info = self._controller.get_update_info()
+        has_checker = info["has_update_checker"]
+        pending = info["pending"]
+        current = info["current_version"]
+        last_checked = info["last_checked_at"]
+
+        if self._upd_check_btn is not None:
+            self._upd_check_btn.configure(
+                state="normal" if has_checker else "disabled"
+            )
+
+        if not has_checker:
+            self._upd_status_label.configure(
+                text="Sync no configurado.",
+                fg=TEXT_SECONDARY,
+            )
+            self._upd_detail_label.configure(
+                text="Las actualizaciones no están disponibles hasta que se configuren las credenciales de YVY Core."
+            )
+            return
+
+        # Timestamp de última verificación
+        checked_str = ""
+        if last_checked:
+            try:
+                from datetime import UTC
+                from datetime import datetime as _dt
+                checked_dt = _dt.fromisoformat(last_checked)
+                mins_ago = int((_dt.now(UTC) - checked_dt.astimezone(UTC)).total_seconds() / 60)
+                checked_str = f"Última verificación: hace {mins_ago} min"
+            except Exception:
+                checked_str = f"Última verificación: {last_checked[:19]}"
+
+        if pending is None:
+            self._upd_status_label.configure(
+                text=f"Sistema al día (versión {current})",
+                fg=SUCCESS,
+            )
+            self._upd_detail_label.configure(text=checked_str)
+        else:
+            size_mb = pending.get("package_size_bytes", 0) / 1_000_000
+            notes = pending.get("notes", "")
+            version = pending.get("edge_version", "?")
+            released = (pending.get("released_at") or "")[:10]
+            detail_parts = [f"Tamaño: {size_mb:.1f} MB", f"Publicada: {released}"]
+            if notes:
+                detail_parts.append(f"Notas: {notes}")
+            if checked_str:
+                detail_parts.append(checked_str)
+            self._upd_status_label.configure(
+                text=f"Actualización disponible: {version}",
+                fg=WARNING,
+            )
+            self._upd_detail_label.configure(text="   ".join(detail_parts))
+
+    def _on_check_updates_clicked(self) -> None:
+        """Dispara el daemon de update checker y refresca la sección en 5s."""
+        if self._upd_status_label is not None:
+            self._upd_status_label.configure(text="Verificando...", fg=TEXT_SECONDARY)
+        if self._upd_detail_label is not None:
+            self._upd_detail_label.configure(text="")
+        self._controller.trigger_update_check()
+        self.after(5000, self._refresh_updates_section)
 
     # ─── Handlers ────────────────────────────────────────────────────────
 

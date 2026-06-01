@@ -214,6 +214,8 @@ class SyncAgentDaemon:
         key_version: int,
         key: bytes,
         config: SyncAgentConfig | None = None,
+        update_check_trigger: threading.Event | None = None,
+        app_config_repo: object | None = None,
     ) -> None:
         self._sync_repo = sync_repo
         self._agent_state_repo = agent_state_repo
@@ -223,6 +225,9 @@ class SyncAgentDaemon:
         self._key_version = key_version
         self._key = key
         self._config = config if config is not None else SyncAgentConfig()
+        # Canal Core → Edge: trigger del UpdateCheckerDaemon + repo de config
+        self._update_check_trigger = update_check_trigger
+        self._app_config_repo = app_config_repo  # AppConfigRepository | None
 
         # Thread control
         self._thread: threading.Thread | None = None
@@ -454,8 +459,34 @@ class SyncAgentDaemon:
         )
         self._consecutive_errors = 0
         self._transition(AgentEvent.JOB_SUCCESS, reason="job sent")
+
+        # Piggyback Canal Core → Edge: si X-Server-Sync-Version > last_known,
+        # disparar el UpdateCheckerDaemon para pull inmediato de novedades.
+        self._maybe_fire_update_trigger(result)
+
         # Inter-job delay only on success (D49)
         time.sleep(self._config.INTER_JOB_DELAY_MS / 1000.0)
+
+    def _maybe_fire_update_trigger(self, result: SendResult) -> None:
+        """Dispara el trigger del UpdateCheckerDaemon si hay sync_version nueva."""
+        if self._update_check_trigger is None or self._app_config_repo is None:
+            return
+        server_sv = result.server_sync_version
+        if server_sv is None:
+            return
+        try:
+            last_known = self._app_config_repo.get_last_sync_version()  # type: ignore[union-attr]
+        except Exception:
+            return
+        if server_sv > last_known:
+            log.info(
+                "sync_agent.pull_trigger.fired",
+                extra={
+                    "server_sync_version": server_sv,
+                    "last_known": last_known,
+                },
+            )
+            self._update_check_trigger.set()
 
     def _on_auth_error(self, job_id: int, job: SyncJob, result: SendResult) -> None:
         msg = result.body_json.get("error", "auth failed")

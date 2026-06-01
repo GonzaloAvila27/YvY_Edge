@@ -74,6 +74,7 @@ from yvy.infrastructure.pywws.parser import PywwsPayloadParser
 from yvy.infrastructure.scheduling.sensor_collector import SensorCollectorDaemon
 from yvy.infrastructure.sync.http_client import HttpClient
 from yvy.infrastructure.sync.sync_agent import SyncAgentConfig, SyncAgentDaemon
+from yvy.infrastructure.sync.update_checker_daemon import UpdateCheckerDaemon
 from yvy.infrastructure.system.clock import SystemClock
 from yvy.presentation.app import MainApplication
 from yvy.presentation.controllers.auth_controller import AuthController
@@ -208,14 +209,33 @@ def main() -> int:
         actor_user_id_provider=_actor_provider,
     )
 
-    # ── Sync subsystem (Fase 9.2): wiring híbrido ────────────────────────
-    # Si faltan credentials o server_url → UI sigue funcional sin agent.
-    sync_agent = _try_build_sync_agent(
-        app_config_repo=app_config_repo,
-        sync_repo=sync_repo,
-        sync_agent_state_repo=sync_agent_state_repo,
-        time_provider=clock,
-    )
+    # ── Sync + Update checker: wiring híbrido ────────────────────────────
+    # Si faltan credentials → UI sigue funcional sin agent ni checker.
+    sync_creds = _load_sync_credentials(app_config_repo)
+    update_check_trigger = threading.Event()
+    sync_agent: SyncAgentDaemon | None = None
+    update_checker: UpdateCheckerDaemon | None = None
+
+    if sync_creds:
+        sync_agent = _try_build_sync_agent(
+            app_config_repo=app_config_repo,
+            sync_repo=sync_repo,
+            sync_agent_state_repo=sync_agent_state_repo,
+            time_provider=clock,
+            http_client=sync_creds["http_client"],
+            station_uuid=sync_creds["station_uuid"],
+            key_version=sync_creds["key_version"],
+            key_bytes=sync_creds["key_bytes"],
+            update_check_trigger=update_check_trigger,
+        )
+        update_checker = _try_build_update_checker(
+            app_config_repo=app_config_repo,
+            http_client=sync_creds["http_client"],
+            station_uuid=sync_creds["station_uuid"],
+            key_version=sync_creds["key_version"],
+            key_bytes=sync_creds["key_bytes"],
+            trigger=update_check_trigger,
+        )
 
     # Catchup use case (siempre se arma; no depende del agent)
     catchup_uc = RunCatchupRecoveryUseCase(
@@ -234,6 +254,8 @@ def main() -> int:
         metrics_repo=metrics_repo,
         local_tz=TZ_AR,
         sync_agent=sync_agent,
+        app_config_repo=app_config_repo,
+        update_check_trigger=update_check_trigger,
     )
 
     # ── Daemon de captura del sensor WH1081 ──────────────────────────────
@@ -297,7 +319,7 @@ def main() -> int:
         local_tz=TZ_AR,
     )
 
-    # ── Sync agent (si se construyó OK) ──────────────────────────────────
+    # ── Arrancar daemons de sync y update checker ─────────────────────────
     if sync_agent is not None:
         try:
             sync_agent.start()
@@ -305,10 +327,14 @@ def main() -> int:
         except Exception as _exc:
             print(f"[sync] SyncAgentDaemon no inició: {_exc}")
     else:
-        print(
-            "[sync] SyncAgentDaemon NO inicializado "
-            "(faltan credentials o server_url). UI sigue operativa."
-        )
+        print("[sync] SyncAgentDaemon NO inicializado (faltan credentials). UI sigue operativa.")
+
+    if update_checker is not None:
+        try:
+            update_checker.start()
+            print("[update] UpdateCheckerDaemon iniciado")
+        except Exception as _exc:
+            print(f"[update] UpdateCheckerDaemon no inició: {_exc}")
 
     print("Iniciando YVY...")
     print(f"  DB: {db_path}")
@@ -316,8 +342,12 @@ def main() -> int:
     try:
         app.mainloop()
     finally:
-        # Orden de shutdown: agent primero (drena estado del proceso),
-        # después sensor (deja de generar nuevos jobs).
+        # Orden de shutdown: update_checker → sync_agent → sensor
+        if update_checker is not None:
+            try:
+                update_checker.stop(timeout_s=5.0)
+            except Exception as _exc:
+                print(f"[update] Error deteniendo UpdateCheckerDaemon: {_exc}")
         if sync_agent is not None:
             try:
                 sync_agent.stop(timeout_s=10.0)
@@ -331,44 +361,22 @@ def main() -> int:
 # ─── Helpers de wiring del sync agent ────────────────────────────────────
 
 
-def _try_build_sync_agent(
-    *,
-    app_config_repo,
-    sync_repo,
-    sync_agent_state_repo,
-    time_provider,
-) -> SyncAgentDaemon | None:
-    """Intenta construir el SyncAgentDaemon. None si faltan credentials.
+def _load_sync_credentials(app_config_repo) -> dict | None:
+    """Carga y valida credentials de sync. None si faltan o son inválidas.
 
-    Lee:
-        - ``data/station_credentials.json`` con {station_uuid, key_version,
-          key_hmac_hex}.
-        - ``app_config.get("sync_server_url")``.
-
-    Si cualquiera falta o es inválido, retorna None y loguea warning.
-    El launcher continúa normalmente — la UI muestra "Agent: no
-    inicializado" pero todo lo demás funciona.
+    Retorna dict con: server_url, station_uuid, key_version, key_bytes, http_client.
     """
-    # 1. server URL desde app_config
     server_url = app_config_repo.get("sync_server_url")
     if not server_url:
-        print(
-            "[sync] sync_server_url no configurado en app_config. "
-            "Agent deshabilitado."
-        )
+        print("[sync] sync_server_url no configurado en app_config. Agent deshabilitado.")
         return None
 
-    # 2. credentials desde JSON en disco
     if not STATION_CREDENTIALS_PATH.exists():
-        print(
-            f"[sync] {STATION_CREDENTIALS_PATH} no existe. "
-            "Agent deshabilitado."
-        )
+        print(f"[sync] {STATION_CREDENTIALS_PATH} no existe. Agent deshabilitado.")
         return None
 
     try:
-        creds_raw = STATION_CREDENTIALS_PATH.read_text(encoding="utf-8")
-        creds = json.loads(creds_raw)
+        creds = json.loads(STATION_CREDENTIALS_PATH.read_text(encoding="utf-8"))
     except Exception as exc:
         print(f"[sync] Error leyendo credentials: {exc}. Agent deshabilitado.")
         return None
@@ -376,41 +384,47 @@ def _try_build_sync_agent(
     try:
         station_uuid = uuid.UUID(creds["station_uuid"])
         key_version = int(creds["key_version"])
-        key_hex = creds["key_hmac_hex"]
-        key_bytes = bytes.fromhex(key_hex)
+        key_bytes = bytes.fromhex(creds["key_hmac_hex"])
     except (KeyError, ValueError, TypeError) as exc:
-        print(
-            f"[sync] Credentials JSON inválido ({type(exc).__name__}: {exc}). "
-            "Agent deshabilitado."
-        )
+        print(f"[sync] Credentials JSON inválido ({type(exc).__name__}: {exc}). Agent deshabilitado.")
         return None
 
-    # Sanity: la key HMAC debe ser >= 32 bytes (256 bits)
     if len(key_bytes) < 32:
-        print(
-            f"[sync] key_hmac_hex demasiado corto ({len(key_bytes)} bytes, "
-            "esperado >= 32). Agent deshabilitado."
-        )
+        print(f"[sync] key_hmac_hex demasiado corto ({len(key_bytes)} bytes, esperado >= 32). Agent deshabilitado.")
         return None
 
-    # 3. Cross-check station_uuid con el de app_config
     cfg_station = app_config_repo.get("station_uuid")
     if cfg_station and uuid.UUID(cfg_station) != station_uuid:
         print(
             f"[sync] station_uuid en credentials ({station_uuid}) NO coincide "
-            f"con app_config ({cfg_station}). Agent deshabilitado por "
-            "seguridad — esto indica un mismatch de configuración."
+            f"con app_config ({cfg_station}). Agent deshabilitado por seguridad."
         )
         return None
 
-    # 4. Construir HttpClient
-    # verify=True usa la CA del sistema. Si el server piloto usa cert autofirmado,
-    # poner el path al PEM acá: verify = ROOT / "data" / "server_cert.pem"
     http_client = HttpClient(server_url=server_url, verify=True)
+    return {
+        "server_url": server_url,
+        "station_uuid": station_uuid,
+        "key_version": key_version,
+        "key_bytes": key_bytes,
+        "http_client": http_client,
+    }
 
-    # 5. Construir el daemon
+
+def _try_build_sync_agent(
+    *,
+    app_config_repo,
+    sync_repo,
+    sync_agent_state_repo,
+    time_provider,
+    http_client,
+    station_uuid,
+    key_version,
+    key_bytes,
+    update_check_trigger,
+) -> SyncAgentDaemon | None:
     config = SyncAgentConfig()
-    agent = SyncAgentDaemon(
+    return SyncAgentDaemon(
         sync_repo=sync_repo,
         agent_state_repo=sync_agent_state_repo,
         http_client=http_client,
@@ -419,8 +433,30 @@ def _try_build_sync_agent(
         key_version=key_version,
         key=key_bytes,
         config=config,
+        update_check_trigger=update_check_trigger,
+        app_config_repo=app_config_repo,
     )
-    return agent
+
+
+def _try_build_update_checker(
+    *,
+    app_config_repo,
+    http_client,
+    station_uuid,
+    key_version,
+    key_bytes,
+    trigger,
+) -> UpdateCheckerDaemon:
+    from yvy import __version__
+    return UpdateCheckerDaemon(
+        http_client=http_client,
+        app_config_repo=app_config_repo,
+        trigger=trigger,
+        station_uuid=station_uuid,
+        key_version=key_version,
+        key=key_bytes,
+        edge_version=__version__,
+    )
 
 
 if __name__ == "__main__":

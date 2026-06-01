@@ -107,6 +107,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "version",
         help="Imprime la versión de YVY Edge.",
     )
+    subparsers.add_parser(
+        "check-updates",
+        help="Consulta YVY Core y reporta si hay actualizaciones disponibles.",
+    )
     _add_test_parser(subparsers)
 
     return parser
@@ -181,6 +185,47 @@ def _cmd_test_sync(root: Path, no_migrate: bool, timeout: float) -> int:
     return 0 if report["ok"] else 1
 
 
+def _cmd_check_updates(root: Path, no_migrate: bool) -> int:
+    from yvy.bootstrap import build_core_dependencies
+    from yvy.cli.handlers import compute_check_updates
+
+    deps = build_core_dependencies(
+        root=root, run_migrations_on_start=not no_migrate,
+    )
+
+    print("Verificando actualizaciones contra YVY Core...")
+    result = compute_check_updates(deps)
+
+    print(f"  Versión actual:       {result['current_version']}")
+    if result["last_sync_version"] is not None:
+        print(f"  Última sync version:  {result['last_sync_version']}")
+    if result["server_sync_version"] is not None:
+        print(f"  Server sync version:  {result['server_sync_version']}")
+    print()
+
+    if not result["ok"]:
+        print(f"  Error: {result['error']}")
+        print()
+        print("→ Verificá que el server esté arriba y que la red llegue.")
+        return 1
+
+    if result["update_available"] and result["pending"]:
+        p = result["pending"]
+        size_mb = p.get("package_size_bytes", 0) / 1_000_000
+        print("Actualización disponible:")
+        print(f"  Versión:   {p.get('edge_version', '?')}")
+        print(f"  Tamaño:    {size_mb:.1f} MB")
+        print(f"  Publicada: {(p.get('released_at') or '')[:10]}")
+        if p.get("notes"):
+            print(f"  Notas:     {p['notes']}")
+        print()
+        print("Para descargar: funcionalidad disponible en próxima versión.")
+    else:
+        print("Sistema al día. No hay actualizaciones disponibles.")
+
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -194,6 +239,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_status(root, no_migrate)
     if args.command == "info":
         return _cmd_info(root, no_migrate)
+    if args.command == "check-updates":
+        return _cmd_check_updates(root, no_migrate)
     if args.command == "test":
         if args.test_target == "sensor":
             return _cmd_test_sensor()

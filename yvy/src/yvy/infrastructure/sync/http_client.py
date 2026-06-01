@@ -52,10 +52,12 @@ detail, not a business-policy retry.
 from __future__ import annotations
 
 import logging
+import secrets
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 import httpx
 
@@ -82,6 +84,17 @@ class SendResult:
     """Parsed from the ``X-Server-Time`` header. ``None`` if the header
     was absent or malformed (the agent treats absence as "skip clock
     recalibration for this response")."""
+    server_sync_version: int | None = None
+    """Parsed from ``X-Server-Sync-Version`` header. ``None`` if absent."""
+
+
+@dataclass(frozen=True, slots=True)
+class EdgeSyncResponse:
+    """Response del endpoint GET /api/v1/edge/sync."""
+
+    sync_version: int
+    update_available: bool
+    update_metadata: dict | None
 
 
 class SendError(Exception):
@@ -115,6 +128,22 @@ class TimeoutError(SendError):
 
     Maps to ``FailureClass.NETWORK`` in the agent (same handling as
     network failures, but worth distinguishing in logs).
+    """
+
+
+class AuthError(SendError):
+    """401 / 403 from the server: HMAC invalid, key revoked, or station
+    disabled.
+
+    The daemon should log and NOT retry immediately — wait for the next
+    natural trigger (piggyback or periodic tick).
+    """
+
+
+class StationNotFoundError(SendError):
+    """404: station_uuid unknown to the server.
+
+    Operator action required: verify credentials match the server's records.
     """
 
 
@@ -273,6 +302,122 @@ class HttpClient:
 
         return self._build_send_result(response)
 
+    def get_edge_sync(
+        self,
+        *,
+        station_uuid: UUID,
+        key_version: int,
+        last_sync_version: int,
+        edge_version: str,
+        key: bytes,
+        timeout_s: float = 10.0,
+    ) -> EdgeSyncResponse:
+        """GET /api/v1/edge/sync con autenticación HMAC.
+
+        Firma el canonical JSON de los headers relevantes (orden alfabético)
+        usando la misma llave HMAC del sync push.
+
+        Raises:
+            AuthError: 401/403.
+            StationNotFoundError: 404.
+            NetworkError: fallo de transporte.
+            MalformedResponseError: body no es JSON válido o falta sync_version.
+        """
+        from yvy.infrastructure.sync.hmac_signer import sign_envelope
+
+        nonce = secrets.token_hex(16)
+        sent_at_utc = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        # Canonical dict para firma — claves en orden alfabético
+        canonical = {
+            "edge_version": edge_version,
+            "key_version": key_version,
+            "last_sync_version": last_sync_version,
+            "nonce": nonce,
+            "sent_at_utc": sent_at_utc,
+            "station_uuid": str(station_uuid),
+        }
+        signature = sign_envelope(canonical, key)
+
+        req_headers = {
+            "Authorization": f"HMAC {signature}",
+            "X-Edge-Version": edge_version,
+            "X-Key-Version": str(key_version),
+            "X-Last-Sync-Version": str(last_sync_version),
+            "X-Nonce": nonce,
+            "X-Sent-At-UTC": sent_at_utc,
+            "X-Station-UUID": str(station_uuid),
+        }
+
+        try:
+            response = self._client.get(
+                "/api/v1/edge/sync",
+                headers=req_headers,
+                timeout=timeout_s,
+            )
+        except httpx.TimeoutException as exc:
+            raise NetworkError(
+                f"timeout during GET /api/v1/edge/sync: {exc}"
+            ) from exc
+        except httpx.ConnectError as exc:
+            raise NetworkError(
+                f"connection failed for GET /api/v1/edge/sync: {exc}"
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise NetworkError(
+                f"network error during GET /api/v1/edge/sync: {exc}"
+            ) from exc
+
+        if response.status_code in (401, 403):
+            raise AuthError(
+                f"HTTP {response.status_code} from GET /api/v1/edge/sync"
+            )
+        if response.status_code == 404:
+            raise StationNotFoundError(
+                "station_uuid desconocido en el servidor — verificar credentials"
+            )
+
+        try:
+            body = response.json()
+        except (ValueError, httpx.DecodingError) as exc:
+            raise MalformedResponseError(
+                f"non-JSON response from GET /api/v1/edge/sync "
+                f"(status={response.status_code}): {exc}"
+            ) from exc
+
+        if not isinstance(body, dict):
+            raise MalformedResponseError(
+                "response from GET /api/v1/edge/sync is not a JSON object"
+            )
+
+        try:
+            sync_version = int(body["sync_version"])
+        except (KeyError, ValueError, TypeError) as exc:
+            raise MalformedResponseError(
+                f"missing or invalid sync_version in GET /api/v1/edge/sync: {exc}"
+            ) from exc
+
+        updates = body.get("updates", {})
+        update_available = updates.get("available") is True
+
+        update_metadata: dict | None = None
+        if update_available:
+            update_metadata = {
+                "edge_version": updates.get("edge_version"),
+                "package_url": updates.get("package_url"),
+                "package_sha256": updates.get("package_sha256"),
+                "package_size_bytes": int(updates.get("package_size_bytes", 0)),
+                "released_at": updates.get("released_at"),
+                "min_edge_version": updates.get("min_edge_version", ""),
+                "notes": updates.get("notes", ""),
+            }
+
+        return EdgeSyncResponse(
+            sync_version=sync_version,
+            update_available=update_available,
+            update_metadata=update_metadata,
+        )
+
     def close(self) -> None:
         """Close the underlying ``httpx.Client`` and its connection pool."""
         self._client.close()
@@ -311,18 +456,25 @@ class HttpClient:
                 f"object (status={response.status_code}, type={type(body_json).__name__})"
             )
 
-        # Parse X-Server-Time. Header is case-insensitive in httpx
-        # (response.headers is a case-insensitive dict, unlike
-        # dict(response.headers) — see server-side bug F.2 in 9.1).
         server_time_utc = _parse_server_time(response.headers.get("X-Server-Time"))
+
+        raw_sync_version = response.headers.get("X-Server-Sync-Version")
+        server_sync_version: int | None = None
+        if raw_sync_version is not None:
+            try:
+                server_sync_version = int(raw_sync_version)
+            except ValueError:
+                log.warning(
+                    "http_client.x_server_sync_version.unparseable",
+                    extra={"header_value": raw_sync_version},
+                )
 
         return SendResult(
             status_code=response.status_code,
             body_json=body_json,
-            # Normalize headers to a plain str→str dict for serialization
-            # and logging. Multi-value headers (rare here) get the last.
             headers={k: v for k, v in response.headers.items()},
             server_time_utc=server_time_utc,
+            server_sync_version=server_sync_version,
         )
 
 
