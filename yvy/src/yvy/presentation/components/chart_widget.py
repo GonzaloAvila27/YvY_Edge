@@ -215,6 +215,24 @@ class ChartWidget(ttk.Frame):
 
         threading.Thread(target=_worker, daemon=True, name=f"chart-render-{chart_type}").start()
 
+    def apply_theme(self, palette: dict) -> None:
+        """Actualiza colores del figure matplotlib y los overlays de estado."""
+        surface = palette["surface"]
+        self._state_frame.configure(bg=surface)
+        self._state_label.configure(bg=surface, fg=palette["text_muted"])
+        self._fig.set_facecolor(surface)
+        self._ax.set_facecolor(surface)
+        self._ax.tick_params(colors=palette["text_muted"], labelsize=10)
+        for spine in self._ax.spines.values():
+            spine.set_color(palette["border"])
+        self._ax.grid(color=palette["border"], linestyle="--", linewidth=0.8, alpha=0.5)
+        try:
+            self._mpl_canvas.draw()
+        except Exception:
+            pass
+        # Recolor el canvas widget de tk
+        self._canvas_widget.configure(bg=surface)
+
     # ─── Privados ─────────────────────────────────────────────────────────
 
     def _set_state(self, text: str, color: str) -> None:

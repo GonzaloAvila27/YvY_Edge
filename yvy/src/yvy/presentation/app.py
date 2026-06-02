@@ -232,7 +232,18 @@ class MainApplication(tk.Tk):
         self.geometry(f"{WINDOW_DEFAULT_WIDTH}x{WINDOW_DEFAULT_HEIGHT}")
         self.minsize(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT)
 
+        # Cargar tema guardado ANTES de aplicar ttk styles
+        from yvy.presentation.theme_manager import theme_manager, update_ttk_styles
+        if app_config_repo is not None:
+            try:
+                from yvy.config.paths import DATA_DIR
+                theme_manager.load(DATA_DIR)
+            except Exception:
+                pass
+
         apply_theme(self)
+        if theme_manager.mode == "dark":
+            update_ttk_styles(self, theme_manager.palette)
         self._center_window()
 
         # Dependencias inyectadas
@@ -426,6 +437,7 @@ class MainApplication(tk.Tk):
             user_role=user_role,
             on_notifications_click=self._on_notifications,
             on_avatar_click=self._on_avatar_clicked,
+            on_theme_toggle=self._toggle_theme,
             notifications_count=0,
         )
         self._header.pack(side="top", fill="x")
@@ -631,6 +643,43 @@ class MainApplication(tk.Tk):
             return user.role == Role.ALUMNO
         return user.role.lower() == "alumno"
 
+    # ─── Dark mode ──────────────────────────────────────────────────────
+
+    def _toggle_theme(self) -> None:
+        """Cambia entre light/dark y propaga a todos los componentes."""
+        from yvy.presentation.theme_manager import theme_manager, update_ttk_styles
+        theme_manager.toggle()
+        palette = theme_manager.palette
+        update_ttk_styles(self, palette)
+        self._propagate_theme(palette)
+
+    def _propagate_theme(self, palette: dict) -> None:
+        """Aplica la paleta a todos los componentes registrados."""
+        # Fondo de la ventana raíz
+        self.configure(bg=palette["bg"])
+        if self._main_frame is not None:
+            self._main_frame.configure(bg=palette["bg"])
+        if self._content is not None:
+            self._content.configure(bg=palette["bg"])
+        if self._header is not None:
+            self._header.apply_theme(palette)
+        if self._sidebar is not None:
+            self._sidebar.apply_theme(palette)
+        # Propagar a todas las vistas cacheadas
+        for view in self._view_cache.values():
+            if hasattr(view, "apply_theme"):
+                try:
+                    view.apply_theme(palette)
+                except Exception:
+                    logger.exception("apply_theme falló en %s", type(view).__name__)
+            else:
+                # Best-effort para vistas sin apply_theme explícito
+                try:
+                    from yvy.presentation.theme_manager import recolor
+                    recolor(view, palette)
+                except Exception:
+                    pass
+
     # ─── Navegación ─────────────────────────────────────────────────────
 
     def _navigate(self, key: str) -> None:
@@ -665,6 +714,17 @@ class MainApplication(tk.Tk):
         if view is None:
             view = self._build_view(key)
             self._view_cache[key] = view
+            # Si la vista se construye después de un cambio de tema, aplicar paleta
+            from yvy.presentation.theme_manager import theme_manager, recolor
+            if theme_manager.mode == "dark":
+                palette = theme_manager.palette
+                if hasattr(view, "apply_theme"):
+                    try:
+                        view.apply_theme(palette)
+                    except Exception:
+                        pass
+                else:
+                    recolor(view, palette)
 
         view.pack(fill="both", expand=True)
         self._current_view_key = key

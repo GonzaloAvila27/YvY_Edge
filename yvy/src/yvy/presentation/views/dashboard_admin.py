@@ -403,6 +403,15 @@ class DashboardAdminView(tk.Frame):
         for ev in self._data.events:
             _make_event_row(inner, ev.ts_label, ev.title, ev.detail, ev.dot_color)
 
+    # ─── Tema ────────────────────────────────────────────────────────────
+
+    def apply_theme(self, palette: dict) -> None:
+        """Reconfigura todos los widgets del dashboard con la paleta dada."""
+        from yvy.presentation.theme_manager import recolor
+        recolor(self, palette)
+        if self._chart_widget is not None:
+            self._chart_widget.apply_theme(palette)
+
     # ─── Render del gráfico ───────────────────────────────────────────────
 
     def _current_chart_key(self) -> str:

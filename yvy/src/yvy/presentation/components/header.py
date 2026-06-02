@@ -49,8 +49,7 @@ logger = logging.getLogger(__name__)
 
 _LOGO_PATH = Path(__file__).resolve().parents[4] / "resources" / "logo.png"
 # Tamaño del logo en el header (cabe en 60px de alto con padding 10px vertical)
-_LOGO_W, _LOGO_H = 160, 40
-
+_LOGO_W, _LOGO_H = 200, 50 
 
 class Header(tk.Frame):
     """Barra superior de la app autenticada.
@@ -75,6 +74,7 @@ class Header(tk.Frame):
         user_role: str,
         on_notifications_click: Callable[[], None] | None = None,
         on_avatar_click: Callable[[], None] | None = None,
+        on_theme_toggle: Callable[[], None] | None = None,
         notifications_count: int = 0,
     ) -> None:
         super().__init__(parent, bg=PRIMARY, height=HEADER_HEIGHT)
@@ -83,10 +83,17 @@ class Header(tk.Frame):
         self._user_role = user_role.lower()
         self._on_notif_click = on_notifications_click
         self._on_avatar_click = on_avatar_click
+        self._on_theme_toggle = on_theme_toggle
+
+        # Refs para apply_theme
+        self._theme_btn: tk.Button | None = None
+        self._all_header_frames: list[tk.Frame] = []
+        self._all_header_labels: list[tk.Label] = []
 
         self._build_logo()
         self._build_identity(iea_name, iea_cue)
         self._build_indicators()
+        self._build_theme_toggle()
         self._build_notifications(notifications_count)
         self._build_avatar(user_name, user_role)
 
@@ -94,7 +101,7 @@ class Header(tk.Frame):
 
     def _build_logo(self) -> None:
         """Logo YVY Edge — PNG si existe resources/logo.png, texto fallback."""
-        logo_frame = tk.Frame(self, bg=PRIMARY, width=200)
+        logo_frame = tk.Frame(self, bg=PRIMARY, width=_LOGO_W)
         logo_frame.pack(side="left", fill="y", padx=(SPACE_XL, 0))
         logo_frame.pack_propagate(False)
 
@@ -235,81 +242,59 @@ class Header(tk.Frame):
         self.set_notifications_count(count)
 
     def _build_avatar(self, user_name: str, user_role: str) -> None:
-        """Avatar circular con iniciales + nombre/rol al lado."""
-        # Ancho mínimo razonable para nombres como "Juan Pérez" + "SUPERADMIN".
-        # Si el nombre es muy largo, lo truncamos visualmente con ellipsis.
-        avatar_outer = tk.Frame(self, bg=PRIMARY, width=180)
+        """Solo avatar circular con iniciales (sin texto de nombre/rol)."""
+        avatar_outer = tk.Frame(self, bg=PRIMARY, width=52)
         avatar_outer.pack(side="right", fill="y", padx=(SPACE_SM, SPACE_LG))
         avatar_outer.pack_propagate(False)
 
         inner = tk.Frame(avatar_outer, bg=PRIMARY, cursor="hand2")
         inner.pack(expand=True)
 
-        # Círculo del avatar via Canvas (32x32)
         avatar_color = role_color(user_role)
         initials = self._compute_initials(user_name)
 
         canvas = tk.Canvas(
-            inner,
-            width=32,
-            height=32,
-            bg=PRIMARY,
-            highlightthickness=0,
-            cursor="hand2",
+            inner, width=34, height=34,
+            bg=PRIMARY, highlightthickness=0, cursor="hand2",
         )
-        canvas.pack(side="left")
-        canvas.create_oval(0, 0, 31, 31, fill=avatar_color, outline=avatar_color)
+        canvas.pack()
+        canvas.create_oval(0, 0, 33, 33, fill=avatar_color, outline=avatar_color)
         canvas.create_text(
-            16,
-            16,
-            text=initials,
-            fill=TEXT_ON_DARK,
-            font=("DejaVu Sans", 10, "bold"),
+            17, 17, text=initials, fill=TEXT_ON_DARK,
+            font=("DejaVu Sans", 11, "bold"),
         )
 
-        # Texto username + rol a la derecha del avatar.
-        # Spec mostraba "JP / ADMIN" — el screenshot reveló que sin el username
-        # explícito el avatar quedaba ambiguo (las iniciales "JP" + "ADMIN"
-        # parecían concatenarse). Agregamos username completo arriba del rol.
-        text_frame = tk.Frame(inner, bg=PRIMARY)
-        text_frame.pack(side="left", padx=(SPACE_SM, 0))
-
-        username_label = tk.Label(
-            text_frame,
-            text=user_name,
-            bg=PRIMARY,
-            fg=TEXT_ON_DARK,
-            font=FONT_SMALL,
-        )
-        username_label.pack(anchor="w")
-
-        role_chevron_row = tk.Frame(text_frame, bg=PRIMARY)
-        role_chevron_row.pack(anchor="w")
-
-        role_label = tk.Label(
-            role_chevron_row,
-            text=user_role.upper(),
-            bg=PRIMARY,
-            fg=TEXT_ON_DARK_MUTED,
-            font=FONT_TINY,
-        )
-        role_label.pack(side="left")
-
-        chevron = tk.Label(
-            role_chevron_row,
-            text=" ▾",
-            bg=PRIMARY,
-            fg=TEXT_ON_DARK,
-            font=FONT_TINY,
-        )
-        chevron.pack(side="left")
-
-        # Click handlers
-        for w in (canvas, username_label, role_label, chevron, inner):
+        for w in (canvas, inner, avatar_outer):
             w.bind(
                 "<Button-1>",
                 lambda _e: self._on_avatar_click() if self._on_avatar_click else None,
             )
+
+    def _build_theme_toggle(self) -> None:
+        """Botón flat para cambiar entre light/dark mode."""
+        from yvy.presentation.theme_manager import theme_manager
+        frame = tk.Frame(self, bg=PRIMARY, width=90)
+        frame.pack(side="right", fill="y", padx=(0, SPACE_SM))
+        frame.pack_propagate(False)
+
+        inner = tk.Frame(frame, bg=PRIMARY)
+        inner.pack(expand=True)
+
+        lbl = "Light Mode" if theme_manager.mode == "dark" else "Dark Mode"
+        self._theme_btn = tk.Button(
+            inner,
+            text=lbl,
+            relief="flat",
+            bd=0,
+            bg=PRIMARY,
+            fg=TEXT_ON_DARK_MUTED,
+            activebackground=PRIMARY,
+            activeforeground=TEXT_ON_DARK,
+            font=FONT_SMALL,
+            cursor="hand2",
+            command=self._handle_theme_toggle,
+        )
+        self._theme_btn.pack()
 
     @staticmethod
     def _compute_initials(name: str) -> str:
@@ -351,6 +336,28 @@ class Header(tk.Frame):
         else:
             self._notif_badge.pack_forget()
 
+    def _handle_theme_toggle(self) -> None:
+        """Callback del botón toggle — delega al handler externo."""
+        if self._on_theme_toggle:
+            self._on_theme_toggle()
+
+    def apply_theme(self, palette: dict) -> None:
+        """Reconfigura todos los widgets del header con la paleta dada."""
+        h = palette["header"]
+        # Recorrer TODO el árbol del header
+        from yvy.presentation.theme_manager import recolor
+        recolor(self, palette)
+        # El canvas del header siempre tiene bg=header (el recolor lo maneja)
+        # Actualizar texto del toggle button
+        if self._theme_btn is not None:
+            from yvy.presentation.theme_manager import theme_manager
+            lbl = "Light Mode" if theme_manager.mode == "dark" else "Dark Mode"
+            self._theme_btn.configure(
+                text=lbl,
+                bg=h, fg=palette["text_on_dark_muted"],
+                activebackground=h, activeforeground=palette["text_on_dark"],
+            )
+
 
 # ─── Helper de carga de logo ──────────────────────────────────────────────────
 
@@ -366,7 +373,7 @@ def _load_logo(path: Path, width: int, height: int) -> "tk.PhotoImage | None":
     try:
         from PIL import Image, ImageTk
         img = Image.open(path).convert("RGBA")
-        img = img.resize((width, height), Image.LANCZOS)
+        img.thumbnail((width, height), Image.LANCZOS)
         return ImageTk.PhotoImage(img)
     except Exception:
         pass

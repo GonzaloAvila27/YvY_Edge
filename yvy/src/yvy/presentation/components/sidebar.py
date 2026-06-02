@@ -135,6 +135,14 @@ class Sidebar(tk.Frame):
         else:
             logger.warning("Sidebar.set_active: key desconocida %s", key)
 
+    def apply_theme(self, palette: dict) -> None:
+        """Reconfigura colores del sidebar y todos sus items."""
+        from yvy.presentation.theme_manager import recolor
+        recolor(self, palette)
+        for key, widget in self._item_widgets.items():
+            widget.apply_theme(palette, is_active=(key == self._active_key))
+        self._toggle_btn.apply_theme(palette)
+
     def toggle(self) -> None:
         """Alterna entre expandido y colapsado. Sin animación."""
         self._collapsed = not self._collapsed
@@ -312,6 +320,22 @@ class _SidebarItemWidget(tk.Frame):
             self._set_bg_recursive(BG_SIDEBAR)
             self._label.configure(font=FONT_BODY)
 
+    def apply_theme(self, palette: dict, *, is_active: bool = False) -> None:
+        """Actualiza colores del item para el nuevo tema."""
+        sb = palette["sidebar"]
+        hover = palette["hover"]
+        self._is_active = is_active
+        if is_active:
+            self._border.configure(bg=palette["active_border"])
+            self._set_bg_recursive(hover)
+            self._label.configure(font=FONT_BODY_BOLD, fg=palette["text"])
+        else:
+            self._border.configure(bg=sb)
+            self._set_bg_recursive(sb)
+            self._label.configure(font=FONT_BODY, fg=palette["text"])
+        self.configure(bg=sb)
+        self._icon.configure(fg=palette["text"])
+
     def set_collapsed(self, collapsed: bool) -> None:
         """Muestra/oculta el label de texto (modo colapsado)."""
         self._is_collapsed = collapsed
@@ -413,6 +437,14 @@ class _ToggleButton(tk.Frame):
             w.bind("<Button-1>", lambda _e: self._on_click())
             w.bind("<Enter>", self._on_enter)
             w.bind("<Leave>", self._on_leave)
+
+    def apply_theme(self, palette: dict) -> None:
+        sb = palette["sidebar"]
+        muted = palette["text_muted"]
+        self.configure(bg=sb)
+        self._inner.configure(bg=sb)
+        self._icon.configure(bg=sb, fg=muted)
+        self._label.configure(bg=sb, fg=muted)
 
     def set_collapsed(self, collapsed: bool) -> None:
         self._collapsed = collapsed
