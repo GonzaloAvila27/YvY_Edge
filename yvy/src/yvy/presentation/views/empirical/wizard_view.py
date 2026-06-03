@@ -178,6 +178,12 @@ class EmpiricalWizardView(tk.Frame):
         )
         self._btn_next.pack(side="right", padx=SPACE_LG, pady=SPACE_MD)
 
+    def apply_theme(self, palette: dict) -> None:
+        """Aplica la paleta dada a todos los widgets del wizard."""
+        self._last_palette: dict | None = palette
+        from yvy.presentation.theme_manager import recolor
+        recolor(self, palette)
+
     def _render_step(self) -> None:
         # Limpiar body
         for w in self._body.winfo_children():
@@ -206,6 +212,12 @@ class EmpiricalWizardView(tk.Frame):
             self._render_step_qualitative()
         elif self._current_step == 3:
             self._render_step_review()
+
+        # Re-aplicar tema si dark mode estaba activo antes del re-render
+        lp = getattr(self, "_last_palette", None)
+        if lp is not None:
+            from yvy.presentation.theme_manager import recolor
+            recolor(self._body, lp)
 
     # ════════════════════════════════════════════════════════════════════
     # Step 1: Cabecera
@@ -799,8 +811,9 @@ class EmpiricalWizardView(tk.Frame):
 
     def _on_event_added(self, event) -> None:  # noqa: ANN001
         """Callback cuando se agrega un evento exitosamente."""
+        self._capture_current_step()  # preservar general_notes antes de re-render
         self._state["events_added"].append(event)
-        self._render_step()  # re-render para mostrar el evento
+        self._render_step()
 
     def _submit_observation(self, with_confirmation: bool = False) -> None:
         """Construye el CreateObservationInput y lo envía al controller."""

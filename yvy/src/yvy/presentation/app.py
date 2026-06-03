@@ -687,7 +687,8 @@ class MainApplication(tk.Tk):
         if self._sidebar is not None:
             self._sidebar.apply_theme(palette)
         # Propagar a todas las vistas cacheadas
-        for view in self._view_cache.values():
+        cached = set(self._view_cache.values())
+        for view in cached:
             if hasattr(view, "apply_theme"):
                 try:
                     view.apply_theme(palette)
@@ -700,6 +701,15 @@ class MainApplication(tk.Tk):
                     recolor(view, palette)
                 except Exception:
                     pass
+        # Propagar a vistas activas no cacheadas (ej. EmpiricalWizardView)
+        if self._content is not None:
+            from yvy.presentation.theme_manager import recolor
+            for child in self._content.winfo_children():
+                if child not in cached and hasattr(child, "apply_theme"):
+                    try:
+                        child.apply_theme(palette)
+                    except Exception:
+                        logger.exception("apply_theme falló en %s", type(child).__name__)
 
     # ─── Pizarra YvY ────────────────────────────────────────────────────
 
@@ -935,6 +945,10 @@ class MainApplication(tk.Tk):
         self._current_view_key = None
         if self._sidebar is not None:
             self._sidebar.set_active("formulario")
+        # Aplicar dark mode si está activo al momento de abrir el wizard
+        from yvy.presentation.theme_manager import theme_manager
+        if theme_manager.mode == "dark":
+            wizard.apply_theme(theme_manager.palette)
 
     def _on_empirical_wizard_complete(self) -> None:
         self._navigate("formulario")

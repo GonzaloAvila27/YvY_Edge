@@ -276,15 +276,17 @@ class DashboardAdminView(tk.Frame):
         try:
             rows = conn.execute(
                 """
-                SELECT eo.observed_at, eo.phenomenon_label, eo.place_description,
+                SELECT eo.observed_at_local,
+                       eo.general_notes,
                        u.full_name
                   FROM empirical_observation eo
-                  LEFT JOIN users u ON u.id = eo.observer_user_id
-                 ORDER BY eo.observed_at DESC
+                  LEFT JOIN users u ON u.id = eo.created_by_user_id
+                 ORDER BY eo.observed_at_local DESC
                  LIMIT 5
                 """
             ).fetchall()
         except Exception:
+            logger.exception("Error consultando observaciones empíricas recientes")
             return []
 
         events: list[_EventRow] = []
@@ -297,13 +299,13 @@ class DashboardAdminView(tk.Frame):
             except Exception:
                 ts_label = str(r[0])[:16] if r[0] else _NO_DATA
 
-            title = str(r[1]) if r[1] else "Observación"
+            notes = str(r[1]) if r[1] else None
+            title = (notes[:60] + "…" if notes and len(notes) > 60 else notes) if notes else "Observación empírica"
             detail = str(r[2]) if r[2] else ""
-            observer = f" · {r[3]}" if r[3] else ""
             events.append(_EventRow(
                 ts_label=ts_label,
                 title=title,
-                detail=detail + observer,
+                detail=detail,
                 dot_color=ACCENT_GOLD,
             ))
         return events
@@ -434,17 +436,25 @@ class DashboardAdminView(tk.Frame):
                 command=self._trigger_render,
             ).pack(side="left", padx=(0, SPACE_SM))
 
-    def _make_help_btn(self, parent: tk.Misc, key: str) -> HelpButton | None:
-        """Crea un HelpButton si hay help_repo; None si no."""
+    def _make_help_factory(
+        self, key: str
+    ) -> Callable[[tk.Misc], HelpButton] | None:
+        """Devuelve una factoría que crea un HelpButton con el parent correcto."""
         if self._help_repo is None:
             return None
-        return HelpButton(
-            parent,
-            help_repository=self._help_repo,
-            article_key=key,
-            on_expand=self._open_pizarra,
-            bg=BG_CARD,
-        )
+        repo = self._help_repo
+        expand = self._open_pizarra
+
+        def _factory(parent: tk.Misc) -> HelpButton:
+            return HelpButton(
+                parent,
+                help_repository=repo,
+                article_key=key,
+                on_expand=expand,
+                bg=BG_CARD,
+            )
+
+        return _factory
 
     def _build_kpis(self, parent: tk.Misc) -> None:
         d = self._data.kpi
@@ -463,18 +473,18 @@ class DashboardAdminView(tk.Frame):
         p_delta = delta(d.avg_pressure)
 
         _make_kpi(parent, "Temperatura exterior", fmt(d.avg_temp),        "°C",  t_delta[0], t_delta[1],
-                  help_widget=self._make_help_btn(parent, "glosario_temperatura"))
+                  help_factory=self._make_help_factory("glosario_temperatura"))
         _make_kpi(parent, "Humedad exterior",     fmt(d.avg_hum, 0),      "%",   h_delta[0], h_delta[1],
-                  help_widget=self._make_help_btn(parent, "glosario_humedad"))
+                  help_factory=self._make_help_factory("glosario_humedad"))
         _make_kpi(parent, "Presión atmosférica",  fmt(d.avg_pressure, 0), "hPa", p_delta[0], p_delta[1],
-                  help_widget=self._make_help_btn(parent, "glosario_presion"))
+                  help_factory=self._make_help_factory("glosario_presion"))
         _make_kpi_vpd(
             parent,
             vpd_value=dv.vpd,
             vpd_zone_label=dv.vpd_zone_label,
             vpd_zone_color=dv.vpd_zone_color,
             today_rain_mm=dv.today_rain_mm,
-            help_widget=self._make_help_btn(parent, "glosario_vpd"),
+            help_factory=self._make_help_factory("glosario_vpd"),
         )
 
     def _build_day_summary(self, parent: tk.Misc, summary_text: str) -> None:
@@ -636,7 +646,7 @@ def _make_kpi(
     unit: str,
     delta: str,
     delta_color: str,
-    help_widget: tk.Widget | None = None,
+    help_factory: Callable[[tk.Misc], tk.Widget | None] | None = None,
 ) -> None:
     card = _make_card(parent)
     card.pack(fill="x", pady=(0, SPACE_SM))
@@ -649,8 +659,10 @@ def _make_kpi(
     tk.Label(
         label_row, text=label, bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_TINY, anchor="w"
     ).pack(side="left")
-    if help_widget is not None:
-        help_widget.pack(side="left", padx=(6, 0))
+    if help_factory is not None:
+        hw = help_factory(label_row)
+        if hw is not None:
+            hw.pack(side="left", padx=(6, 0))
 
     val_row = tk.Frame(inner, bg=BG_CARD)
     val_row.pack(fill="x", pady=(2, 0))
@@ -672,7 +684,7 @@ def _make_kpi_vpd(
     vpd_zone_label: str,
     vpd_zone_color: str,
     today_rain_mm: float | None,
-    help_widget: tk.Widget | None = None,
+    help_factory: Callable[[tk.Misc], tk.Widget | None] | None = None,
 ) -> None:
     """KPI card de VPD con zona agroclimática y lluvia de hoy.
 
@@ -694,8 +706,10 @@ def _make_kpi_vpd(
         label_row, text="VPD actual", bg=BG_CARD, fg=TEXT_SECONDARY,
         font=FONT_TINY, anchor="w"
     ).pack(side="left")
-    if help_widget is not None:
-        help_widget.pack(side="left", padx=(6, 0))
+    if help_factory is not None:
+        hw = help_factory(label_row)
+        if hw is not None:
+            hw.pack(side="left", padx=(6, 0))
 
     val_row = tk.Frame(inner, bg=BG_CARD)
     val_row.pack(fill="x", pady=(2, 0))

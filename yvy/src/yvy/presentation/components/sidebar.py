@@ -271,6 +271,8 @@ class _SidebarItemWidget(tk.Frame):
         self._is_active = False
         self._is_collapsed = False
         self._tooltip_window: tk.Toplevel | None = None
+        self._bg_normal = BG_SIDEBAR
+        self._bg_hover = BG_HOVER
 
         # Frame 3px del borde lateral (izquierdo)
         self._border = tk.Frame(
@@ -335,6 +337,8 @@ class _SidebarItemWidget(tk.Frame):
         """Actualiza colores del item para el nuevo tema."""
         sb = palette["sidebar"]
         hover = palette["hover"]
+        self._bg_normal = sb
+        self._bg_hover = hover
         self._is_active = is_active
         if is_active:
             self._border.configure(bg=palette["active_border"])
@@ -357,13 +361,13 @@ class _SidebarItemWidget(tk.Frame):
 
     def _on_enter(self, _event: tk.Event) -> None:  # type: ignore[type-arg]
         if not self._is_active:
-            self._set_bg_recursive(BG_HOVER)
+            self._set_bg_recursive(self._bg_hover)
         if self._is_collapsed:
             self._show_tooltip()
 
     def _on_leave(self, _event: tk.Event) -> None:  # type: ignore[type-arg]
         if not self._is_active:
-            self._set_bg_recursive(BG_SIDEBAR)
+            self._set_bg_recursive(self._bg_normal)
         self._hide_tooltip()
 
     def _set_bg_recursive(self, color: str) -> None:
@@ -415,6 +419,8 @@ class _ToggleButton(tk.Frame):
         self.pack_propagate(False)
         self._on_click = on_click
         self._collapsed = False
+        self._bg_normal = BG_SIDEBAR
+        self._bg_hover = BG_HOVER
 
         # Línea separadora arriba
         sep = tk.Frame(self, bg=BORDER, height=1)
@@ -452,6 +458,8 @@ class _ToggleButton(tk.Frame):
     def apply_theme(self, palette: dict) -> None:
         sb = palette["sidebar"]
         muted = palette["text_muted"]
+        self._bg_normal = sb
+        self._bg_hover = palette["hover"]
         self.configure(bg=sb)
         self._inner.configure(bg=sb)
         self._icon.configure(bg=sb, fg=muted)
@@ -468,8 +476,8 @@ class _ToggleButton(tk.Frame):
 
     def _on_enter(self, _event: tk.Event) -> None:  # type: ignore[type-arg]
         for w in (self._inner, self._icon, self._label):
-            w.configure(bg=BG_HOVER)
+            w.configure(bg=self._bg_hover)
 
     def _on_leave(self, _event: tk.Event) -> None:  # type: ignore[type-arg]
         for w in (self._inner, self._icon, self._label):
-            w.configure(bg=BG_SIDEBAR)
+            w.configure(bg=self._bg_normal)
