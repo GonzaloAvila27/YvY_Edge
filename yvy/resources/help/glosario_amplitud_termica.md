@@ -1,3 +1,7 @@
+---
+language: es
+---
+
 # Amplitud Térmica
 
 ## Qué es

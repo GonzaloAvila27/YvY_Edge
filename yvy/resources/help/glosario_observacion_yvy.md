@@ -1,3 +1,7 @@
+---
+language: es
+---
+
 # Diagnóstico del Día
 
 ## Qué es

@@ -26,6 +26,7 @@ Role gating del área de gráfico:
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta, tzinfo
 from typing import TYPE_CHECKING, Any
@@ -35,6 +36,7 @@ from tkinter import ttk
 
 from yvy.presentation.charts import SENSOR_CHARTS
 from yvy.presentation.components.chart_widget import ChartWidget
+from yvy.presentation.components.help_button import HelpButton
 from yvy.presentation.theme import (
     ACCENT_GOLD,
     BG_CARD,
@@ -62,6 +64,7 @@ if TYPE_CHECKING:
     from yvy.application.use_cases.query_sensor_aggregated import (
         QuerySensorAggregatedUseCase,
     )
+    from yvy.infrastructure.help.help_repository import HelpRepository
     from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
 
 logger = logging.getLogger(__name__)
@@ -80,6 +83,19 @@ _DEFAULT_PERIOD = "7d"
 _PERIODS = ["24h", "7d", "30d"]
 
 _KPI_CARD_WIDTH = 260
+
+# Mapa chart key → help article key para el HelpButton del gráfico
+_CHART_KEY_TO_HELP: dict[str, str] = {
+    "vpd":              "glosario_vpd",
+    "temperatura":      "glosario_temperatura",
+    "humedad":          "glosario_humedad",
+    "presion":          "glosario_presion",
+    "viento":           "glosario_viento",
+    "lluvia":           "glosario_lluvia_uv",
+    "punto_rocio":      "glosario_dewpoint",
+    "amplitud_termica": "glosario_amplitud_termica",
+    "presion_tendencia":"glosario_tendencia_presion",
+}
 
 
 # ─── Dataclasses internos ─────────────────────────────────────────────────────
@@ -145,6 +161,8 @@ class DashboardAdminView(tk.Frame):
         current_user: Any = None,
         station_uuid: str | None = None,
         compute_derived_uc: ComputeDerivedUseCase | None = None,
+        help_repository: HelpRepository | None = None,
+        open_pizarra: Callable[[str], None] | None = None,
     ) -> None:
         super().__init__(parent, bg=BG_CREAM)
 
@@ -154,11 +172,15 @@ class DashboardAdminView(tk.Frame):
         self._current_user = current_user
         self._station_uuid = station_uuid or ""
         self._compute_derived_uc = compute_derived_uc
+        self._help_repo = help_repository
+        self._open_pizarra = open_pizarra
 
         # Widgets del área de gráfico (inicializados en _build)
         self._chart_widget: ChartWidget | None = None
         self._chart_combo: ttk.Combobox | None = None
         self._period_var: tk.StringVar | None = None
+        self._chart_help_btn: HelpButton | None = None  # HelpButton dinámico del gráfico
+        self._chart_title_lbl: tk.Label | None = None
         # Para alumno (sin selectors), el chart key y period son fijos
         self._alumno_chart_key: str = "vpd"
         self._alumno_period: str = "24h"
@@ -343,6 +365,30 @@ class DashboardAdminView(tk.Frame):
         if not self._is_alumno():
             self._build_chart_controls(inner)
 
+        # Header del gráfico con HelpButton dinámico
+        chart_hdr = tk.Frame(inner, bg=BG_CARD)
+        chart_hdr.pack(fill="x", pady=(0, SPACE_SM))
+        self._chart_title_lbl = tk.Label(
+            chart_hdr,
+            text=_DEFAULT_CHART_LABEL,
+            bg=BG_CARD,
+            fg=TEXT_SECONDARY,
+            font=FONT_SMALL,
+            anchor="w",
+        )
+        self._chart_title_lbl.pack(side="left")
+
+        default_help_key = _CHART_KEY_TO_HELP.get("vpd", "glosario_vpd")
+        if self._help_repo is not None:
+            self._chart_help_btn = HelpButton(
+                chart_hdr,
+                help_repository=self._help_repo,
+                article_key=default_help_key,
+                on_expand=self._open_pizarra,
+                bg=BG_CARD,
+            )
+            self._chart_help_btn.pack(side="left", padx=(SPACE_SM, 0))
+
         self._chart_widget = ChartWidget(inner, width_px=560, height_px=290)
         self._chart_widget.pack(fill="both", expand=True)
 
@@ -388,6 +434,18 @@ class DashboardAdminView(tk.Frame):
                 command=self._trigger_render,
             ).pack(side="left", padx=(0, SPACE_SM))
 
+    def _make_help_btn(self, parent: tk.Misc, key: str) -> HelpButton | None:
+        """Crea un HelpButton si hay help_repo; None si no."""
+        if self._help_repo is None:
+            return None
+        return HelpButton(
+            parent,
+            help_repository=self._help_repo,
+            article_key=key,
+            on_expand=self._open_pizarra,
+            bg=BG_CARD,
+        )
+
     def _build_kpis(self, parent: tk.Misc) -> None:
         d = self._data.kpi
         dv = self._derived
@@ -404,15 +462,19 @@ class DashboardAdminView(tk.Frame):
         h_delta = delta(d.avg_hum)
         p_delta = delta(d.avg_pressure)
 
-        _make_kpi(parent, "Temperatura exterior", fmt(d.avg_temp),        "°C",  t_delta[0], t_delta[1])
-        _make_kpi(parent, "Humedad exterior",     fmt(d.avg_hum, 0),      "%",   h_delta[0], h_delta[1])
-        _make_kpi(parent, "Presión atmosférica",  fmt(d.avg_pressure, 0), "hPa", p_delta[0], p_delta[1])
+        _make_kpi(parent, "Temperatura exterior", fmt(d.avg_temp),        "°C",  t_delta[0], t_delta[1],
+                  help_widget=self._make_help_btn(parent, "glosario_temperatura"))
+        _make_kpi(parent, "Humedad exterior",     fmt(d.avg_hum, 0),      "%",   h_delta[0], h_delta[1],
+                  help_widget=self._make_help_btn(parent, "glosario_humedad"))
+        _make_kpi(parent, "Presión atmosférica",  fmt(d.avg_pressure, 0), "hPa", p_delta[0], p_delta[1],
+                  help_widget=self._make_help_btn(parent, "glosario_presion"))
         _make_kpi_vpd(
             parent,
             vpd_value=dv.vpd,
             vpd_zone_label=dv.vpd_zone_label,
             vpd_zone_color=dv.vpd_zone_color,
             today_rain_mm=dv.today_rain_mm,
+            help_widget=self._make_help_btn(parent, "glosario_vpd"),
         )
 
     def _build_day_summary(self, parent: tk.Misc, summary_text: str) -> None:
@@ -426,14 +488,24 @@ class DashboardAdminView(tk.Frame):
         inner = tk.Frame(card, bg=BG_CARD, padx=SPACE_XL, pady=SPACE_MD)
         inner.pack(fill="x")
 
+        title_row = tk.Frame(inner, bg=BG_CARD)
+        title_row.pack(fill="x", anchor="w")
         tk.Label(
-            inner,
+            title_row,
             text="Diagnóstico del día",
             bg=BG_CARD,
             fg=TEXT_PRIMARY,
             font=FONT_SMALL,
             anchor="w",
-        ).pack(anchor="w")
+        ).pack(side="left")
+        if self._help_repo is not None:
+            HelpButton(
+                title_row,
+                help_repository=self._help_repo,
+                article_key="glosario_observacion_yvy",
+                on_expand=self._open_pizarra,
+                bg=BG_CARD,
+            ).pack(side="left", padx=(SPACE_SM, 0))
 
         tk.Label(
             inner,
@@ -458,6 +530,14 @@ class DashboardAdminView(tk.Frame):
         ttk.Label(
             hdr, text="Observaciones empíricas recientes", style="CardH3.TLabel"
         ).pack(side="left")
+        if self._help_repo is not None:
+            HelpButton(
+                hdr,
+                help_repository=self._help_repo,
+                article_key="uso_cargar_observacion",
+                on_expand=self._open_pizarra,
+                bg=BG_CARD,
+            ).pack(side="left", padx=(SPACE_SM, 0))
         tk.Label(
             hdr, text="Ver todos →", bg=BG_CARD, fg=PRIMARY,
             font=FONT_SMALL, cursor="hand2"
@@ -505,11 +585,21 @@ class DashboardAdminView(tk.Frame):
         if self._chart_widget is None:
             return
 
+        chart_key = self._current_chart_key()
+
+        # Actualizar HelpButton del gráfico según la selección actual
+        if self._chart_help_btn is not None:
+            help_key = _CHART_KEY_TO_HELP.get(chart_key)
+            if help_key:
+                self._chart_help_btn.update_article_key(help_key)
+        if hasattr(self, "_chart_title_lbl") and self._chart_title_lbl is not None:
+            label = self._chart_combo.get() if self._chart_combo else _DEFAULT_CHART_LABEL
+            self._chart_title_lbl.configure(text=label)
+
         if self._query_uc is None:
             self._chart_widget.show_empty("Sin conexión al sistema de sensores")
             return
 
-        chart_key = self._current_chart_key()
         period = self._current_period()
         station_uuid = self._station_uuid
         query_uc = self._query_uc
@@ -546,6 +636,7 @@ def _make_kpi(
     unit: str,
     delta: str,
     delta_color: str,
+    help_widget: tk.Widget | None = None,
 ) -> None:
     card = _make_card(parent)
     card.pack(fill="x", pady=(0, SPACE_SM))
@@ -553,9 +644,13 @@ def _make_kpi(
     inner = tk.Frame(card, bg=BG_CARD, padx=SPACE_LG, pady=SPACE_MD)
     inner.pack(fill="x")
 
+    label_row = tk.Frame(inner, bg=BG_CARD)
+    label_row.pack(fill="x")
     tk.Label(
-        inner, text=label, bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_TINY, anchor="w"
-    ).pack(fill="x")
+        label_row, text=label, bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_TINY, anchor="w"
+    ).pack(side="left")
+    if help_widget is not None:
+        help_widget.pack(side="left", padx=(6, 0))
 
     val_row = tk.Frame(inner, bg=BG_CARD)
     val_row.pack(fill="x", pady=(2, 0))
@@ -577,6 +672,7 @@ def _make_kpi_vpd(
     vpd_zone_label: str,
     vpd_zone_color: str,
     today_rain_mm: float | None,
+    help_widget: tk.Widget | None = None,
 ) -> None:
     """KPI card de VPD con zona agroclimática y lluvia de hoy.
 
@@ -592,10 +688,14 @@ def _make_kpi_vpd(
     inner = tk.Frame(card, bg=BG_CARD, padx=SPACE_LG, pady=SPACE_MD)
     inner.pack(fill="x")
 
+    label_row = tk.Frame(inner, bg=BG_CARD)
+    label_row.pack(fill="x")
     tk.Label(
-        inner, text="VPD actual", bg=BG_CARD, fg=TEXT_SECONDARY,
+        label_row, text="VPD actual", bg=BG_CARD, fg=TEXT_SECONDARY,
         font=FONT_TINY, anchor="w"
-    ).pack(fill="x")
+    ).pack(side="left")
+    if help_widget is not None:
+        help_widget.pack(side="left", padx=(6, 0))
 
     val_row = tk.Frame(inner, bg=BG_CARD)
     val_row.pack(fill="x", pady=(2, 0))

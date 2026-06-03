@@ -1,3 +1,7 @@
+---
+language: es
+---
+
 # El sensor no manda datos
 
 Si el indicador de **Sensor** en la barra superior está en rojo o ámbar, las lecturas automáticas no están llegando.

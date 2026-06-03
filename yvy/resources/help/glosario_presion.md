@@ -1,3 +1,7 @@
+---
+language: es
+---
+
 # Presión atmosférica
 
 La presión atmosférica es el **peso del aire sobre nosotros**. Se mide en hectopascales (hPa).

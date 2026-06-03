@@ -1,3 +1,7 @@
+---
+language: es
+---
+
 # Política de retención
 
 YVY mantiene la base de datos local **acotada** para que no crezca sin límite. Esto se hace con un **job de retención** que corre automáticamente y purga datos viejos según una política configurable.

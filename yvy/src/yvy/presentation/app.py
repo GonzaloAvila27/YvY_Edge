@@ -44,6 +44,7 @@ from yvy.domain.auth.exceptions import (
 from yvy.domain.auth.models import User
 from yvy.domain.sync.agent_state import AgentState, is_latched
 from yvy.presentation.components import Header, Sidebar, SidebarItem
+from yvy.presentation.components.pizarra_yvy import PizarraYvY
 from yvy.presentation.theme import (
     BG_CARD,
     BG_CREAM,
@@ -287,6 +288,7 @@ class MainApplication(tk.Tk):
         self._main_frame: tk.Frame | None = None
         self._header: Header | None = None
         self._sidebar: Sidebar | None = None
+        self._pizarra: PizarraYvY | None = None
         self._content: tk.Frame | None = None
 
         # Interceptar la X
@@ -351,6 +353,7 @@ class MainApplication(tk.Tk):
             self._main_frame = None
             self._header = None
             self._sidebar = None
+            self._pizarra = None
             self._content = None
             self._view_cache.clear()
             self._current_view_key = None
@@ -460,12 +463,23 @@ class MainApplication(tk.Tk):
             on_select=self._navigate,
             is_admin=is_admin,
             is_alumno=is_alumno,
+            on_toggle=self._on_sidebar_toggled,
         )
         self._sidebar.pack(side="left", fill="y")
         self._sidebar.toggle()  # inicia siempre colapsado
 
         self._content = tk.Frame(body, bg=BG_CREAM)
         self._content.pack(side="left", fill="both", expand=True)
+
+        # Pizarra YvY — panel lateral izquierdo, inicia oculta
+        # Se empaqueta via before=self._content cuando se abre
+        if self._help_repository is not None:
+            self._pizarra = PizarraYvY(
+                body,
+                help_repository=self._help_repository,
+                on_close=self._on_pizarra_closed,
+                content_sibling=self._content,
+            )
 
         # Arrancar polling de indicadores del header (actualiza cada 15s)
         self._start_header_polling()
@@ -687,6 +701,33 @@ class MainApplication(tk.Tk):
                 except Exception:
                     pass
 
+    # ─── Pizarra YvY ────────────────────────────────────────────────────
+
+    def open_pizarra(self, article_key: str) -> None:
+        """Abre la Pizarra YvY con el artículo dado. Coordina con menú lateral."""
+        if self._pizarra is None:
+            return
+        # Si el sidebar está expandido, colapsarlo primero
+        if self._sidebar is not None and not self._sidebar.is_collapsed:
+            self._sidebar.toggle()
+        self._pizarra.show(article_key)
+
+    def _on_pizarra_closed(self) -> None:
+        """Callback de cierre de la pizarra."""
+        pass  # no-op; la pizarra ya se auto-ocultó via hide()
+
+    def _on_sidebar_toggled(self) -> None:
+        """Callback cuando el usuario usa el toggle del sidebar.
+
+        Si el sidebar se acaba de expandir y la pizarra está abierta,
+        cerrar la pizarra.
+        """
+        if self._pizarra is None or self._sidebar is None:
+            return
+        # toggle() ya cambió el estado: si ahora está expandido, cerrar pizarra
+        if not self._sidebar.is_collapsed and self._pizarra.is_open():
+            self._pizarra.hide()
+
     # ─── Navegación ─────────────────────────────────────────────────────
 
     def _navigate(self, key: str) -> None:
@@ -758,6 +799,8 @@ class MainApplication(tk.Tk):
                 station_uuid=self._app_config_repo.get("station_uuid")
                 if self._app_config_repo is not None else None,
                 compute_derived_uc=self._compute_derived_uc,
+                help_repository=self._help_repository,
+                open_pizarra=self.open_pizarra if self._pizarra is not None else None,
             )
 
         if key == "dashboard":
@@ -770,6 +813,8 @@ class MainApplication(tk.Tk):
                 station_uuid=self._app_config_repo.get("station_uuid")
                 if self._app_config_repo is not None else None,
                 compute_derived_uc=self._compute_derived_uc,
+                help_repository=self._help_repository,
+                open_pizarra=self.open_pizarra if self._pizarra is not None else None,
             )
 
         if key == "sync" and self._sync_controller is not None:

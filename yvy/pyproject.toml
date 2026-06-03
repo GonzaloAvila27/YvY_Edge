@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "yvy"
-version = "0.1.0"
+version = "1.1.0"
 description = "Sistema meteorológico escolar offline-first para Instituciones de Educación Agropecuaria de Misiones"
 authors = ["Gonzalo Avila <gonzalo.avila@example.ar>"]
 license = "Apache-2.0"

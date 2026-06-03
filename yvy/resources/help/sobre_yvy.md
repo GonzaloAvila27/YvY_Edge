@@ -1,3 +1,7 @@
+---
+language: es
+---
+
 # El proyecto YVY
 
 **YVY** significa *tierra* en guaraní, lengua originaria que se habla en Misiones y la región. El nombre refleja la conexión del proyecto con el territorio y con la educación agropecuaria local.

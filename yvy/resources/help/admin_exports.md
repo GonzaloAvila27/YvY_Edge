@@ -1,3 +1,7 @@
+---
+language: es
+---
+
 # Exportación de datos: procesado vs crudo
 
 YVY ofrece **dos tipos de export** distintos. Es importante elegir el correcto según el destinatario.

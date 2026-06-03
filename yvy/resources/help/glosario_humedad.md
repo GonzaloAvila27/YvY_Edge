@@ -1,3 +1,7 @@
+---
+language: es
+---
+
 # Humedad relativa
 
 La humedad relativa indica **cuánta agua hay en el aire** en relación al máximo que podría contener a esa temperatura. Se mide en porcentaje (%).

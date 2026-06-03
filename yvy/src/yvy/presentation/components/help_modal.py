@@ -1,9 +1,11 @@
 """Modal contextual de ayuda.
 
 Comportamiento (Fase 8 — decisión cerrada):
-- Se abre al click del HelpButton.
+- Se abre al hover sobre HelpButton (dwell 400 ms) o click directo.
+- Muestra el ``summary`` del artículo (o el primer párrafo si no hay).
+- Si se provee ``on_expand``, muestra botón "Saber más →" en el footer.
 - Mientras el mouse está sobre el modal, queda abierto (hover-lock).
-- Si el mouse sale, espera 2500 ms y se cierra automáticamente.
+- Si el mouse sale, espera DWELL_TIME_MS y se cierra automáticamente.
 - Si el mouse vuelve a entrar dentro del dwell time, se cancela el cierre.
 - Click fuera del modal o tecla Escape también cierra inmediato.
 
@@ -15,33 +17,37 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
-from tkinter import ttk
+from collections.abc import Callable
 
 from yvy.infrastructure.help.help_repository import HelpArticle
-from yvy.infrastructure.help.markdown_renderer import apply_markdown
 from yvy.presentation.theme import (
     BG_CARD,
     BG_CREAM,
     BORDER,
     FONT_BODY,
     FONT_BODY_BOLD,
+    FONT_SMALL,
     PRIMARY,
     SPACE_LG,
     SPACE_MD,
     SPACE_SM,
-    SPACE_XL,
     TEXT_PRIMARY,
+    TEXT_SECONDARY,
 )
 
 logger = logging.getLogger(__name__)
 
 
-# Tiempo de gracia post-mouseLeave antes de auto-cerrar
 DWELL_TIME_MS = 2500
 
 
 class HelpModal(tk.Toplevel):
-    """Modal contextual con hover-lock + auto-dismiss."""
+    """Modal contextual con hover-lock + auto-dismiss.
+
+    Muestra el ``summary`` del artículo en lugar del body completo
+    para mantenerlo compacto. Si el caller provee ``on_expand``,
+    aparece un botón "Saber más →" que abre la PizarraYvY.
+    """
 
     def __init__(
         self,
@@ -49,13 +55,14 @@ class HelpModal(tk.Toplevel):
         article: HelpArticle,
         anchor_widget: tk.Widget | None = None,
         dwell_ms: int = DWELL_TIME_MS,
+        on_expand: Callable[[str], None] | None = None,
     ) -> None:
         super().__init__(parent)
         self._article = article
         self._dwell_ms = dwell_ms
         self._dismiss_after_id: str | None = None
+        self._on_expand = on_expand
 
-        # Sin barra de título estándar — es un popup
         self.overrideredirect(True)
         self.configure(bg=BG_CARD)
 
@@ -63,17 +70,11 @@ class HelpModal(tk.Toplevel):
         self._wire_hover()
         self._position(anchor_widget, parent)
 
-        # Click fuera cierra
         parent.winfo_toplevel().bind("<Button-1>", self._on_outside_click, add="+")
         self.bind("<Escape>", lambda _e: self._close())
 
     def _build(self) -> None:
-        # Border outer
-        outer = tk.Frame(
-            self,
-            bg=BORDER,
-            highlightthickness=0,
-        )
+        outer = tk.Frame(self, bg=BORDER, highlightthickness=0)
         outer.pack(fill="both", expand=True)
 
         # Header
@@ -90,7 +91,6 @@ class HelpModal(tk.Toplevel):
             padx=SPACE_LG,
         ).pack(side="left", fill="y")
 
-        # Botón cerrar X
         close_btn = tk.Label(
             header,
             text="×",
@@ -103,51 +103,84 @@ class HelpModal(tk.Toplevel):
         close_btn.pack(side="right", fill="y")
         close_btn.bind("<Button-1>", lambda _e: self._close())
 
-        # Body
-        body = tk.Frame(outer, bg=BG_CARD, padx=SPACE_LG, pady=SPACE_LG)
-        body.pack(fill="both", expand=True, padx=1, pady=(0, 1))
+        # Body — muestra summary (compacto)
+        body = tk.Frame(outer, bg=BG_CARD, padx=SPACE_LG, pady=SPACE_MD)
+        body.pack(fill="both", expand=True, padx=1, pady=(0, 0))
 
-        # Text widget read-only seleccionable
-        self._text = tk.Text(
+        summary_text = self._get_display_text()
+        tk.Label(
             body,
-            wrap="word",
+            text=summary_text,
             bg=BG_CARD,
             fg=TEXT_PRIMARY,
             font=FONT_BODY,
-            relief="flat",
-            highlightthickness=0,
-            width=64,
-            height=20,
-            padx=SPACE_SM,
-            pady=SPACE_SM,
-            cursor="arrow",
-        )
-        scroll = ttk.Scrollbar(body, orient="vertical", command=self._text.yview)
-        self._text.configure(yscrollcommand=scroll.set)
+            wraplength=280,
+            justify="left",
+            anchor="nw",
+        ).pack(fill="x", anchor="w")
 
-        self._text.pack(side="left", fill="both", expand=True)
-        scroll.pack(side="right", fill="y")
-
-        # Renderizar markdown
-        apply_markdown(self._text, self._article.body_md)
-
-        # Footer hint
+        # Footer
         footer = tk.Frame(outer, bg=BG_CREAM, padx=SPACE_LG, pady=SPACE_SM)
         footer.pack(fill="x", padx=1, pady=(0, 1))
 
+        if self._on_expand is not None:
+            # Botón "Saber más →" — link-like a la izquierda
+            expand_lbl = tk.Label(
+                footer,
+                text="Saber más →",
+                bg=BG_CREAM,
+                fg=PRIMARY,
+                font=FONT_SMALL,
+                cursor="hand2",
+            )
+            expand_lbl.pack(side="left")
+            expand_lbl.bind("<Button-1>", self._on_expand_click)
+            expand_lbl.bind(
+                "<Enter>",
+                lambda _e, lbl=expand_lbl: lbl.configure(
+                    font=(FONT_SMALL[0], FONT_SMALL[1], "underline")
+                    if isinstance(FONT_SMALL, tuple) else FONT_SMALL
+                ),
+            )
+            expand_lbl.bind(
+                "<Leave>",
+                lambda _e, lbl=expand_lbl: lbl.configure(font=FONT_SMALL),
+            )
+
         tk.Label(
             footer,
-            text="Salí del recuadro para cerrar — Esc para cierre inmediato",
+            text="Salí del recuadro para cerrar",
             bg=BG_CREAM,
-            fg=TEXT_PRIMARY,
+            fg=TEXT_SECONDARY,
             font=("DejaVu Sans", 8, "italic"),
-        ).pack()
+        ).pack(side="right")
+
+    def _get_display_text(self) -> str:
+        """Retorna el texto a mostrar: summary o primer párrafo del body."""
+        if self._article.summary:
+            return self._article.summary
+
+        # Fallback: primer párrafo no vacío del body (sin encabezados)
+        for line in self._article.body_md.splitlines():
+            stripped = line.strip()
+            if stripped and not stripped.startswith("#"):
+                if len(stripped) > 200:
+                    return stripped[:200].rstrip() + "…"
+                return stripped
+        return self._article.title
+
+    def _on_expand_click(self, _event=None) -> None:  # type: ignore[no-untyped-def]
+        """Click en 'Saber más': cierra el modal y abre la pizarra."""
+        key = self._article.key
+        self._close()
+        if self._on_expand is not None:
+            self._on_expand(key)
+
+    # ─── Hover-lock y auto-dismiss ────────────────────────────────────────
 
     def _wire_hover(self) -> None:
-        """Bindea Enter/Leave en todos los widgets del modal."""
         self.bind("<Enter>", self._on_mouse_enter, add="+")
         self.bind("<Leave>", self._on_mouse_leave, add="+")
-        # Bind también en hijos para que el "Leave" se dispare correcto
         for child in self.winfo_children():
             self._bind_recursive(child)
 
@@ -158,7 +191,6 @@ class HelpModal(tk.Toplevel):
             self._bind_recursive(c)
 
     def _on_mouse_enter(self, _event=None) -> None:  # type: ignore[no-untyped-def]
-        # Mouse volvió a entrar: cancelar el dismiss programado
         if self._dismiss_after_id is not None:
             try:
                 self.after_cancel(self._dismiss_after_id)
@@ -167,14 +199,11 @@ class HelpModal(tk.Toplevel):
             self._dismiss_after_id = None
 
     def _on_mouse_leave(self, event=None) -> None:  # type: ignore[no-untyped-def]
-        # Tkinter dispara Leave también al pasar entre widgets hijos.
-        # Filtramos: si el cursor sigue dentro del modal, ignorar.
         if event is not None:
             try:
                 x, y = self.winfo_pointerxy()
                 widget_under = self.winfo_containing(x, y)
                 if widget_under is not None:
-                    # Si el widget bajo el cursor pertenece al modal, no salimos
                     parent = widget_under
                     while parent is not None:
                         if parent is self:
@@ -183,12 +212,10 @@ class HelpModal(tk.Toplevel):
             except tk.TclError:
                 pass
 
-        # Programar el cierre
         if self._dismiss_after_id is None:
             self._dismiss_after_id = self.after(self._dwell_ms, self._close)
 
     def _on_outside_click(self, event) -> None:  # type: ignore[no-untyped-def]
-        """Click fuera del modal lo cierra."""
         try:
             x, y = event.x_root, event.y_root
             mx, my = self.winfo_rootx(), self.winfo_rooty()
@@ -215,11 +242,6 @@ class HelpModal(tk.Toplevel):
         anchor_widget: tk.Widget | None,
         parent: tk.Misc,
     ) -> None:
-        """Posiciona el modal cerca del widget que lo invocó.
-
-        Si hay anchor, intenta posicionarse a su derecha (o abajo si
-        no entra). Si no, lo centra sobre el parent.
-        """
         self.update_idletasks()
         mw = self.winfo_reqwidth()
         mh = self.winfo_reqheight()
@@ -231,18 +253,13 @@ class HelpModal(tk.Toplevel):
                 ax = anchor_widget.winfo_rootx()
                 ay = anchor_widget.winfo_rooty()
                 aw = anchor_widget.winfo_width()
-                ah = anchor_widget.winfo_height()
 
-                # Intentar a la derecha del anchor
                 x = ax + aw + 8
                 y = ay
-                # Si se sale por la derecha, ponerlo a la izquierda
                 if x + mw > screen_w:
                     x = ax - mw - 8
-                # Si igual no entra, centrar sobre el anchor
                 if x < 0:
                     x = max(8, ax + (aw - mw) // 2)
-                # Y vertical: si se sale, subir
                 if y + mh > screen_h:
                     y = max(8, screen_h - mh - 8)
 
@@ -251,7 +268,6 @@ class HelpModal(tk.Toplevel):
             except tk.TclError:
                 pass
 
-        # Fallback: centrar sobre parent
         try:
             px = parent.winfo_rootx()
             py = parent.winfo_rooty()

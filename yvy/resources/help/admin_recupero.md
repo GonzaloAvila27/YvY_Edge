@@ -1,3 +1,7 @@
+---
+language: es
+---
+
 # Recupero de datos del sensor
 
 El sensor WH1081 **bufferea internamente** las últimas lecturas: cuando la PC servidor está apagada o YVY no estaba corriendo, la consola igual sigue grabando datos.

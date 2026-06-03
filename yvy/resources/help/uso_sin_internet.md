@@ -1,3 +1,7 @@
+---
+language: es
+---
+
 # Cuando no hay internet
 
 YVY está diseñado para **funcionar normalmente sin internet**. Esto es deliberado: las escuelas rurales tienen conectividad intermitente y el sistema no puede dejar de funcionar por eso.

@@ -1,3 +1,7 @@
+---
+language: es
+---
+
 # Sensación Térmica
 
 ## Qué es

@@ -1,3 +1,7 @@
+---
+language: es
+---
+
 # Cambiar mi contraseña
 
 ## Pasos

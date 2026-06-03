@@ -1,3 +1,7 @@
+---
+language: es
+---
+
 # Temperatura
 
 La temperatura es la **medida del calor del aire**. En meteorología se expresa en grados Celsius (°C) en Argentina y la mayor parte del mundo.

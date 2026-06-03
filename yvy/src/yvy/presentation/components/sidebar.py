@@ -84,6 +84,7 @@ class Sidebar(tk.Frame):
         is_admin: bool = False,
         is_alumno: bool = False,
         admin_separator_label: str = "Admin",
+        on_toggle: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(
             parent,
@@ -97,6 +98,7 @@ class Sidebar(tk.Frame):
         self._is_admin = is_admin
         self._is_alumno = is_alumno
         self._admin_sep_label = admin_separator_label
+        self._on_toggle_cb = on_toggle
 
         self._collapsed = False
         self._active_key: str | None = None
@@ -216,9 +218,18 @@ class Sidebar(tk.Frame):
 
     def _build_toggle(self) -> _ToggleButton:
         """Botón toggle al pie del sidebar."""
-        toggle = _ToggleButton(self, on_click=self.toggle)
+        toggle = _ToggleButton(self, on_click=self._handle_toggle)
         toggle.pack(side="bottom", fill="x")
         return toggle
+
+    def _handle_toggle(self) -> None:
+        """Llama a toggle() y luego al callback externo on_toggle si existe."""
+        self.toggle()
+        if self._on_toggle_cb is not None:
+            try:
+                self._on_toggle_cb()
+            except Exception:
+                logger.exception("Error en callback on_toggle del sidebar")
 
     def _handle_select(self, key: str) -> None:
         """Handler interno que delega al callback externo."""

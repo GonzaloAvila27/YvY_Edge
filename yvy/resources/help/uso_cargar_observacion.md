@@ -1,3 +1,7 @@
+---
+language: es
+---
+
 # Cómo cargar una observación manual
 
 Las observaciones manuales son los datos que **vos cargás** cuando ves un fenómeno que el sensor no detecta directamente: granizo, helada visible, lluvia intensa, etc.

@@ -1,3 +1,7 @@
+---
+language: es
+---
+
 # Tendencia de Presión
 
 ## Qué es

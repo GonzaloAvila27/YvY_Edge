@@ -1,3 +1,7 @@
+---
+language: es
+---
+
 # Viento
 
 YVY reporta el viento con tres datos: velocidad, dirección y ráfaga.

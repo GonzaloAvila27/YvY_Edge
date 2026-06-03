@@ -1,53 +1,155 @@
 {
+  "version": "1.1",
+  "language": "es",
   "categories": [
     {
       "key": "glosario",
       "label": "Glosario meteorológico",
       "articles": [
-        {"key": "glosario_temperatura",      "title": "Temperatura"},
-        {"key": "glosario_humedad",          "title": "Humedad relativa"},
-        {"key": "glosario_presion",          "title": "Presión atmosférica"},
-        {"key": "glosario_tendencia_presion","title": "Tendencia de presión"},
-        {"key": "glosario_viento",           "title": "Viento"},
-        {"key": "glosario_lluvia_uv",        "title": "Lluvia y radiación UV"},
-        {"key": "glosario_dewpoint",         "title": "Punto de rocío"}
+        {
+          "key": "glosario_temperatura",
+          "title": "Temperatura",
+          "summary": "Mide el calor del aire exterior en grados Celsius. En Misiones va de 5°C en madrugada de invierno a 38°C en días de verano. Relevante para detectar heladas (≤0°C), olas de calor (≥35°C) y variaciones bruscas que suelen anticipar tormentas.",
+          "related": ["glosario_humedad", "glosario_dewpoint", "glosario_sensacion_termica", "glosario_amplitud_termica"]
+        },
+        {
+          "key": "glosario_humedad",
+          "title": "Humedad relativa",
+          "summary": "Porcentaje de agua en el aire respecto al máximo que podría contener. En Misiones —región subtropical húmeda— suele estar entre 65-100%. Humedad alta sostenida favorece hongos en cultivos. Afecta directamente la sensación térmica y el VPD.",
+          "related": ["glosario_temperatura", "glosario_vpd", "glosario_dewpoint", "glosario_sensacion_termica"]
+        },
+        {
+          "key": "glosario_presion",
+          "title": "Presión atmosférica",
+          "summary": "Peso del aire medido en hPa. El valor normal a nivel del mar es 1013 hPa. Más importante que el número absoluto es su tendencia: una caída de 3 hPa o más en 3 horas anticipa tormenta. YVY reporta presión relativa ajustada al nivel del mar.",
+          "related": ["glosario_tendencia_presion"]
+        },
+        {
+          "key": "glosario_tendencia_presion",
+          "title": "Tendencia de presión",
+          "summary": "Compara la presión actual con la registrada hace aproximadamente 3 horas. Presión en descenso anticipa lluvia o tormentas; en aumento indica mejora del tiempo. Es uno de los predictores meteorológicos más confiables a corto plazo.",
+          "related": ["glosario_presion"]
+        },
+        {
+          "key": "glosario_viento",
+          "title": "Viento",
+          "summary": "YVY reporta velocidad (m/s), dirección (grados) y ráfaga. Más de 11 m/s ya indica tormenta. En Misiones el viento del noreste es dominante; las tormentas severas llegan del oeste o suroeste. La dirección es crítica para fumigación en zafra.",
+          "related": ["glosario_sensacion_termica"]
+        },
+        {
+          "key": "glosario_lluvia_uv",
+          "title": "Lluvia y radiación UV",
+          "summary": "Lluvia medida en mm (1 mm = 1 litro/m²). Más de 50 mm/h es torrencial; más de 100 mm/día es extremo. El índice UV indica riesgo solar: en verano en Misiones alcanza 8-11 al mediodía. Importante para actividades al aire libre y gestión de cultivos.",
+          "related": ["glosario_vpd", "glosario_humedad"]
+        },
+        {
+          "key": "glosario_dewpoint",
+          "title": "Punto de rocío",
+          "summary": "Temperatura a la que el aire formaría gotas. Cuando la diferencia con la temperatura ambiente es menor a 2°C puede aparecer niebla o rocío en madrugadas. Se calcula a partir de temperatura y humedad. Relevante para hongos y condensación en cultivos.",
+          "related": ["glosario_temperatura", "glosario_humedad", "glosario_vpd"]
+        }
       ]
     },
     {
       "key": "indicadores",
       "label": "Indicadores derivados",
       "articles": [
-        {"key": "glosario_vpd",              "title": "VPD — Déficit de Presión de Vapor"},
-        {"key": "glosario_amplitud_termica", "title": "Amplitud térmica"},
-        {"key": "glosario_sensacion_termica","title": "Sensación térmica"},
-        {"key": "glosario_confort",          "title": "Índice de confort"},
-        {"key": "glosario_observacion_yvy",  "title": "Diagnóstico del día"}
+        {
+          "key": "glosario_vpd",
+          "title": "VPD — Déficit de Presión de Vapor",
+          "summary": "Mide cuánta agua puede absorber el aire antes de saturarse. VPD bajo (<0.4 kPa) aumenta el riesgo de hongos; VPD alto (>1.0 kPa) estresa las plantas por pérdida de agua. Se calcula combinando temperatura y humedad relativa. Indicador clave para el manejo agronómico.",
+          "related": ["glosario_humedad", "glosario_temperatura", "glosario_dewpoint", "glosario_confort"]
+        },
+        {
+          "key": "glosario_amplitud_termica",
+          "title": "Amplitud térmica",
+          "summary": "Diferencia entre la temperatura máxima y mínima del día. Amplitud alta (>10°C) indica día despejado con noche fresca, favorable para muchas plantas. Amplitud baja (<5°C) sugiere cielo cubierto o alta humedad. Permite identificar cambios estacionales y de masa de aire.",
+          "related": ["glosario_temperatura", "glosario_presion"]
+        },
+        {
+          "key": "glosario_sensacion_termica",
+          "title": "Sensación térmica",
+          "summary": "Cómo percibe el cuerpo la temperatura real. En días calurosos y húmedos se siente más calor; con viento intenso se siente más frío. Se calcula combinando temperatura, humedad relativa y velocidad del viento. Útil para evaluar confort en actividades al aire libre.",
+          "related": ["glosario_temperatura", "glosario_humedad", "glosario_viento", "glosario_confort"]
+        },
+        {
+          "key": "glosario_confort",
+          "title": "Índice de confort",
+          "summary": "Clasifica las condiciones ambientales en 5 niveles: desde Muy confortable hasta Muy incómodo. Se calcula con temperatura, humedad y sensación térmica. Permite interpretar el estado del ambiente de un vistazo sin analizar múltiples gráficos.",
+          "related": ["glosario_sensacion_termica", "glosario_humedad", "glosario_vpd"]
+        },
+        {
+          "key": "glosario_observacion_yvy",
+          "title": "Diagnóstico del día",
+          "summary": "Texto generado automáticamente por YVY a partir de temperatura, humedad, VPD, lluvia, presión y amplitud térmica. Resume en 2-3 oraciones las condiciones del día para estudiantes y docentes sin necesidad de interpretar cada indicador por separado.",
+          "related": ["glosario_vpd", "glosario_confort", "glosario_tendencia_presion", "glosario_amplitud_termica"]
+        }
       ]
     },
     {
       "key": "uso",
       "label": "Uso del sistema",
       "articles": [
-        {"key": "uso_cargar_observacion", "title": "Cómo cargar una observación manual"},
-        {"key": "uso_sensor_no_responde", "title": "El sensor no manda datos"},
-        {"key": "uso_sin_internet",       "title": "Cuando no hay internet"},
-        {"key": "uso_cambiar_password",   "title": "Cambiar mi contraseña"}
+        {
+          "key": "uso_cargar_observacion",
+          "title": "Cómo cargar una observación manual",
+          "summary": "Para registrar un evento meteorológico que el sensor no detecta (granizo, helada, niebla): ir a Formulario, elegir el tipo, completar fecha/hora y guardar. Lo puede hacer cualquier usuario activo. Recomendado cargarlo lo antes posible después del evento.",
+          "related": ["uso_sin_internet", "glosario_lluvia_uv"]
+        },
+        {
+          "key": "uso_sensor_no_responde",
+          "title": "El sensor no manda datos",
+          "summary": "Si el indicador Sensor aparece en rojo, verificar en orden: consola prendida, pilas o adaptador, cable USB conectado a la PC servidor, y YVY corriendo. Estado rojo más de 10 minutos con todo verificado: ejecutar recupero o contactar soporte técnico.",
+          "related": ["uso_sin_internet", "admin_recupero"]
+        },
+        {
+          "key": "uso_sin_internet",
+          "title": "Cuando no hay internet",
+          "summary": "YVY funciona completamente sin internet. La recolección, visualización y carga manual de observaciones no se interrumpen. Las sincronizaciones se acumulan localmente y se envían automáticamente cuando vuelve la conexión. La base local guarda hasta 14 días de lecturas crudas.",
+          "related": ["uso_sensor_no_responde", "uso_cargar_observacion", "admin_retencion"]
+        },
+        {
+          "key": "uso_cambiar_password",
+          "title": "Cambiar mi contraseña",
+          "summary": "Para cambiar la contraseña: click en el avatar (esquina superior derecha) y seguir los pasos. Mínimo 8 caracteres. Si la olvidaste, un administrador de la institución debe resetearla: el sistema es offline y no puede enviar correos de recuperación.",
+          "related": []
+        }
       ]
     },
     {
       "key": "admin",
       "label": "Administración",
       "articles": [
-        {"key": "admin_recupero",   "title": "Recupero de datos del sensor"},
-        {"key": "admin_exports",    "title": "Exportación de datos: procesado vs crudo"},
-        {"key": "admin_retencion",  "title": "Política de retención"}
+        {
+          "key": "admin_recupero",
+          "title": "Recupero de datos del sensor",
+          "summary": "El sensor WH1081 guarda lecturas en buffer aunque la PC esté apagada. El recupero descarga ese buffer a la base de datos. Ejecutarlo tras cortes de luz, reinicios o si hay huecos en el dashboard. El proceso puede tardar hasta 5 minutos y no duplica datos.",
+          "related": ["uso_sensor_no_responde", "uso_sin_internet"]
+        },
+        {
+          "key": "admin_exports",
+          "title": "Exportación de datos: procesado vs crudo",
+          "summary": "YVY ofrece dos exports: procesado (métricas validadas para informes internos, accesible a Profesores y Admins) y crudo (JSON sin parsear para uso académico, requiere permiso especial). Ambos usan el filtro de fechas de la vista Datos y quedan registrados en Logs.",
+          "related": ["admin_retencion"]
+        },
+        {
+          "key": "admin_retencion",
+          "title": "Política de retención",
+          "summary": "Job automático que limita el crecimiento de la base de datos. Por defecto borra lecturas crudas a los 14 días y cola de sync enviada a los 30. Las observaciones procesadas y manuales se conservan siempre. Configurable desde Configuración; los cambios aplican al próximo arranque.",
+          "related": ["admin_exports", "uso_sin_internet"]
+        }
       ]
     },
     {
       "key": "sobre",
       "label": "Sobre YVY",
       "articles": [
-        {"key": "sobre_yvy", "title": "El proyecto YVY"}
+        {
+          "key": "sobre_yvy",
+          "title": "El proyecto YVY",
+          "summary": "YVY (tierra en guaraní) es un sistema de monitoreo meteorológico offline-first para los IEA de Misiones. Recolecta datos del sensor WH1081 localmente y los sincroniza con el servidor central. Combina uso pedagógico, productivo y de investigación. Desarrollado como pasantía con apoyo de INET.",
+          "related": []
+        }
       ]
     }
   ]

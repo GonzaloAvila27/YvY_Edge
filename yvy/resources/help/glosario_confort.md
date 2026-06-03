@@ -1,3 +1,7 @@
+---
+language: es
+---
+
 # Índice de Confort
 
 ## Qué es
