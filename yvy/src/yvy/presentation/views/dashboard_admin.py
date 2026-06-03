@@ -390,10 +390,15 @@ class DashboardAdminView(tk.Frame):
         chart_card.pack(side="left", fill="both", expand=True, padx=(0, SPACE_LG))
         self._build_chart_area(chart_card)
 
-        # KPI cards — derecha, ancho fijo
-        kpi_col = tk.Frame(body, bg=BG_CREAM, width=_KPI_CARD_WIDTH)
-        kpi_col.pack(side="right", fill="y")
-        kpi_col.pack_propagate(False)
+        # KPI cards — derecha, ancho fijo.
+        # Sin pack_propagate(False) para que la altura natural de los cards
+        # propague al body (evita que el card VPD quede cortado).
+        # El spacer invisible fuerza el ancho mínimo de la columna.
+        kpi_col = tk.Frame(body, bg=BG_CREAM)
+        kpi_col.pack(side="right")
+        _w = tk.Frame(kpi_col, bg=BG_CREAM, width=_KPI_CARD_WIDTH, height=1)
+        _w.pack_propagate(False)
+        _w.pack(fill="x")
         self._build_kpis(kpi_col)
 
     def _build_chart_area(self, card: tk.Frame) -> None:
