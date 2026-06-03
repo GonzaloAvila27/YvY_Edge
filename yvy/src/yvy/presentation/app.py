@@ -811,6 +811,7 @@ class MainApplication(tk.Tk):
                 compute_derived_uc=self._compute_derived_uc,
                 help_repository=self._help_repository,
                 open_pizarra=self.open_pizarra if self._pizarra is not None else None,
+                export_data_uc=self._export_data_uc,
             )
 
         if key == "dashboard":
@@ -825,6 +826,7 @@ class MainApplication(tk.Tk):
                 compute_derived_uc=self._compute_derived_uc,
                 help_repository=self._help_repository,
                 open_pizarra=self.open_pizarra if self._pizarra is not None else None,
+                export_data_uc=self._export_data_uc,
             )
 
         if key == "sync" and self._sync_controller is not None:

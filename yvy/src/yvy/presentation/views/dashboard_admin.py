@@ -26,9 +26,12 @@ Role gating del área de gráfico:
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta, tzinfo
+from pathlib import Path
+from tkinter import filedialog, messagebox
 from typing import TYPE_CHECKING, Any
 
 import tkinter as tk
@@ -57,6 +60,7 @@ from yvy.presentation.theme import (
 )
 
 if TYPE_CHECKING:
+    from yvy.application.use_cases.admin.export_data_csv import ExportDataCsvUseCase
     from yvy.application.use_cases.compute_derived import (
         ComputeDerivedUseCase,
         CurrentDerivedValues,
@@ -163,6 +167,7 @@ class DashboardAdminView(tk.Frame):
         compute_derived_uc: ComputeDerivedUseCase | None = None,
         help_repository: HelpRepository | None = None,
         open_pizarra: Callable[[str], None] | None = None,
+        export_data_uc: ExportDataCsvUseCase | None = None,
     ) -> None:
         super().__init__(parent, bg=BG_CREAM)
 
@@ -174,6 +179,7 @@ class DashboardAdminView(tk.Frame):
         self._compute_derived_uc = compute_derived_uc
         self._help_repo = help_repository
         self._open_pizarra = open_pizarra
+        self._export_data_uc = export_data_uc
 
         # Widgets del área de gráfico (inicializados en _build)
         self._chart_widget: ChartWidget | None = None
@@ -244,9 +250,9 @@ class DashboardAdminView(tk.Frame):
         row = conn.execute(
             """
             SELECT
-                AVG(CASE WHEN temp_outdoor IS NOT NULL THEN temp_outdoor END),
-                AVG(CASE WHEN hum_outdoor  IS NOT NULL THEN hum_outdoor  END),
-                AVG(CASE WHEN pressure_rel IS NOT NULL THEN pressure_rel END),
+                AVG(temp_outdoor),
+                AVG(hum_outdoor),
+                AVG(COALESCE(pressure_rel, pressure_abs)),
                 COUNT(*)
             FROM sensor_data
             WHERE observed_at >= ? AND is_valid = 1
@@ -313,14 +319,44 @@ class DashboardAdminView(tk.Frame):
     # ─── Construcción de UI ───────────────────────────────────────────────
 
     def _build(self) -> None:
-        container = tk.Frame(self, bg=BG_CREAM)
-        container.pack(fill="both", expand=True, padx=SPACE_XL, pady=SPACE_XL)
+        # Canvas scrollable para que diagnóstico y eventos no queden cortados
+        # en pantallas pequeñas (netbook IEA).
+        _vscroll = ttk.Scrollbar(self, orient="vertical")
+        _vscroll.pack(side="right", fill="y")
 
-        self._build_header(container)
-        self._build_body(container)
+        _canvas = tk.Canvas(
+            self, bg=BG_CREAM, highlightthickness=0,
+            yscrollcommand=_vscroll.set,
+        )
+        _canvas.pack(side="left", fill="both", expand=True)
+        _vscroll.configure(command=_canvas.yview)
+
+        container = tk.Frame(_canvas, bg=BG_CREAM)
+        _cfw = _canvas.create_window((0, 0), window=container, anchor="nw")
+
+        # Mantener el ancho del frame en sync con el canvas
+        _canvas.bind(
+            "<Configure>",
+            lambda e: _canvas.itemconfigure(_cfw, width=e.width),
+        )
+        container.bind(
+            "<Configure>",
+            lambda e: _canvas.configure(scrollregion=_canvas.bbox("all")),
+        )
+        # Mouse wheel — Windows
+        def _wheel(e: tk.Event) -> None:  # type: ignore[type-arg]
+            _canvas.yview_scroll(-1 * (e.delta // 120), "units")
+        _canvas.bind_all("<MouseWheel>", _wheel)
+        self.bind("<Destroy>", lambda _: self.unbind_all("<MouseWheel>"))
+
+        inner = tk.Frame(container, bg=BG_CREAM)
+        inner.pack(fill="x", expand=True, padx=SPACE_XL, pady=SPACE_XL)
+
+        self._build_header(inner)
+        self._build_body(inner)
         if self._derived.day_summary:
-            self._build_day_summary(container, self._derived.day_summary)
-        self._build_events(container)
+            self._build_day_summary(inner, self._derived.day_summary)
+        self._build_events(inner)
 
     def _build_header(self, parent: tk.Misc) -> None:
         row = tk.Frame(parent, bg=BG_CREAM)
@@ -337,17 +373,17 @@ class DashboardAdminView(tk.Frame):
 
         actions = tk.Frame(row, bg=BG_CREAM)
         actions.pack(side="right")
-        # TODO: implementar exportación de datos en fase posterior
         ttk.Button(
             actions,
             text="Exportar",
             style="Secondary.TButton",
-            state="disabled",
+            command=self._on_export_clicked,
+            state="normal" if self._export_data_uc is not None else "disabled",
         ).pack(side="left")
 
     def _build_body(self, parent: tk.Misc) -> None:
         body = tk.Frame(parent, bg=BG_CREAM)
-        body.pack(fill="both", expand=True, pady=(0, SPACE_LG))
+        body.pack(fill="x", pady=(0, SPACE_LG))
 
         # Área de gráfico — izquierda, expande
         chart_card = _make_card(body)
@@ -565,6 +601,42 @@ class DashboardAdminView(tk.Frame):
 
         for ev in self._data.events:
             _make_event_row(inner, ev.ts_label, ev.title, ev.detail, ev.dot_color)
+
+    # ─── Export ──────────────────────────────────────────────────────────
+
+    def _on_export_clicked(self) -> None:
+        if self._export_data_uc is None:
+            return
+        path = filedialog.asksaveasfilename(
+            title="Guardar CSV del dashboard",
+            defaultextension=".csv",
+            filetypes=[("CSV", "*.csv")],
+            initialfile=f"dashboard_{datetime.now().strftime('%Y%m%d')}.csv",
+        )
+        if not path:
+            return
+        since = datetime.now(UTC) - timedelta(days=_DAYS)
+        until = datetime.now(UTC)
+        uc = self._export_data_uc
+
+        def _run() -> None:
+            try:
+                result = uc.execute(
+                    output_path=Path(path),
+                    date_from=since,
+                    date_to=until,
+                    actor_user_id=None,
+                    actor_username=None,
+                )
+                self.after(0, lambda: messagebox.showinfo(
+                    "Exportación completada",
+                    f"Se exportaron {result.rows_exported} filas a:\n{result.file_path}",
+                ))
+            except Exception as exc:
+                logger.exception("Export dashboard falló")
+                self.after(0, lambda: messagebox.showerror("Error", f"No se pudo exportar:\n{exc}"))
+
+        threading.Thread(target=_run, daemon=True).start()
 
     # ─── Tema ────────────────────────────────────────────────────────────
 

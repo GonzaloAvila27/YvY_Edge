@@ -470,6 +470,10 @@ class DataView(tk.Frame):
 
         threading.Thread(target=_run, daemon=True).start()
 
+    def apply_theme(self, palette: dict) -> None:
+        from yvy.presentation.theme_manager import recolor
+        recolor(self, palette)
+
     def _on_export_raw_clicked(self) -> None:
         # Doble validación de permisos defensiva
         if not Permissions.can_export_raw(self._current_user):

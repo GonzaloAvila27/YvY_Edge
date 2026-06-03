@@ -4,7 +4,7 @@ cd /d "C:\YVY"
 :: ── Backup diario de la base de datos ─────────────────────────────────────────
 set "DB=C:\YVY\data\yvy.sqlite"
 set "BACKUPS=C:\YVY\data\backups"
-if not exist "!DB!" goto :start_app
+if not exist "%DB%" goto :start_app
 
 :: Crear carpeta de backups si no existe
 if not exist "%BACKUPS%" mkdir "%BACKUPS%"
@@ -24,10 +24,5 @@ if not exist "%BACKUP_FILE%" (
 forfiles /P "%BACKUPS%" /M "yvy_*.sqlite" /D -30 /C "cmd /c del @path" >nul 2>&1
 
 :start_app
-".venv\Scripts\python.exe" "scripts\launch_app.py"
-if errorlevel 1 (
-    echo.
-    echo YVY se cerro con un error.
-    echo Si el problema persiste, contactar al administrador.
-    pause >nul
-)
+:: pythonw.exe lanza sin ventana de consola; la salida queda en data\logs\yvy_app.log
+start "" ".venv\Scripts\pythonw.exe" "scripts\launch_app.py"

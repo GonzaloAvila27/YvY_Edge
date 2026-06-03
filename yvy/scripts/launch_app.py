@@ -32,16 +32,37 @@ import logging
 import sys
 import threading
 import uuid
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from zoneinfo import ZoneInfo
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+_LOG_DIR = ROOT / "data" / "logs"
+_LOG_DIR.mkdir(parents=True, exist_ok=True)
+_LOG_FILE = _LOG_DIR / "yvy_app.log"
+
+_handlers: list[logging.Handler] = [
+    RotatingFileHandler(
+        _LOG_FILE,
+        maxBytes=2 * 1024 * 1024,   # 2 MB por archivo
+        backupCount=3,
+        encoding="utf-8",
+    ),
+]
+# Solo agregar StreamHandler si hay consola disponible
+if sys.stdout is not None:
+    _handlers.append(logging.StreamHandler())
 
 logging.basicConfig(
     level=logging.WARNING,
     format="%(levelname)-7s %(name)s : %(message)s",
+    handlers=_handlers,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
+_logger_main = logging.getLogger("yvy.launch")
+_logger_main.setLevel(logging.INFO)
 
 from yvy.application.use_cases.admin.export_data_csv import ExportDataCsvUseCase
 from yvy.application.use_cases.admin.export_raw_csv import ExportRawCsvUseCase
@@ -126,12 +147,12 @@ def main() -> int:
         if app_config_repo.get("station_uuid") is None:
             dev_uuid = str(uuid.uuid4())
             app_config_repo.set("station_uuid", dev_uuid)
-            print(f"[dev] station_uuid generado: {dev_uuid}")
+            _logger_main.info("[dev] station_uuid generado: %s", dev_uuid)
 
         # Usuario de emergencia si la DB quedó sin usuarios (no debería pasar).
         users = user_repo.list_all()
         if not users:
-            print(f"DB sin usuarios. Creando superadmin '{DEFAULT_USER}' / '{DEFAULT_PASS}'")
+            _logger_main.warning("DB sin usuarios. Creando superadmin '%s'", DEFAULT_USER)
             create_uc.execute(
                 username=DEFAULT_USER,
                 full_name="Director IEA",
@@ -140,7 +161,7 @@ def main() -> int:
                 can_export_raw=True,
             )
         else:
-            print(f"Usuarios existentes: {[u.username for u in users]}")
+            _logger_main.info("Usuarios existentes: %s", [u.username for u in users])
     else:
         # Primera instalación: el wizard se encargará de station_uuid y usuarios.
         # Seed temporal para que los use cases se puedan construir.
@@ -148,8 +169,8 @@ def main() -> int:
             temp_uuid = str(uuid.uuid4())
             app_config_repo.set("station_uuid", temp_uuid)
             app_config_repo.set("station_uuid_is_temporary", "true")
-            print(f"[onboarding] UUID temporal: {temp_uuid} (el wizard lo reemplazará)")
-        print("[onboarding] Primera instalación — el wizard configurará la estación.")
+            _logger_main.info("[onboarding] UUID temporal: %s (el wizard lo reemplazará)", temp_uuid)
+        _logger_main.info("[onboarding] Primera instalación — el wizard configurará la estación.")
 
     _station_uuid = StationUUID(uuid.UUID(app_config_repo.get("station_uuid")))
     _parser = PywwsPayloadParser()
@@ -271,9 +292,9 @@ def main() -> int:
             stop_event=_sensor_stop,
         )
         _collector.start()
-        print("[sensor] Daemon de captura iniciado")
+        _logger_main.info("[sensor] Daemon de captura iniciado")
     except Exception as _exc:
-        print(f"[sensor] Daemon no iniciado (sin sensor o pywws no instalado): {_exc}")
+        _logger_main.warning("[sensor] Daemon no iniciado (sin sensor o pywws): %s", _exc)
 
     sync_controller = SyncController(
         catchup_use_case=catchup_uc,
@@ -328,22 +349,20 @@ def main() -> int:
     if sync_agent is not None:
         try:
             sync_agent.start()
-            print("[sync] SyncAgentDaemon iniciado")
+            _logger_main.info("[sync] SyncAgentDaemon iniciado")
         except Exception as _exc:
-            print(f"[sync] SyncAgentDaemon no inició: {_exc}")
+            _logger_main.warning("[sync] SyncAgentDaemon no inició: %s", _exc)
     else:
-        print("[sync] SyncAgentDaemon NO inicializado (faltan credentials). UI sigue operativa.")
+        _logger_main.info("[sync] SyncAgentDaemon NO inicializado (faltan credentials). UI sigue operativa.")
 
     if update_checker is not None:
         try:
             update_checker.start()
-            print("[update] UpdateCheckerDaemon iniciado")
+            _logger_main.info("[update] UpdateCheckerDaemon iniciado")
         except Exception as _exc:
-            print(f"[update] UpdateCheckerDaemon no inició: {_exc}")
+            _logger_main.warning("[update] UpdateCheckerDaemon no inició: %s", _exc)
 
-    print("Iniciando YVY...")
-    print(f"  DB: {db_path}")
-    print(f"  Usuario: {DEFAULT_USER}  /  Contraseña: {DEFAULT_PASS}")
+    _logger_main.info("Iniciando YVY... DB=%s", db_path)
     try:
         app.mainloop()
     finally:
@@ -352,13 +371,13 @@ def main() -> int:
             try:
                 update_checker.stop(timeout_s=5.0)
             except Exception as _exc:
-                print(f"[update] Error deteniendo UpdateCheckerDaemon: {_exc}")
+                _logger_main.warning("[update] Error deteniendo UpdateCheckerDaemon: %s", _exc)
         if sync_agent is not None:
             try:
                 sync_agent.stop(timeout_s=10.0)
-                print("[sync] SyncAgentDaemon detenido")
+                _logger_main.info("[sync] SyncAgentDaemon detenido")
             except Exception as _exc:
-                print(f"[sync] Error deteniendo SyncAgentDaemon: {_exc}")
+                _logger_main.warning("[sync] Error deteniendo SyncAgentDaemon: %s", _exc)
         _sensor_stop.set()
     return 0
 
@@ -373,17 +392,17 @@ def _load_sync_credentials(app_config_repo) -> dict | None:
     """
     server_url = app_config_repo.get("sync_server_url")
     if not server_url:
-        print("[sync] sync_server_url no configurado en app_config. Agent deshabilitado.")
+        _logger_main.info("[sync] sync_server_url no configurado. Agent deshabilitado.")
         return None
 
     if not STATION_CREDENTIALS_PATH.exists():
-        print(f"[sync] {STATION_CREDENTIALS_PATH} no existe. Agent deshabilitado.")
+        _logger_main.info("[sync] %s no existe. Agent deshabilitado.", STATION_CREDENTIALS_PATH)
         return None
 
     try:
         creds = json.loads(STATION_CREDENTIALS_PATH.read_text(encoding="utf-8"))
     except Exception as exc:
-        print(f"[sync] Error leyendo credentials: {exc}. Agent deshabilitado.")
+        _logger_main.warning("[sync] Error leyendo credentials: %s. Agent deshabilitado.", exc)
         return None
 
     try:
@@ -391,18 +410,18 @@ def _load_sync_credentials(app_config_repo) -> dict | None:
         key_version = int(creds["key_version"])
         key_bytes = bytes.fromhex(creds["key_hmac_hex"])
     except (KeyError, ValueError, TypeError) as exc:
-        print(f"[sync] Credentials JSON inválido ({type(exc).__name__}: {exc}). Agent deshabilitado.")
+        _logger_main.warning("[sync] Credentials JSON inválido (%s: %s). Agent deshabilitado.", type(exc).__name__, exc)
         return None
 
     if len(key_bytes) < 32:
-        print(f"[sync] key_hmac_hex demasiado corto ({len(key_bytes)} bytes, esperado >= 32). Agent deshabilitado.")
+        _logger_main.warning("[sync] key_hmac_hex demasiado corto (%d bytes). Agent deshabilitado.", len(key_bytes))
         return None
 
     cfg_station = app_config_repo.get("station_uuid")
     if cfg_station and uuid.UUID(cfg_station) != station_uuid:
-        print(
-            f"[sync] station_uuid en credentials ({station_uuid}) NO coincide "
-            f"con app_config ({cfg_station}). Agent deshabilitado por seguridad."
+        _logger_main.warning(
+            "[sync] station_uuid en credentials (%s) NO coincide con app_config (%s). Agent deshabilitado.",
+            station_uuid, cfg_station,
         )
         return None
 

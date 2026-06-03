@@ -326,11 +326,11 @@ class _SidebarItemWidget(tk.Frame):
         self._is_active = active
         if active:
             self._border.configure(bg=SUCCESS)
-            self._set_bg_recursive(BG_HOVER)
+            self._set_bg_recursive(self._bg_hover)
             self._label.configure(font=FONT_BODY_BOLD)
         else:
-            self._border.configure(bg=BG_SIDEBAR)
-            self._set_bg_recursive(BG_SIDEBAR)
+            self._border.configure(bg=self._bg_normal)
+            self._set_bg_recursive(self._bg_normal)
             self._label.configure(font=FONT_BODY)
 
     def apply_theme(self, palette: dict, *, is_active: bool = False) -> None:

@@ -73,7 +73,7 @@ class WindRoseChart(BaseChart):
             alpha=0.85,
             edgecolor=BG_CARD,
             linewidth=0.5,
-            align="edge",
+            align="center",
         )
 
         # Etiquetas de los 8 puntos cardinales
