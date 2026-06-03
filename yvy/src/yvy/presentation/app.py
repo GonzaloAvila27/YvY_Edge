@@ -264,6 +264,12 @@ class MainApplication(tk.Tk):
         self._empirical_controller = empirical_controller
         self._sensor_status_fn = sensor_status_fn
         self._query_sensor_aggregated_uc = query_sensor_aggregated_uc
+
+        # Use case de indicadores derivados (sin dependencia de DB propia)
+        from yvy.application.use_cases.compute_derived import ComputeDerivedUseCase
+        self._compute_derived_uc = (
+            ComputeDerivedUseCase() if self._query_sensor_aggregated_uc is not None else None
+        )
         self._header_poll_id: str | None = None
         self._empirical_wizard_active: bool = False  # bloquea navegación lateral
         self._iea_name = iea_name
@@ -456,6 +462,7 @@ class MainApplication(tk.Tk):
             is_alumno=is_alumno,
         )
         self._sidebar.pack(side="left", fill="y")
+        self._sidebar.toggle()  # inicia siempre colapsado
 
         self._content = tk.Frame(body, bg=BG_CREAM)
         self._content.pack(side="left", fill="both", expand=True)
@@ -750,6 +757,7 @@ class MainApplication(tk.Tk):
                 current_user=self._current_user,
                 station_uuid=self._app_config_repo.get("station_uuid")
                 if self._app_config_repo is not None else None,
+                compute_derived_uc=self._compute_derived_uc,
             )
 
         if key == "dashboard":
@@ -761,6 +769,7 @@ class MainApplication(tk.Tk):
                 current_user=self._current_user,
                 station_uuid=self._app_config_repo.get("station_uuid")
                 if self._app_config_repo is not None else None,
+                compute_derived_uc=self._compute_derived_uc,
             )
 
         if key == "sync" and self._sync_controller is not None:

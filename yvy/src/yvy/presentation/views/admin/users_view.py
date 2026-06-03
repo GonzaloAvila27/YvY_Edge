@@ -128,6 +128,12 @@ class UsersView(tk.Frame):
         )
         card.pack(fill="both", expand=True, pady=(0, SPACE_LG))
 
+        # Footer de botones — empaquetado ANTES que inner para que no quede
+        # aplastado por el expand=True del treeview (canon Tkinter: footer
+        # side="bottom" antes del contenido expandible).
+        actions_card = tk.Frame(card, bg=BG_CARD, padx=SPACE_XL, pady=SPACE_LG)
+        actions_card.pack(fill="x", side="bottom")
+
         inner = tk.Frame(card, bg=BG_CARD, padx=SPACE_XL, pady=SPACE_XL)
         inner.pack(fill="both", expand=True)
 
@@ -165,10 +171,6 @@ class UsersView(tk.Frame):
 
         self._tree.bind("<<TreeviewSelect>>", self._on_select)
         self._tree.bind("<Double-1>", lambda _e: self._on_edit_clicked())
-
-        # Botones acción (al pie del card)
-        actions_card = tk.Frame(card, bg=BG_CARD, padx=SPACE_XL, pady=SPACE_LG)
-        actions_card.pack(fill="x")
 
         # Botones acción.
         # Limitación conocida: xvfb (CI/Linux headless) no renderiza el text

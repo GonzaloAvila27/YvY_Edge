@@ -4,11 +4,24 @@
       "key": "glosario",
       "label": "Glosario meteorológico",
       "articles": [
-        {"key": "glosario_temperatura", "title": "Temperatura"},
-        {"key": "glosario_humedad", "title": "Humedad relativa"},
-        {"key": "glosario_presion", "title": "Presión atmosférica"},
-        {"key": "glosario_viento", "title": "Viento"},
-        {"key": "glosario_lluvia_uv", "title": "Lluvia y radiación UV"}
+        {"key": "glosario_temperatura",      "title": "Temperatura"},
+        {"key": "glosario_humedad",          "title": "Humedad relativa"},
+        {"key": "glosario_presion",          "title": "Presión atmosférica"},
+        {"key": "glosario_tendencia_presion","title": "Tendencia de presión"},
+        {"key": "glosario_viento",           "title": "Viento"},
+        {"key": "glosario_lluvia_uv",        "title": "Lluvia y radiación UV"},
+        {"key": "glosario_dewpoint",         "title": "Punto de rocío"}
+      ]
+    },
+    {
+      "key": "indicadores",
+      "label": "Indicadores derivados",
+      "articles": [
+        {"key": "glosario_vpd",              "title": "VPD — Déficit de Presión de Vapor"},
+        {"key": "glosario_amplitud_termica", "title": "Amplitud térmica"},
+        {"key": "glosario_sensacion_termica","title": "Sensación térmica"},
+        {"key": "glosario_confort",          "title": "Índice de confort"},
+        {"key": "glosario_observacion_yvy",  "title": "Diagnóstico del día"}
       ]
     },
     {
@@ -17,17 +30,17 @@
       "articles": [
         {"key": "uso_cargar_observacion", "title": "Cómo cargar una observación manual"},
         {"key": "uso_sensor_no_responde", "title": "El sensor no manda datos"},
-        {"key": "uso_sin_internet", "title": "Cuando no hay internet"},
-        {"key": "uso_cambiar_password", "title": "Cambiar mi contraseña"}
+        {"key": "uso_sin_internet",       "title": "Cuando no hay internet"},
+        {"key": "uso_cambiar_password",   "title": "Cambiar mi contraseña"}
       ]
     },
     {
       "key": "admin",
       "label": "Administración",
       "articles": [
-        {"key": "admin_recupero", "title": "Recupero de datos del sensor"},
-        {"key": "admin_exports", "title": "Exportación de datos: procesado vs crudo"},
-        {"key": "admin_retencion", "title": "Política de retención"}
+        {"key": "admin_recupero",   "title": "Recupero de datos del sensor"},
+        {"key": "admin_exports",    "title": "Exportación de datos: procesado vs crudo"},
+        {"key": "admin_retencion",  "title": "Política de retención"}
       ]
     },
     {

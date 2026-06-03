@@ -12,13 +12,17 @@ Uso::
 
 from __future__ import annotations
 
+from yvy.presentation.charts.dewpoint import DewpointChart
+from yvy.presentation.charts.pressure_trend import PressureTrendChart
 from yvy.presentation.charts.rain_daily import RainDailyChart
+from yvy.presentation.charts.thermal_amplitude import ThermalAmplitudeChart
 from yvy.presentation.charts.time_series import TimeSeriesChart
+from yvy.presentation.charts.vpd import VpdChart
 from yvy.presentation.charts.wind_rose import WindRoseChart
 from yvy.presentation.charts.wind_speed import WindSpeedChart
 from yvy.presentation.theme import ACCENT_OLIVE, PRIMARY
 
-SENSOR_CHARTS: dict[str, TimeSeriesChart | RainDailyChart | WindSpeedChart | WindRoseChart] = {
+SENSOR_CHARTS: dict = {
     "temperatura": TimeSeriesChart(
         field="temp_out",
         unit="°C",
@@ -43,6 +47,10 @@ SENSOR_CHARTS: dict[str, TimeSeriesChart | RainDailyChart | WindSpeedChart | Win
     "lluvia": RainDailyChart(),
     "viento": WindSpeedChart(),
     "rosa_vientos": WindRoseChart(),
+    "vpd": VpdChart(),
+    "punto_rocio": DewpointChart(),
+    "presion_tendencia": PressureTrendChart(),
+    "amplitud_termica": ThermalAmplitudeChart(),
 }
 
 __all__ = ["SENSOR_CHARTS"]

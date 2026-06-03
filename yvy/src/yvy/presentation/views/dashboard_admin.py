@@ -11,16 +11,16 @@ Layout general:
     │ [ChartWidget — matplotlib embebido]    │  │ Humedad        │
     └────────────────────────────────────────┘  ├────────────────┤
                                                 │ Presión        │
-    [Observaciones empíricas recientes]         ├────────────────┤
-                                                │ Lluvia 24h     │
-                                                └────────────────┘
+    [Diagnóstico del día]                       ├────────────────┤
+                                                │ VPD actual     │
+    [Observaciones empíricas recientes]         └────────────────┘
 
 * Exportar decorativo — TODO
 
 Role gating del área de gráfico:
-    alumno      → sin selectores, fijo: Temperatura / 24h
+    alumno      → sin selectores, fijo: VPD / 24h
     otros       → Combobox "Gráfico" + radio "Período" (24h/7d/30d)
-                  Default: Temperatura exterior / 7d
+                  Default: VPD — Riesgo agroclimático / 7d
 """
 
 from __future__ import annotations
@@ -55,6 +55,10 @@ from yvy.presentation.theme import (
 )
 
 if TYPE_CHECKING:
+    from yvy.application.use_cases.compute_derived import (
+        ComputeDerivedUseCase,
+        CurrentDerivedValues,
+    )
     from yvy.application.use_cases.query_sensor_aggregated import (
         QuerySensorAggregatedUseCase,
     )
@@ -71,7 +75,7 @@ _CHART_LABEL_TO_KEY: dict[str, str] = {
     chart.label: key for key, chart in SENSOR_CHARTS.items()
 }
 _CHART_LABELS: list[str] = list(_CHART_LABEL_TO_KEY.keys())
-_DEFAULT_CHART_LABEL = SENSOR_CHARTS["temperatura"].label   # "Temperatura exterior"
+_DEFAULT_CHART_LABEL = SENSOR_CHARTS["vpd"].label   # "VPD — Riesgo agroclimático"
 _DEFAULT_PERIOD = "7d"
 _PERIODS = ["24h", "7d", "30d"]
 
@@ -88,6 +92,16 @@ class _KpiData:
     avg_pressure: float | None = None
     last_rain_24h: float | None = None
     row_count: int = 0
+
+
+@dataclass
+class _DerivedKpiData:
+    """Datos derivados calculados por ComputeDerivedUseCase."""
+    vpd: float | None = None
+    vpd_zone_label: str = "—"
+    vpd_zone_color: str = "#6B7280"
+    today_rain_mm: float | None = None
+    day_summary: str = ""
 
 
 @dataclass
@@ -118,6 +132,8 @@ class DashboardAdminView(tk.Frame):
             el área de gráfico muestra "Sin conexión al sistema de sensores".
         current_user: usuario activo (User o MockUser). Determina role gating.
         station_uuid: UUID de la estación para las queries de gráfico.
+        compute_derived_uc: use case de indicadores derivados. Si None,
+            el KPI de VPD y el diagnóstico muestran «—».
     """
 
     def __init__(
@@ -128,6 +144,7 @@ class DashboardAdminView(tk.Frame):
         query_sensor_aggregated_uc: QuerySensorAggregatedUseCase | None = None,
         current_user: Any = None,
         station_uuid: str | None = None,
+        compute_derived_uc: ComputeDerivedUseCase | None = None,
     ) -> None:
         super().__init__(parent, bg=BG_CREAM)
 
@@ -136,16 +153,18 @@ class DashboardAdminView(tk.Frame):
         self._query_uc = query_sensor_aggregated_uc
         self._current_user = current_user
         self._station_uuid = station_uuid or ""
+        self._compute_derived_uc = compute_derived_uc
 
         # Widgets del área de gráfico (inicializados en _build)
         self._chart_widget: ChartWidget | None = None
         self._chart_combo: ttk.Combobox | None = None
         self._period_var: tk.StringVar | None = None
         # Para alumno (sin selectors), el chart key y period son fijos
-        self._alumno_chart_key: str = "temperatura"
+        self._alumno_chart_key: str = "vpd"
         self._alumno_period: str = "24h"
 
         self._data = self._load_data()
+        self._derived = self._load_derived()
         self._build()
 
     # ─── Helpers de rol ──────────────────────────────────────────────────
@@ -176,6 +195,25 @@ class DashboardAdminView(tk.Frame):
         except Exception:
             logger.exception("Error cargando datos del dashboard")
             return _DashboardData()
+
+    def _load_derived(self) -> _DerivedKpiData:
+        """Calcula indicadores derivados vía ComputeDerivedUseCase."""
+        if self._compute_derived_uc is None or self._query_uc is None:
+            return _DerivedKpiData()
+        try:
+            result = self._compute_derived_uc.execute_current(
+                self._query_uc, self._station_uuid
+            )
+            return _DerivedKpiData(
+                vpd=result.vpd,
+                vpd_zone_label=result.vpd_zone_label,
+                vpd_zone_color=result.vpd_zone_color,
+                today_rain_mm=result.today_rain_mm,
+                day_summary=result.day_summary,
+            )
+        except Exception:
+            logger.exception("Error calculando indicadores derivados")
+            return _DerivedKpiData()
 
     def _query_kpis(self, conn) -> _KpiData:  # type: ignore[no-untyped-def]
         since = (datetime.now(UTC) - timedelta(days=_DAYS)).strftime(
@@ -256,6 +294,8 @@ class DashboardAdminView(tk.Frame):
 
         self._build_header(container)
         self._build_body(container)
+        if self._derived.day_summary:
+            self._build_day_summary(container, self._derived.day_summary)
         self._build_events(container)
 
     def _build_header(self, parent: tk.Misc) -> None:
@@ -350,6 +390,7 @@ class DashboardAdminView(tk.Frame):
 
     def _build_kpis(self, parent: tk.Misc) -> None:
         d = self._data.kpi
+        dv = self._derived
 
         def fmt(val: float | None, decimals: int = 1) -> str:
             return f"{val:.{decimals}f}" if val is not None else _NO_DATA
@@ -362,16 +403,48 @@ class DashboardAdminView(tk.Frame):
         t_delta = delta(d.avg_temp)
         h_delta = delta(d.avg_hum)
         p_delta = delta(d.avg_pressure)
-        r_delta = (
-            ("Última lectura disponible", TEXT_SECONDARY)
-            if d.last_rain_24h is not None
-            else (_NO_DATA_DELTA, TEXT_SECONDARY)
+
+        _make_kpi(parent, "Temperatura exterior", fmt(d.avg_temp),        "°C",  t_delta[0], t_delta[1])
+        _make_kpi(parent, "Humedad exterior",     fmt(d.avg_hum, 0),      "%",   h_delta[0], h_delta[1])
+        _make_kpi(parent, "Presión atmosférica",  fmt(d.avg_pressure, 0), "hPa", p_delta[0], p_delta[1])
+        _make_kpi_vpd(
+            parent,
+            vpd_value=dv.vpd,
+            vpd_zone_label=dv.vpd_zone_label,
+            vpd_zone_color=dv.vpd_zone_color,
+            today_rain_mm=dv.today_rain_mm,
         )
 
-        _make_kpi(parent, "Temperatura exterior", fmt(d.avg_temp),       "°C",  t_delta[0], t_delta[1])
-        _make_kpi(parent, "Humedad exterior",     fmt(d.avg_hum, 0),     "%",   h_delta[0], h_delta[1])
-        _make_kpi(parent, "Presión atmosférica",  fmt(d.avg_pressure, 0), "hPa", p_delta[0], p_delta[1])
-        _make_kpi(parent, "Lluvia últimas 24h",   fmt(d.last_rain_24h),  "mm",  r_delta[0], r_delta[1])
+    def _build_day_summary(self, parent: tk.Misc, summary_text: str) -> None:
+        """Sección 'Diagnóstico del día' con texto generado automáticamente."""
+        if not summary_text:
+            return
+
+        card = _make_card(parent)
+        card.pack(fill="x", pady=(0, SPACE_SM))
+
+        inner = tk.Frame(card, bg=BG_CARD, padx=SPACE_XL, pady=SPACE_MD)
+        inner.pack(fill="x")
+
+        tk.Label(
+            inner,
+            text="Diagnóstico del día",
+            bg=BG_CARD,
+            fg=TEXT_PRIMARY,
+            font=FONT_SMALL,
+            anchor="w",
+        ).pack(anchor="w")
+
+        tk.Label(
+            inner,
+            text=summary_text,
+            bg=BG_CARD,
+            fg=TEXT_SECONDARY,
+            font=FONT_SMALL,
+            anchor="w",
+            justify="left",
+            wraplength=_KPI_CARD_WIDTH * 3,   # ancho generoso — se adapta al layout
+        ).pack(anchor="w", pady=(SPACE_SM // 2, 0))
 
     def _build_events(self, parent: tk.Misc) -> None:
         card = _make_card(parent)
@@ -409,8 +482,6 @@ class DashboardAdminView(tk.Frame):
         """Reconfigura todos los widgets del dashboard con la paleta dada."""
         from yvy.presentation.theme_manager import recolor
         recolor(self, palette)
-        if self._chart_widget is not None:
-            self._chart_widget.apply_theme(palette)
 
     # ─── Render del gráfico ───────────────────────────────────────────────
 
@@ -498,6 +569,68 @@ def _make_kpi(
     tk.Label(
         inner, text=delta, bg=BG_CARD, fg=delta_color, font=FONT_TINY, anchor="w"
     ).pack(fill="x")
+
+
+def _make_kpi_vpd(
+    parent: tk.Misc,
+    vpd_value: float | None,
+    vpd_zone_label: str,
+    vpd_zone_color: str,
+    today_rain_mm: float | None,
+) -> None:
+    """KPI card de VPD con zona agroclimática y lluvia de hoy.
+
+    Muestra:
+        - Etiqueta "VPD actual"
+        - Valor en kPa (coloreado con color de zona)
+        - Zona agroclimática como delta (mismo color)
+        - Lluvia de hoy como línea secundaria pequeña
+    """
+    card = _make_card(parent)
+    card.pack(fill="x", pady=(0, SPACE_SM))
+
+    inner = tk.Frame(card, bg=BG_CARD, padx=SPACE_LG, pady=SPACE_MD)
+    inner.pack(fill="x")
+
+    tk.Label(
+        inner, text="VPD actual", bg=BG_CARD, fg=TEXT_SECONDARY,
+        font=FONT_TINY, anchor="w"
+    ).pack(fill="x")
+
+    val_row = tk.Frame(inner, bg=BG_CARD)
+    val_row.pack(fill="x", pady=(2, 0))
+
+    vpd_str = f"{vpd_value:.2f}" if vpd_value is not None else _NO_DATA
+    tk.Label(
+        val_row, text=vpd_str, bg=BG_CARD,
+        fg=vpd_zone_color if vpd_value is not None else TEXT_SECONDARY,
+        font=FONT_KPI_VALUE,
+    ).pack(side="left")
+    tk.Label(
+        val_row, text="kPa", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY
+    ).pack(side="left", padx=(SPACE_SM, 0), pady=(SPACE_MD, 0))
+
+    # Zona como delta
+    zone_text = vpd_zone_label if vpd_value is not None else _NO_DATA_DELTA
+    zone_color = vpd_zone_color if vpd_value is not None else TEXT_SECONDARY
+    tk.Label(
+        inner, text=zone_text, bg=BG_CARD, fg=zone_color,
+        font=FONT_TINY, anchor="w"
+    ).pack(fill="x")
+
+    # Lluvia hoy
+    if today_rain_mm is not None:
+        rain_text = (
+            f"Lluvia hoy: {today_rain_mm:.1f} mm"
+            if today_rain_mm > 0
+            else "Sin lluvia hoy"
+        )
+    else:
+        rain_text = "Lluvia hoy: —"
+    tk.Label(
+        inner, text=rain_text, bg=BG_CARD, fg=TEXT_SECONDARY,
+        font=FONT_TINY, anchor="w"
+    ).pack(fill="x", pady=(2, 0))
 
 
 def _make_event_row(

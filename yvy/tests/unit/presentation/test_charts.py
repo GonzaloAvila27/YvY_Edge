@@ -108,14 +108,12 @@ class TestSensorChartsRegistry:
     def test_all_six_keys_present(self):
         from yvy.presentation.charts import SENSOR_CHARTS
 
-        assert set(SENSOR_CHARTS.keys()) == {
-            "temperatura",
-            "humedad",
-            "presion",
-            "lluvia",
-            "viento",
-            "rosa_vientos",
-        }
+        # Core charts (v1.0.0)
+        core_keys = {"temperatura", "humedad", "presion", "lluvia", "viento", "rosa_vientos"}
+        # Derived charts (v1.0.1)
+        derived_keys = {"vpd", "punto_rocio", "presion_tendencia", "amplitud_termica"}
+        assert core_keys.issubset(set(SENSOR_CHARTS.keys()))
+        assert derived_keys.issubset(set(SENSOR_CHARTS.keys()))
 
     def test_registry_importable(self):
         from yvy.presentation.charts import SENSOR_CHARTS  # noqa
