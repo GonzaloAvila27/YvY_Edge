@@ -115,52 +115,43 @@ def _insert_inline(text_widget: tk.Text, line: str) -> None:
 
 
 def _configure_tags(widget: tk.Text) -> None:
-    """Configura los tags de estilo. Idempotente."""
+    """Configura los tags de estilo adaptados al tema activo. Idempotente."""
     from yvy.presentation.theme import (
-        FONT_BODY,
         FONT_BODY_BOLD,
         PRIMARY,
         TEXT_PRIMARY,
         TEXT_SECONDARY,
     )
+    from yvy.presentation.theme_manager import theme_manager, DARK
 
-    # Headers — tamaños progresivos
+    is_dark = theme_manager.mode == "dark"
+    h1_fg   = DARK["gold"]        if is_dark else PRIMARY
+    text_fg = DARK["text"]        if is_dark else TEXT_PRIMARY
+    muted   = DARK["text_muted"]  if is_dark else TEXT_SECONDARY
+    bullet  = DARK["gold"]        if is_dark else PRIMARY
+
     widget.tag_configure(
         "h1",
         font=("DejaVu Sans", 16, "bold"),
-        foreground=PRIMARY,
+        foreground=h1_fg,
         spacing3=8,
         spacing1=4,
     )
     widget.tag_configure(
         "h2",
         font=("DejaVu Sans", 13, "bold"),
-        foreground=TEXT_PRIMARY,
+        foreground=text_fg,
         spacing3=6,
         spacing1=4,
     )
     widget.tag_configure(
         "h3",
         font=("DejaVu Sans", 11, "bold"),
-        foreground=TEXT_PRIMARY,
+        foreground=text_fg,
         spacing3=4,
         spacing1=2,
     )
-
-    # Inline
-    widget.tag_configure("bold", font=FONT_BODY_BOLD)
+    widget.tag_configure("bold",   font=FONT_BODY_BOLD)
     widget.tag_configure("italic", font=("DejaVu Sans", 10, "italic"))
-
-    # Listas
-    widget.tag_configure(
-        "bullet",
-        foreground=PRIMARY,
-        font=FONT_BODY_BOLD,
-    )
-
-    # Separator
-    widget.tag_configure(
-        "separator",
-        foreground=TEXT_SECONDARY,
-        justify="center",
-    )
+    widget.tag_configure("bullet",    foreground=bullet, font=FONT_BODY_BOLD)
+    widget.tag_configure("separator", foreground=muted,  justify="center")

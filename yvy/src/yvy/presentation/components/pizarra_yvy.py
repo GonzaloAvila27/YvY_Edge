@@ -117,6 +117,20 @@ class PizarraYvY(tk.Frame):
         """True si la pizarra está en estado abierto."""
         return self._is_open
 
+    def apply_theme(self, palette: dict) -> None:
+        """Aplica paleta de colores y re-renderiza el artículo actual."""
+        from yvy.presentation.theme_manager import recolor
+        recolor(self, palette)
+        if self._body_text is not None:
+            self._body_text.configure(
+                bg=palette.get("surface", BG_CARD),
+                fg=palette.get("text", TEXT_PRIMARY),
+            )
+        if self._stack:
+            article = self._repo.get_article(self._stack[-1])
+            if article is not None:
+                self._render(article)
+
     def navigate_to(self, article_key: str) -> None:
         """Navega a otro artículo (agrega al historial)."""
         article = self._repo.get_article(article_key)

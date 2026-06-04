@@ -144,6 +144,10 @@ class EmpiricalListView(tk.Frame):
             command=self._open_detail_for_selected,
         ).pack(side="right")
 
+    def apply_theme(self, palette: dict) -> None:
+        from yvy.presentation.theme_manager import recolor
+        recolor(self, palette)
+
     def refresh(self) -> None:
         """Recarga las filas según los filtros actuales."""
         # Limpiar tabla

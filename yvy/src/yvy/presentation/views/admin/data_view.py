@@ -296,11 +296,12 @@ class DataView(tk.Frame):
         assert self._tree is not None
 
         observed = obs.get("observed_at", "")
-        # observed es string ISO; mostramos fecha + hora separados (UTC por simplicidad)
+        _TZ_AR = timezone(timedelta(hours=-3))
         try:
             dt = datetime.fromisoformat(observed.replace("Z", "+00:00"))
-            fecha_str = dt.strftime("%d/%m/%Y")
-            hora_str = dt.strftime("%H:%M")
+            dt_local = dt.astimezone(_TZ_AR)
+            fecha_str = dt_local.strftime("%d/%m/%Y")
+            hora_str  = dt_local.strftime("%H:%M")
         except (ValueError, AttributeError):
             fecha_str = observed[:10] if observed else "—"
             hora_str = observed[11:16] if len(observed) > 16 else "—"
@@ -324,7 +325,7 @@ class DataView(tk.Frame):
             ),
         )
         # Guardar observed_at_local para el modal
-        obs["observed_at_local"] = f"{fecha_str} {hora_str} UTC"
+        obs["observed_at_local"] = f"{fecha_str} {hora_str} (UTC-3)"
         self._observations_by_iid[iid] = obs
 
     @staticmethod

@@ -34,11 +34,13 @@ from tkinter import ttk
 from yvy.infrastructure.help.help_repository import HelpArticle, HelpRepository
 from yvy.infrastructure.help.markdown_renderer import apply_markdown
 from yvy.presentation.theme import (
+    ACCENT_GOLD,
     BG_CARD,
     BG_CREAM,
     BORDER,
     FONT_BODY,
     FONT_BODY_BOLD,
+    FONT_H1,
     FONT_SMALL,
     PRIMARY,
     SPACE_LG,
@@ -66,6 +68,9 @@ class HelpView(tk.Frame):
         self._text: tk.Text | None = None
         self._article_iid_map: dict[str, str] = {}  # article_key → tree iid
 
+        self._title_lbl: tk.Label | None = None
+        self._current_article: HelpArticle | None = None
+
         self._build()
         self._show_default_article()
 
@@ -73,8 +78,12 @@ class HelpView(tk.Frame):
         container = tk.Frame(self, bg=BG_CREAM)
         container.pack(fill="both", expand=True, padx=SPACE_XL, pady=SPACE_XL)
 
-        # Header
-        ttk.Label(container, text="Pizarra", style="H1.TLabel").pack(anchor="w")
+        # Header — tk.Label para poder pintar de gold en dark mode
+        self._title_lbl = tk.Label(
+            container, text="Pizarra",
+            bg=BG_CREAM, fg=TEXT_PRIMARY, font=FONT_H1, anchor="w",
+        )
+        self._title_lbl.pack(anchor="w")
         ttk.Label(
             container,
             text="Glosario meteorológico y guías de uso del sistema",
@@ -169,7 +178,22 @@ class HelpView(tk.Frame):
                 self._tree.selection_set(iid)
                 self._tree.focus(iid)
 
+    def apply_theme(self, palette: dict) -> None:
+        from yvy.presentation.theme_manager import recolor, theme_manager
+        recolor(self, palette)
+        if self._title_lbl is not None:
+            title_fg = palette.get("gold", ACCENT_GOLD) if theme_manager.mode == "dark" else TEXT_PRIMARY
+            self._title_lbl.configure(bg=palette.get("bg", BG_CREAM), fg=title_fg)
+        if self._text is not None:
+            self._text.configure(
+                bg=palette.get("surface", BG_CARD),
+                fg=palette.get("text", TEXT_PRIMARY),
+            )
+        if self._current_article is not None:
+            self._show_article(self._current_article)
+
     def _show_article(self, article: HelpArticle) -> None:
+        self._current_article = article
         if self._text is None:
             return
         apply_markdown(self._text, article.body_md)

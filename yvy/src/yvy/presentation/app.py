@@ -686,6 +686,11 @@ class MainApplication(tk.Tk):
             self._header.apply_theme(palette)
         if self._sidebar is not None:
             self._sidebar.apply_theme(palette)
+        if self._pizarra is not None:
+            try:
+                self._pizarra.apply_theme(palette)
+            except Exception:
+                logger.exception("apply_theme falló en PizarraYvY")
         # Propagar a todas las vistas cacheadas
         cached = set(self._view_cache.values())
         for view in cached:

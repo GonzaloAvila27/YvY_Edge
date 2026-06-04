@@ -245,8 +245,25 @@ class HelpModal(tk.Toplevel):
         self.update_idletasks()
         mw = self.winfo_reqwidth()
         mh = self.winfo_reqheight()
-        screen_w = self.winfo_screenwidth()
-        screen_h = self.winfo_screenheight()
+
+        # Preferimos los límites de la ventana app en lugar de pantalla
+        # (más robusto en setups multi-monitor o ventanas no maximizadas)
+        try:
+            top = parent.winfo_toplevel()
+            wx = top.winfo_rootx()
+            wy = top.winfo_rooty()
+            ww = top.winfo_width()
+            wh = top.winfo_height()
+        except tk.TclError:
+            wx, wy = 0, 0
+            ww = self.winfo_screenwidth()
+            wh = self.winfo_screenheight()
+
+        margin = 6
+        win_left  = wx + margin
+        win_right = wx + ww - margin
+        win_top   = wy + margin
+        win_bot   = wy + wh - margin
 
         if anchor_widget is not None:
             try:
@@ -254,27 +271,25 @@ class HelpModal(tk.Toplevel):
                 ay = anchor_widget.winfo_rooty()
                 aw = anchor_widget.winfo_width()
 
+                # Abre a la derecha del ?; si no cabe, a la izquierda
                 x = ax + aw + 8
-                y = ay
-                if x + mw > screen_w:
+                if x + mw > win_right:
                     x = ax - mw - 8
-                if x < 0:
-                    x = max(8, ax + (aw - mw) // 2)
-                if y + mh > screen_h:
-                    y = max(8, screen_h - mh - 8)
+                # Clamp horizontal final
+                x = max(win_left, min(x, win_right - mw))
+
+                # Alinea top con el anchor; si corta abajo, sube
+                y = ay
+                if y + mh > win_bot:
+                    y = win_bot - mh
+                y = max(win_top, y)
 
                 self.geometry(f"+{x}+{y}")
                 return
             except tk.TclError:
                 pass
 
-        try:
-            px = parent.winfo_rootx()
-            py = parent.winfo_rooty()
-            pw = parent.winfo_width()
-            ph = parent.winfo_height()
-            x = max(8, px + (pw - mw) // 2)
-            y = max(8, py + (ph - mh) // 2)
-            self.geometry(f"+{x}+{y}")
-        except tk.TclError:
-            pass
+        # Fallback: centrar en la ventana
+        x = max(win_left, wx + (ww - mw) // 2)
+        y = max(win_top, wy + (wh - mh) // 2)
+        self.geometry(f"+{x}+{y}")

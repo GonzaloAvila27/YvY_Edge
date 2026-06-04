@@ -151,14 +151,15 @@ class EmpiricalWizardView(tk.Frame):
         )
         self._step_label.pack(side="right", padx=SPACE_LG)
 
-        # Body (se reconstruye en cada step)
-        self._body = tk.Frame(self, bg=COLORS["bg"])
-        self._body.pack(side="top", fill="both", expand=True)
-
-        # Footer fijo con navegación
+        # Footer fijo con navegación — debe empaquetarse ANTES que body
+        # para que pack(expand=True) del body no lo desplace
         self._footer = tk.Frame(self, bg=COLORS["bg_alt"], height=60)
         self._footer.pack(side="bottom", fill="x")
         self._footer.pack_propagate(False)
+
+        # Body (se reconstruye en cada step)
+        self._body = tk.Frame(self, bg=COLORS["bg"])
+        self._body.pack(side="top", fill="both", expand=True)
 
         self._btn_cancel = ttk.Button(
             self._footer, text="Cancelar", style="Secondary.TButton",
