@@ -64,7 +64,7 @@ class EmpiricalListView(tk.Frame):
         header.pack_propagate(False)
 
         tk.Label(
-            header, text="Observaciones empíricas",
+            header, text="Cuaderno empírico",
             font=FONTS["heading"], bg=COLORS["bg"], fg=COLORS["text"],
         ).pack(side="left", anchor="w")
 

@@ -135,7 +135,7 @@ class SyncStatusView(tk.Frame):
 
         titles = tk.Frame(header_row, bg=BG_CREAM)
         titles.pack(side="left", fill="x", expand=True)
-        ttk.Label(titles, text="Sincronización", style="H1.TLabel").pack(anchor="w")
+        ttk.Label(titles, text="Enlace", style="H1.TLabel").pack(anchor="w")
         ttk.Label(
             titles,
             text="Estado de la cola local y recuperación de buffer histórico",

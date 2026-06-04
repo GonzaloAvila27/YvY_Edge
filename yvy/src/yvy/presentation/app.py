@@ -179,15 +179,15 @@ class MockUser:
 
 
 _SIDEBAR_ITEMS: list[SidebarItem] = [
-    SidebarItem(key="inicio", label="Inicio", icon_char="⌂"),
-    SidebarItem(key="formulario", label="Formulario", icon_char="📋"),
-    SidebarItem(key="dashboard", label="Dashboard", icon_char="📊"),
-    SidebarItem(key="sync", label="Sync", icon_char="↻", alumno_hidden=True),
-    SidebarItem(key="ayuda", label="Ayuda", icon_char="?"),
-    SidebarItem(key="usuarios", label="Usuarios", icon_char="👥", admin_only=True),
-    SidebarItem(key="logs", label="Logs", icon_char="📜", admin_only=True),
-    SidebarItem(key="datos", label="Datos", icon_char="💾", admin_only=True),
-    SidebarItem(key="config", label="Configuración", icon_char="⚙", admin_only=True),
+    SidebarItem(key="inicio",     label="Inicio",        icon_name="inicio"),
+    SidebarItem(key="formulario", label="Cuaderno",      icon_name="Cuaderno"),
+    SidebarItem(key="dashboard",  label="Observatorio",  icon_name="observatorio"),
+    SidebarItem(key="sync",       label="Enlace",        icon_name="enlace",        alumno_hidden=True),
+    SidebarItem(key="ayuda",      label="Pizarra",       icon_name="pizarra"),
+    SidebarItem(key="usuarios",   label="Usuarios",      icon_name="usuarios",      admin_only=True),
+    SidebarItem(key="logs",       label="Bitácora",      icon_name="bitacora",      admin_only=True),
+    SidebarItem(key="datos",      label="Mediciones",    icon_name="mediciones",    admin_only=True),
+    SidebarItem(key="config",     label="Configuración", icon_name="configuracion", admin_only=True),
 ]
 
 
@@ -913,12 +913,12 @@ class MainApplication(tk.Tk):
     def _stub_label(key: str) -> str:
         labels = {
             "inicio": "Inicio (Fase posterior)",
-            "formulario": "Formulario de carga (Fase posterior)",
-            "sync": "Sincronización (sync_controller no inyectado)",
-            "ayuda": "Ayuda (Fase 8)",
+            "formulario": "Cuaderno (Fase posterior)",
+            "sync": "Enlace (sync_controller no inyectado)",
+            "ayuda": "Pizarra (Fase 8)",
             "usuarios": "Administración de usuarios (Fase 6 — pendiente)",
-            "logs": "Logs del sistema (Fase 7)",
-            "datos": "Gestión de datos (Fase 5/7)",
+            "logs": "Bitácora del sistema (Fase 7)",
+            "datos": "Mediciones (Fase 5/7)",
         }
         return labels.get(key, f"View '{key}' no implementada")
 

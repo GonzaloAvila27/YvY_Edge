@@ -105,7 +105,7 @@ class DataView(tk.Frame):
 
         # Header textual
         ttk.Label(
-            container, text="Observaciones procesadas", style="H1.TLabel",
+            container, text="Mediciones", style="H1.TLabel",
         ).pack(anchor="w")
         ttk.Label(
             container,

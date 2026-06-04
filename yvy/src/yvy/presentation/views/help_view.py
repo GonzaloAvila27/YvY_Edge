@@ -74,7 +74,7 @@ class HelpView(tk.Frame):
         container.pack(fill="both", expand=True, padx=SPACE_XL, pady=SPACE_XL)
 
         # Header
-        ttk.Label(container, text="Ayuda", style="H1.TLabel").pack(anchor="w")
+        ttk.Label(container, text="Pizarra", style="H1.TLabel").pack(anchor="w")
         ttk.Label(
             container,
             text="Glosario meteorológico y guías de uso del sistema",

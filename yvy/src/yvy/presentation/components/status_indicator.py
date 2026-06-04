@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
+from pathlib import Path
 from typing import Final, Literal
 
 from yvy.presentation.theme import (
@@ -37,6 +38,8 @@ from yvy.presentation.theme import (
 
 logger = logging.getLogger(__name__)
 
+_ICONS_DIR = Path(__file__).resolve().parents[4] / "resources" / "ICONS"
+
 State = Literal["ok", "warning", "error", "neutral"]
 
 _STATE_COLORS: Final[dict[State, str]] = {
@@ -46,18 +49,25 @@ _STATE_COLORS: Final[dict[State, str]] = {
     "neutral": TEXT_SECONDARY,
 }
 
-# Placeholders unicode hasta tener iconos Lucide en PNG.
 _ICON_CHARS: Final[dict[str, str]] = {
-    "radio": "📡",          # sensor pywws
-    "refresh": "↻",         # sync
-    "clock": "🕐",          # NTP
-    "wifi": "🛜",           # online
-    "wifi_off": "⊘",        # offline
-    "history": "⟳",         # catchup
-    "online": "●",          # punto de estado online
+    "radio": "📡",
+    "refresh": "↻",
+    "clock": "🕐",
+    "wifi": "🛜",
+    "wifi_off": "⊘",
+    "history": "⟳",
+    "online": "●",
     "alert": "⚠",
     "ok": "✓",
     "error": "✕",
+}
+
+# Mapa icon_key → nombre de archivo PNG en resources/ICONS/
+_ICON_PNG: Final[dict[str, str]] = {
+    "radio":   "sensor_white_1",
+    "refresh": "sync_white",
+    "clock":   "ntp_white_1",
+    "wifi":    "wifi_white",
 }
 
 
@@ -102,13 +112,23 @@ class StatusIndicator(tk.Frame):
         self._on_dark = on_dark
         self._icon_key = icon_key
 
-        # Icono (label clásico para control de bg/fg)
-        self._icon = tk.Label(
-            self,
-            text=_ICON_CHARS.get(icon_key, "●"),
-            bg=bg,
-            font=FONT_SMALL,
-        )
+        # Intentar cargar PNG; fallback a caracter unicode
+        self._icon_img: tk.PhotoImage | None = None
+        png_name = _ICON_PNG.get(icon_key)
+        if png_name:
+            try:
+                self._icon_img = tk.PhotoImage(
+                    file=str(_ICONS_DIR / f"{png_name}.png")
+                )
+            except tk.TclError:
+                logger.warning("No se pudo cargar ícono '%s'", png_name)
+
+        if self._icon_img is not None:
+            self._icon = tk.Label(self, image=self._icon_img, bg=bg)
+        else:
+            self._icon = tk.Label(
+                self, text=_ICON_CHARS.get(icon_key, "●"), bg=bg, font=FONT_SMALL,
+            )
         self._icon.pack(side="left", padx=(0, 4))
 
         # Label de texto
@@ -143,7 +163,8 @@ class StatusIndicator(tk.Frame):
             else _STATE_COLORS[state]
         )
 
-        self._icon.configure(fg=color)
+        if self._icon_img is None:
+            self._icon.configure(fg=color)
         self._label.configure(fg=color)
 
         if tooltip is not None:

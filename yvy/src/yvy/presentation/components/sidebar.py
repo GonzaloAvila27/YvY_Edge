@@ -26,6 +26,7 @@ import logging
 import tkinter as tk
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 from yvy.presentation.theme import (
     BG_HOVER,
@@ -47,6 +48,8 @@ from yvy.presentation.theme import (
 
 logger = logging.getLogger(__name__)
 
+_ICONS_DIR = Path(__file__).resolve().parents[4] / "resources" / "ICONS"
+
 
 @dataclass(frozen=True)
 class SidebarItem:
@@ -54,7 +57,8 @@ class SidebarItem:
 
     key: str
     label: str
-    icon_char: str  # placeholder unicode hasta tener PNG Lucide
+    icon_name: str = ""   # base name en resources/ICONS/ (e.g. "inicio")
+    icon_char: str = "?"  # fallback unicode si el PNG no se encuentra
     admin_only: bool = False
     alumno_hidden: bool = False  # True → no visible para rol alumno
 
@@ -138,12 +142,12 @@ class Sidebar(tk.Frame):
             logger.warning("Sidebar.set_active: key desconocida %s", key)
 
     def apply_theme(self, palette: dict) -> None:
-        """Reconfigura colores del sidebar y todos sus items."""
-        from yvy.presentation.theme_manager import recolor
-        recolor(self, palette)
+        """Sidebar siempre en paleta clara, independiente del tema global."""
+        from yvy.presentation.theme_manager import LIGHT, recolor
+        recolor(self, LIGHT)
         for key, widget in self._item_widgets.items():
-            widget.apply_theme(palette, is_active=(key == self._active_key))
-        self._toggle_btn.apply_theme(palette)
+            widget.apply_theme(LIGHT, is_active=(key == self._active_key))
+        self._toggle_btn.apply_theme(LIGHT)
 
     def toggle(self) -> None:
         """Alterna entre expandido y colapsado. Sin animación."""
@@ -286,15 +290,35 @@ class _SidebarItemWidget(tk.Frame):
         self._content = tk.Frame(self, bg=BG_SIDEBAR)
         self._content.pack(side="left", fill="both", expand=True)
 
-        # Icono (placeholder unicode)
-        self._icon = tk.Label(
-            self._content,
-            text=item.icon_char,
-            bg=BG_SIDEBAR,
-            fg=TEXT_PRIMARY,
-            font=("DejaVu Sans", 14),
-            width=2,
-        )
+        # Cargar PNGs (blue = normal, gold = hover/active)
+        self._img_normal: tk.PhotoImage | None = None
+        self._img_hover: tk.PhotoImage | None = None
+        if item.icon_name:
+            try:
+                self._img_normal = tk.PhotoImage(
+                    file=str(_ICONS_DIR / f"{item.icon_name}_blue.png")
+                )
+                self._img_hover = tk.PhotoImage(
+                    file=str(_ICONS_DIR / f"{item.icon_name}_gold.png")
+                )
+            except tk.TclError:
+                logger.warning("No se pudo cargar ícono PNG para '%s'", item.icon_name)
+
+        if self._img_normal is not None:
+            self._icon = tk.Label(
+                self._content,
+                image=self._img_normal,
+                bg=BG_SIDEBAR,
+            )
+        else:
+            self._icon = tk.Label(
+                self._content,
+                text=item.icon_char,
+                bg=BG_SIDEBAR,
+                fg=TEXT_PRIMARY,
+                font=("DejaVu Sans", 14),
+                width=2,
+            )
         self._icon.pack(side="left", padx=(SPACE_MD, SPACE_MD))
 
         # Label
@@ -328,10 +352,14 @@ class _SidebarItemWidget(tk.Frame):
             self._border.configure(bg=SUCCESS)
             self._set_bg_recursive(self._bg_hover)
             self._label.configure(font=FONT_BODY_BOLD)
+            if self._img_hover is not None:
+                self._icon.configure(image=self._img_hover)
         else:
             self._border.configure(bg=self._bg_normal)
             self._set_bg_recursive(self._bg_normal)
             self._label.configure(font=FONT_BODY)
+            if self._img_normal is not None:
+                self._icon.configure(image=self._img_normal)
 
     def apply_theme(self, palette: dict, *, is_active: bool = False) -> None:
         """Actualiza colores del item para el nuevo tema."""
@@ -362,12 +390,16 @@ class _SidebarItemWidget(tk.Frame):
     def _on_enter(self, _event: tk.Event) -> None:  # type: ignore[type-arg]
         if not self._is_active:
             self._set_bg_recursive(self._bg_hover)
+            if self._img_hover is not None:
+                self._icon.configure(image=self._img_hover)
         if self._is_collapsed:
             self._show_tooltip()
 
     def _on_leave(self, _event: tk.Event) -> None:  # type: ignore[type-arg]
         if not self._is_active:
             self._set_bg_recursive(self._bg_normal)
+            if self._img_normal is not None:
+                self._icon.configure(image=self._img_normal)
         self._hide_tooltip()
 
     def _set_bg_recursive(self, color: str) -> None:

@@ -139,7 +139,7 @@ class EmpiricalWizardView(tk.Frame):
 
         tk.Label(
             self._header,
-            text="Carga de observación empírica",
+            text="Cuaderno empírico",
             font=FONTS["heading"],
             bg=COLORS["primary"],
             fg=COLORS["text_inverse"],

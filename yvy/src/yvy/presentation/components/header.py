@@ -23,6 +23,7 @@ Avatar:
 from __future__ import annotations
 
 import logging
+import math
 import tkinter as tk
 from collections.abc import Callable
 from pathlib import Path
@@ -47,7 +48,8 @@ from yvy.presentation.theme import (
 
 logger = logging.getLogger(__name__)
 
-_LOGO_PATH = Path(__file__).resolve().parents[4] / "resources" / "logo.png"
+_LOGO_PATH  = Path(__file__).resolve().parents[4] / "resources" / "logo.png"
+_ICONS_DIR  = Path(__file__).resolve().parents[4] / "resources" / "ICONS"
 # Tamaño del logo en el header (cabe en 60px de alto con padding 10px vertical)
 _LOGO_W, _LOGO_H = 200, 50 
 
@@ -213,21 +215,32 @@ class Header(tk.Frame):
         inner = tk.Frame(notif_frame, bg=PRIMARY)
         inner.pack(expand=True)
 
-        self._bell = tk.Label(
-            inner,
-            text="🔔",
-            bg=PRIMARY,
-            fg=TEXT_ON_DARK,
-            font=("DejaVu Sans", 16),
-            cursor="hand2",
-        )
+        # Cargar PNGs de campana (white normal, gold hover)
+        self._bell_img_normal: tk.PhotoImage | None = None
+        self._bell_img_hover: tk.PhotoImage | None = None
+        try:
+            self._bell_img_normal = tk.PhotoImage(file=str(_ICONS_DIR / "campana_white.png"))
+            self._bell_img_hover  = tk.PhotoImage(file=str(_ICONS_DIR / "campana_gold.png"))
+        except tk.TclError:
+            pass
+
+        if self._bell_img_normal is not None:
+            self._bell = tk.Label(inner, image=self._bell_img_normal, bg=PRIMARY, cursor="hand2")
+            self._bell.bind("<Enter>", lambda _e: self._bell.configure(image=self._bell_img_hover))
+            self._bell.bind("<Leave>", lambda _e: self._bell.configure(image=self._bell_img_normal))
+        else:
+            self._bell = tk.Label(
+                inner, text="🔔", bg=PRIMARY, fg=TEXT_ON_DARK,
+                font=("DejaVu Sans", 16), cursor="hand2",
+            )
+            self._bell.bind("<Enter>", lambda _e: self._bell.configure(fg=ACCENT_GOLD))
+            self._bell.bind("<Leave>", lambda _e: self._bell.configure(fg=TEXT_ON_DARK))
+
         self._bell.pack()
         self._bell.bind(
             "<Button-1>",
             lambda _e: self._on_notif_click() if self._on_notif_click else None,
         )
-        self._bell.bind("<Enter>", lambda _e: self._bell.configure(fg=ACCENT_GOLD))
-        self._bell.bind("<Leave>", lambda _e: self._bell.configure(fg=TEXT_ON_DARK))
 
         # Badge numérico (label superpuesto)
         self._notif_badge = tk.Label(
@@ -258,7 +271,13 @@ class Header(tk.Frame):
             bg=PRIMARY, highlightthickness=0, cursor="hand2",
         )
         canvas.pack()
-        canvas.create_oval(0, 0, 33, 33, fill=avatar_color, outline=avatar_color)
+        # Hexágono flat-top centrado en 17,17 con radio 16
+        cx, cy, r = 17, 17, 16
+        pts = []
+        for i in range(6):
+            a = math.radians(60 * i - 30)
+            pts.extend([cx + r * math.cos(a), cy + r * math.sin(a)])
+        canvas.create_polygon(pts, fill=avatar_color, outline="")
         canvas.create_text(
             17, 17, text=initials, fill=TEXT_ON_DARK,
             font=("DejaVu Sans", 11, "bold"),

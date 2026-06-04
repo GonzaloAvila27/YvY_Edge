@@ -72,7 +72,7 @@ class LogsView(tk.Frame):
 
         titles = tk.Frame(header, bg=BG_CREAM)
         titles.pack(side="left", fill="x", expand=True)
-        ttk.Label(titles, text="Registro de actividad", style="H1.TLabel").pack(anchor="w")
+        ttk.Label(titles, text="Bitácora", style="H1.TLabel").pack(anchor="w")
         ttk.Label(
             titles,
             text="Eventos críticos del sistema (logins, cambios de cuenta, exports)",

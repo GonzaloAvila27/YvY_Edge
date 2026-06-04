@@ -364,7 +364,7 @@ class DashboardAdminView(tk.Frame):
 
         titles = tk.Frame(row, bg=BG_CREAM)
         titles.pack(side="left", fill="x", expand=True)
-        ttk.Label(titles, text="Dashboard", style="H1.TLabel").pack(anchor="w")
+        ttk.Label(titles, text="Observatorio", style="H1.TLabel").pack(anchor="w")
         ttk.Label(
             titles,
             text=f"Resumen de los últimos {_DAYS} días",
