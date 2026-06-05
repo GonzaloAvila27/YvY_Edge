@@ -102,6 +102,18 @@ class Permissions:
         return user.role in (Role.PROFESOR, Role.ADMIN, Role.SUPERADMIN)
 
     @staticmethod
+    def can_import_data(user: User | None) -> bool:
+        """Importar CSV de sensor_data (datos históricos reales IEA).
+
+        Mismo nivel que can_export_data: profesor, admin, superadmin.
+        La importación es idempotente (INSERT OR IGNORE) pero es una
+        operación de escritura, por lo que no se permite a alumnos.
+        """
+        if user is None or not user.is_active:
+            return False
+        return user.role in (Role.PROFESOR, Role.ADMIN, Role.SUPERADMIN)
+
+    @staticmethod
     def can_export_raw(user: User | None) -> bool:
         """Exportar sensor_raw (crudo).
 

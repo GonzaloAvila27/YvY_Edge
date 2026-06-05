@@ -66,6 +66,7 @@ _logger_main.setLevel(logging.INFO)
 
 from yvy.application.use_cases.admin.export_data_csv import ExportDataCsvUseCase
 from yvy.application.use_cases.admin.export_raw_csv import ExportRawCsvUseCase
+from yvy.application.use_cases.admin.import_data_csv import ImportDataCsvUseCase
 from yvy.application.use_cases.admin.list_audit_logs import ListAuditLogsUseCase
 from yvy.application.use_cases.admin.update_retention_policy import UpdateRetentionPolicyUseCase
 from yvy.application.use_cases.auth.change_password import ChangePasswordUseCase
@@ -183,6 +184,7 @@ def main() -> int:
     update_retention_uc = UpdateRetentionPolicyUseCase(metrics_repo=metrics_repo)
     export_data_uc = ExportDataCsvUseCase(factory=factory, audit_repo=audit_repo)
     export_raw_uc = ExportRawCsvUseCase(factory=factory, audit_repo=audit_repo)
+    import_data_uc = ImportDataCsvUseCase(factory=factory, audit_repo=audit_repo)
     retention_uc = RunRetentionJobUseCase(
         sensor_repo=sensor_repo,
         sync_repo=sync_repo,
@@ -332,6 +334,7 @@ def main() -> int:
         retention_use_case=retention_uc,
         export_data_uc=export_data_uc,
         export_raw_uc=export_raw_uc,
+        import_data_uc=import_data_uc,
         db_factory=factory,
         metrics_repo=metrics_repo,
         help_repository=help_repo,
