@@ -259,6 +259,11 @@ def _apply_widget(
     for attr in ("fg", "foreground"):
         try:
             key = _lookup(widget, _TAG_FG, attr, rev)
+            # Fallback: fg negro o color-de-sistema → tratar como "text"
+            if key is None:
+                raw_fg = _normalize_hex(widget.cget(attr))
+                if raw_fg in ("#000000", "black") or raw_fg.startswith("system"):
+                    key = "text"
             if key and key in palette:
                 widget.configure(**{attr: palette[key]})
                 try:

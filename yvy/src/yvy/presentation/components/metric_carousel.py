@@ -101,6 +101,7 @@ class MetricCarousel(tk.Frame):
         self._interval_ms = rotation_interval_ms
         self._index = 0
         self._after_id: str | None = None
+        self._palette: dict | None = None  # paleta activa (None = light por defecto)
 
         # Contenedor interno
         self._inner = tk.Frame(self, bg=BG_CARD, padx=SPACE_XL, pady=SPACE_XL)
@@ -109,9 +110,27 @@ class MetricCarousel(tk.Frame):
         self._render_current()
         self._schedule_next()
 
+    def apply_theme(self, palette: dict) -> None:
+        """Almacena la paleta y re-renderiza con los nuevos colores."""
+        self._palette = palette
+        bg = palette.get("surface", BG_CARD)
+        self.configure(bg=bg, highlightbackground=palette.get("border", BORDER))
+        self._inner.configure(bg=bg)
+        self._render_current()
+
     def _render_current(self) -> None:
+        p = self._palette
+        bg      = p["surface"]     if p else BG_CARD
+        fg_text = p["text"]        if p else TEXT_PRIMARY
+        fg_muted= p["text_muted"]  if p else TEXT_SECONDARY
+        fg_acc  = p.get("gold", PRIMARY) if p else PRIMARY
+        bd      = p["border"]      if p else BORDER
+
         for w in self._inner.winfo_children():
             w.destroy()
+
+        self._inner.configure(bg=bg)
+        self.configure(bg=bg, highlightbackground=bd)
 
         metric = METRICS[self._index]
 
@@ -123,82 +142,52 @@ class MetricCarousel(tk.Frame):
 
         snap = snapshots.get(metric.column)
 
-        # Header label
         tk.Label(
             self._inner,
             text=metric.label.upper(),
-            bg=BG_CARD,
-            fg=PRIMARY,
+            bg=bg, fg=fg_acc,
             font=FONT_SMALL,
         ).pack(anchor="w")
 
-        # Valor grande
-        if snap is None or snap.current is None:
-            value_str = "—"
-        else:
-            value_str = self._format_value(snap.current, metric)
+        value_str = "—" if (snap is None or snap.current is None) else self._format_value(snap.current, metric)
 
-        value_row = tk.Frame(self._inner, bg=BG_CARD)
+        value_row = tk.Frame(self._inner, bg=bg)
         value_row.pack(anchor="w", pady=(SPACE_SM, SPACE_MD))
 
-        tk.Label(
-            value_row,
-            text=value_str,
-            bg=BG_CARD,
-            fg=TEXT_PRIMARY,
-            font=FONT_H1,
-        ).pack(side="left")
+        tk.Label(value_row, text=value_str, bg=bg, fg=fg_text, font=FONT_H1).pack(side="left")
 
         if metric.unit and snap and snap.current is not None:
             tk.Label(
-                value_row,
-                text=" " + metric.unit,
-                bg=BG_CARD,
-                fg=TEXT_SECONDARY,
-                font=FONT_BODY,
+                value_row, text=" " + metric.unit,
+                bg=bg, fg=fg_muted, font=FONT_BODY,
             ).pack(side="left", padx=(SPACE_SM, 0))
 
-        # Sub-info: promedio + tendencia
-        sub_row = tk.Frame(self._inner, bg=BG_CARD)
+        sub_row = tk.Frame(self._inner, bg=bg)
         sub_row.pack(anchor="w")
 
         if snap and snap.avg_24h is not None:
             avg_text = f"Promedio últimas 24hs: {self._format_value(snap.avg_24h, metric)} {metric.unit}".rstrip()
-            tk.Label(
-                sub_row,
-                text=avg_text,
-                bg=BG_CARD,
-                fg=TEXT_SECONDARY,
-                font=FONT_BODY,
-            ).pack(side="left")
+            tk.Label(sub_row, text=avg_text, bg=bg, fg=fg_muted, font=FONT_BODY).pack(side="left")
 
             if snap.trend != "flat":
                 arrow_color = SUCCESS if snap.trend == "up" else WARNING
                 arrow_text = " ↑ subiendo" if snap.trend == "up" else " ↓ bajando"
                 tk.Label(
-                    sub_row,
-                    text=arrow_text,
-                    bg=BG_CARD,
-                    fg=arrow_color,
-                    font=FONT_BODY_BOLD,
+                    sub_row, text=arrow_text,
+                    bg=bg, fg=arrow_color, font=FONT_BODY_BOLD,
                 ).pack(side="left", padx=(SPACE_LG, 0))
         else:
             tk.Label(
                 sub_row,
                 text="Sin datos suficientes para promedio (24hs)",
-                bg=BG_CARD,
-                fg=TEXT_SECONDARY,
-                font=FONT_SMALL,
+                bg=bg, fg=fg_muted, font=FONT_SMALL,
             ).pack(side="left")
 
-        # Indicador de paginación (puntitos)
-        dots_row = tk.Frame(self._inner, bg=BG_CARD)
+        dots_row = tk.Frame(self._inner, bg=bg)
         dots_row.pack(anchor="w", pady=(SPACE_LG, 0))
         for i in range(len(METRICS)):
-            color = PRIMARY if i == self._index else BORDER
-            tk.Label(
-                dots_row, text="●", bg=BG_CARD, fg=color, font=FONT_SMALL,
-            ).pack(side="left", padx=2)
+            color = fg_acc if i == self._index else bd
+            tk.Label(dots_row, text="●", bg=bg, fg=color, font=FONT_SMALL).pack(side="left", padx=2)
 
     @staticmethod
     def _format_value(value: float, metric: MetricSpec) -> str:

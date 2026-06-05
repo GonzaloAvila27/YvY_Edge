@@ -474,6 +474,8 @@ class DataView(tk.Frame):
     def apply_theme(self, palette: dict) -> None:
         from yvy.presentation.theme_manager import recolor
         recolor(self, palette)
+        if self._carousel is not None:
+            self._carousel.apply_theme(palette)
 
     def _on_export_raw_clicked(self) -> None:
         # Doble validación de permisos defensiva
