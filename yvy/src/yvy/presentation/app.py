@@ -82,6 +82,7 @@ from yvy.presentation.views.sync_status_view import SyncStatusView
 if TYPE_CHECKING:
     from yvy.application.use_cases.admin.export_data_csv import ExportDataCsvUseCase
     from yvy.application.use_cases.admin.export_raw_csv import ExportRawCsvUseCase
+    from yvy.application.use_cases.admin.import_data_csv import ImportDataCsvUseCase
     from yvy.application.use_cases.admin.list_audit_logs import ListAuditLogsUseCase
     from yvy.application.use_cases.admin.update_retention_policy import (
         UpdateRetentionPolicyUseCase,
@@ -216,6 +217,7 @@ class MainApplication(tk.Tk):
         metrics_repo: object | None = None,
         export_data_uc: ExportDataCsvUseCase | None = None,
         export_raw_uc: ExportRawCsvUseCase | None = None,
+        import_data_uc: ImportDataCsvUseCase | None = None,
         db_factory: object | None = None,
         help_repository: HelpRepository | None = None,
         app_config_repo: AppConfigRepository | None = None,
@@ -258,6 +260,7 @@ class MainApplication(tk.Tk):
         self._metrics_repo = metrics_repo
         self._export_data_uc = export_data_uc
         self._export_raw_uc = export_raw_uc
+        self._import_data_uc = import_data_uc
         self._db_factory = db_factory
         self._help_repository = help_repository
         self._app_config_repo = app_config_repo
@@ -863,6 +866,7 @@ class MainApplication(tk.Tk):
             key == "datos"
             and self._export_data_uc is not None
             and self._export_raw_uc is not None
+            and self._import_data_uc is not None
             and self._db_factory is not None
         ):
             current_user = (
@@ -875,6 +879,7 @@ class MainApplication(tk.Tk):
                 factory=self._db_factory,  # type: ignore[arg-type]
                 export_data_uc=self._export_data_uc,
                 export_raw_uc=self._export_raw_uc,
+                import_data_uc=self._import_data_uc,
                 current_user=current_user if isinstance(current_user, User) else None,
             )
 

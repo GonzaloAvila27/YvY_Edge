@@ -33,6 +33,7 @@ from typing import Any
 
 from yvy.application.use_cases.admin.export_data_csv import ExportDataCsvUseCase
 from yvy.application.use_cases.admin.export_raw_csv import ExportRawCsvUseCase
+from yvy.application.use_cases.admin.import_data_csv import ImportDataCsvUseCase
 from yvy.domain.auth.models import User
 from yvy.domain.auth.permissions import Permissions
 from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
@@ -73,12 +74,14 @@ class DataView(tk.Frame):
         factory: SQLiteConnectionFactory,
         export_data_uc: ExportDataCsvUseCase,
         export_raw_uc: ExportRawCsvUseCase,
+        import_data_uc: ImportDataCsvUseCase,
         current_user: User | None,
     ) -> None:
         super().__init__(parent, bg=BG_CREAM)
         self._factory = factory
         self._export_data_uc = export_data_uc
         self._export_raw_uc = export_raw_uc
+        self._import_data_uc = import_data_uc
         self._current_user = current_user
 
         # State de filtros
@@ -205,6 +208,15 @@ class DataView(tk.Frame):
         # el de raw en la siguiente fila (debajo de filtros).
         actions = tk.Frame(parent, bg=BG_CREAM)
         actions.pack(side="right")
+
+        # Importar CSV: admin/superadmin/profesor
+        if Permissions.can_import_data(self._current_user):
+            ttk.Button(
+                actions,
+                text="Importar CSV",
+                command=self._on_import_data_clicked,
+                style="Primary.TButton",
+            ).pack(side="left", padx=(0, SPACE_SM))
 
         # Export CSV procesado: cualquier admin/superadmin/profesor
         if Permissions.can_export_data(self._current_user):
@@ -433,6 +445,43 @@ class DataView(tk.Frame):
         if obs is None:
             return
         DataDetailModal(self.winfo_toplevel(), observation=obs)
+
+    # ─── Import handler ─────────────────────────────────────────────────
+
+    def _on_import_data_clicked(self) -> None:
+        path = filedialog.askopenfilename(
+            title="Seleccionar CSV de datos IEA para importar",
+            filetypes=[("CSV", "*.csv"), ("Todos", "*.*")],
+        )
+        if not path:
+            return
+
+        actor = self._current_user
+
+        def _run() -> None:
+            try:
+                from pathlib import Path as _Path
+                result = self._import_data_uc.execute(
+                    input_path=_Path(path),
+                    actor_user_id=actor.id if actor else None,
+                    actor_username=actor.username if actor else None,
+                )
+                msg = (
+                    f"Importación completada:\n"
+                    f"  • {result.rows_inserted} filas nuevas insertadas\n"
+                    f"  • {result.rows_skipped} filas ya existentes (omitidas)\n"
+                    f"  • {result.rows_error} filas con error de formato"
+                )
+                self.after(0, lambda: messagebox.showinfo("Importación completada", msg))
+                self.after(0, self.refresh)
+            except Exception as exc:
+                logger.exception("Import sensor_data falló")
+                self.after(0, lambda: messagebox.showerror(
+                    "Error al importar",
+                    f"No se pudo importar el archivo:\n{exc}",
+                ))
+
+        threading.Thread(target=_run, daemon=True).start()
 
     # ─── Export handlers ────────────────────────────────────────────────
 
