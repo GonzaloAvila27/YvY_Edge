@@ -47,7 +47,7 @@ class WindRoseChart(BaseChart):
         figure.clear()
         figure.set_facecolor(BG_CARD)
         ax = figure.add_subplot(111, projection="polar")
-        figure.subplots_adjust(left=0.08, right=0.92, top=0.88, bottom=0.08)
+        figure.subplots_adjust(left=0.08, right=0.92, top=0.96, bottom=0.08)
 
         ax.set_theta_zero_location("N")
         ax.set_theta_direction(-1)
@@ -86,8 +86,8 @@ class WindRoseChart(BaseChart):
             Line2D([0], [0], color=ACCENT_GOLD, lw=1.2, linestyle="--",
                    label="Vel. media rel."),
         ]
-        ax.legend(handles=legend_elements, loc="upper right",
-                  bbox_to_anchor=(1.25, 1.12), fontsize=8,
+        ax.legend(handles=legend_elements, loc="center left",
+                  bbox_to_anchor=(1.05, 0.5), fontsize=8,
                   framealpha=0.6, edgecolor=BORDER)
 
         # Etiquetas cardinales sobre los 8 puntos del compás
@@ -102,5 +102,3 @@ class WindRoseChart(BaseChart):
         ax.tick_params(colors=TEXT_SECONDARY, labelsize=8)
         ax.spines["polar"].set_color(BORDER)
 
-        ax.set_title(self.label, fontsize=13, fontweight="bold",
-                     pad=14, color=TEXT_SECONDARY)
