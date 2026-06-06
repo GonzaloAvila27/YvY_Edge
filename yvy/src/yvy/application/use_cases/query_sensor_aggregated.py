@@ -217,13 +217,14 @@ class QuerySensorAggregatedUseCase:
         rows = conn.execute(
             """
             SELECT
-                CAST((wind_direction + 11.25) / 22.5 AS INT) % 16 AS sector,
+                CAST(wind_direction AS INT) % 16 AS sector,
                 AVG(wind_speed)  AS avg_speed,
                 COUNT(*)         AS frequency
             FROM sensor_data
             WHERE observed_at >= :since
               AND wind_direction IS NOT NULL
               AND wind_speed IS NOT NULL
+              AND wind_speed > 0
               AND is_valid = 1
             GROUP BY sector
             ORDER BY sector

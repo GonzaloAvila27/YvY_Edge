@@ -347,11 +347,11 @@ class DataView(tk.Frame):
         return f"{value:.{decimals}f}"
 
     @staticmethod
-    def _wind_dir_text(degrees: float) -> str:
-        """Convierte grados a cardinales (NSEW + intermedios)."""
-        dirs = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"]
-        idx = int(((degrees + 22.5) % 360) // 45)
-        return dirs[idx]
+    def _wind_dir_text(index: float) -> str:
+        """Convierte índice pywws (0-15) a cardinal."""
+        dirs = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+                "S", "SSO", "SO", "OSO", "O", "ONO", "NO", "NNO"]
+        return dirs[int(round(index)) % 16]
 
     # ─── Carrusel data provider ─────────────────────────────────────────
 
