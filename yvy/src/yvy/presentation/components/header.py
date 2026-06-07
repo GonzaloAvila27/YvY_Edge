@@ -215,14 +215,24 @@ class Header(tk.Frame):
         inner = tk.Frame(notif_frame, bg=PRIMARY)
         inner.pack(expand=True)
 
-        # Cargar PNGs de campana (white normal, gold hover)
+        # Cargar PNGs de campana (white normal, gold hover, red alerta)
         self._bell_img_normal: tk.PhotoImage | None = None
         self._bell_img_hover: tk.PhotoImage | None = None
+        self._bell_img_alert: tk.PhotoImage | None = None
         try:
             self._bell_img_normal = tk.PhotoImage(file=str(_ICONS_DIR / "campana_white.png"))
             self._bell_img_hover  = tk.PhotoImage(file=str(_ICONS_DIR / "campana_gold.png"))
         except tk.TclError:
             pass
+        try:
+            self._bell_img_alert = tk.PhotoImage(file=str(_ICONS_DIR / "campana_red.png"))
+        except tk.TclError:
+            pass
+
+        # Estado de alerta de update
+        self._update_alert_active: bool = False
+        self._blink_state: bool = False
+        self._blink_after_id: str | None = None
 
         if self._bell_img_normal is not None:
             self._bell = tk.Label(inner, image=self._bell_img_normal, bg=PRIMARY, cursor="hand2")
@@ -354,6 +364,44 @@ class Header(tk.Frame):
             self._notif_badge.pack(side="left", padx=(2, 0))
         else:
             self._notif_badge.pack_forget()
+
+    def set_update_alert(self, active: bool) -> None:
+        """Activa/desactiva el parpadeo rojo de la campana.
+
+        Visible para TODOS los roles. El parpadeo es persistente mientras
+        haya un update pendiente de instalar. Se cancela al instalar.
+        """
+        if active == self._update_alert_active:
+            return
+        self._update_alert_active = active
+        if active:
+            self._blink_state = False
+            self._blink_tick()
+        else:
+            self._stop_blink()
+
+    def _blink_tick(self) -> None:
+        if not self._update_alert_active:
+            return
+        if not hasattr(self, "_bell") or not self._bell.winfo_exists():
+            return
+        self._blink_state = not self._blink_state
+        if self._blink_state and self._bell_img_alert is not None:
+            self._bell.configure(image=self._bell_img_alert)
+        elif self._bell_img_normal is not None:
+            self._bell.configure(image=self._bell_img_normal)
+        self._blink_after_id = self.after(900, self._blink_tick)
+
+    def _stop_blink(self) -> None:
+        if self._blink_after_id is not None:
+            try:
+                self.after_cancel(self._blink_after_id)
+            except Exception:
+                pass
+            self._blink_after_id = None
+        if hasattr(self, "_bell") and self._bell.winfo_exists():
+            if self._bell_img_normal is not None:
+                self._bell.configure(image=self._bell_img_normal)
 
     def _handle_theme_toggle(self) -> None:
         """Callback del botón toggle — delega al handler externo."""

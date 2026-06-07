@@ -124,3 +124,113 @@ class AppConfigRepository:
         self.set("update_pending.downloaded", "false")
         self.delete("update_pending.downloaded_at")
         self.delete("update_pending.local_path")
+
+    # ─── Helpers instalación (Sprint C) ──────────────────────────────────
+
+    def set_install_status(self, status: str) -> None:
+        self.set("update_install.status", status)
+
+    def get_install_status(self) -> str | None:
+        return self.get("update_install.status")
+
+    def set_install_metadata(
+        self,
+        *,
+        from_version: str,
+        to_version: str,
+        requested_by: int | None,
+        requested_at: str,
+    ) -> None:
+        self.set("update_install.from_version", from_version)
+        self.set("update_install.to_version", to_version)
+        self.set("update_install.requested_by", str(requested_by) if requested_by is not None else "SYSTEM")
+        self.set("update_install.requested_at", requested_at)
+
+    def get_install_to_version(self) -> str | None:
+        return self.get("update_install.to_version")
+
+    def get_install_from_version(self) -> str | None:
+        return self.get("update_install.from_version")
+
+    def set_install_completed(self, completed_at: str) -> None:
+        self.set("update_install.status", "completed")
+        self.set("update_install.completed_at", completed_at)
+        self.set("update_install.boot_ok", "true")
+
+    def set_install_failed(self, error_detail: str) -> None:
+        self.set("update_install.status", "failed")
+        self.set("update_install.error_detail", error_detail)
+
+    def set_show_result(self, result: str) -> None:
+        """Persiste mensaje para mostrar al operador en próximo arranque."""
+        self.set("update_install.show_result", result)
+
+    def pop_show_result(self) -> str | None:
+        """Lee y borra el flag de resultado para que no se repita."""
+        val = self.get("update_install.show_result")
+        if val:
+            self.delete("update_install.show_result")
+        return val
+
+    def clear_install_state(self) -> None:
+        """Limpia todo el estado de instalación tras mostrar resultado."""
+        for key in (
+            "update_install.status",
+            "update_install.from_version",
+            "update_install.to_version",
+            "update_install.requested_by",
+            "update_install.requested_at",
+            "update_install.completed_at",
+            "update_install.boot_ok",
+            "update_install.error_detail",
+        ):
+            self.delete(key)
+
+    # ─── Helpers gestión de releases (Sprint C) ──────────────────────────
+
+    def get_releases_installed(self) -> list[str]:
+        import json
+        raw = self.get("releases.installed")
+        if not raw:
+            return []
+        try:
+            return list(json.loads(raw))
+        except (ValueError, TypeError):
+            return []
+
+    def set_releases_installed(self, versions: list[str]) -> None:
+        import json
+        self.set("releases.installed", json.dumps(versions))
+
+    def get_current_release(self) -> str | None:
+        return self.get("releases.current")
+
+    def set_current_release(self, version: str) -> None:
+        self.set("releases.current", version)
+
+    def get_previous_release(self) -> str | None:
+        return self.get("releases.previous")
+
+    def set_previous_release(self, version: str | None) -> None:
+        if version:
+            self.set("releases.previous", version)
+        else:
+            self.delete("releases.previous")
+
+    def get_last_stable_release(self) -> str | None:
+        return self.get("releases.last_stable")
+
+    def set_last_stable_release(
+        self, version: str, source: str = "auto", marked_by: int | None = None
+    ) -> None:
+        self.set("releases.last_stable", version)
+        self.set("releases.last_stable_at", datetime.now(UTC).isoformat())
+        self.set("releases.last_stable_source", source)
+        if marked_by is not None:
+            self.set("releases.last_stable_marked_by", str(marked_by))
+
+    def get_current_since(self) -> datetime | None:
+        return self.get_timestamp("releases.current_since")
+
+    def set_current_since(self, ts: str) -> None:
+        self.set("releases.current_since", ts)

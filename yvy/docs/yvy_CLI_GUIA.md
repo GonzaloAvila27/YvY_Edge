@@ -1,10 +1,11 @@
 # Guía del CLI YVY Edge
 
-Herramienta de diagnóstico desde la terminal. Útil cuando:
+Herramienta de diagnóstico y gestión desde la terminal. Útil cuando:
 
 - Estás en IEA y querés ver si todo está bien sin abrir la GUI.
 - Alguien te llama por teléfono desde otra IEA y querés guiarlo a verificar cosas.
 - Querés automatizar checks en scripts (cron, monitoreo).
+- Necesitás instalar una actualización o hacer un rollback de emergencia.
 
 ## Cómo se usa
 
@@ -18,6 +19,24 @@ Todos los comandos:
 - Imprimen al stdout con colores si la terminal los soporta.
 
 ## Comandos disponibles
+
+| Comando | Qué hace |
+|---|---|
+| `yvy status` | Panorama general del nodo (DB, sensor, sync, cola) |
+| `yvy info` | Identidad y recursos del nodo |
+| `yvy version` | Versión instalada |
+| `yvy check-updates` | Consulta Core por actualizaciones disponibles |
+| `yvy update status` | Estado del sistema de updates (slots, pending, anchors) |
+| `yvy update download` | Descarga el paquete de update pendiente |
+| `yvy update install` | Instala el paquete descargado |
+| `yvy update mark-stable` | Marca el release actual como estable |
+| `yvy rollback --to X` | Revierte al release especificado |
+| `yvy rollback --to-stable` | Revierte al último release marcado estable |
+| `yvy test sensor` | Verifica USB y detección del WH1081 |
+| `yvy test db` | Verifica DB accesible y migraciones aplicadas |
+| `yvy test sync` | Verifica credentials + conectividad al server |
+
+---
 
 ### `yvy status`
 
@@ -108,8 +127,152 @@ Imprime solo la versión. Útil para scripts.
 
 ```bash
 python -m yvy version
-# 0.1.0
+# 1.3.0
 ```
+
+---
+
+### `yvy check-updates`
+
+Consulta YVY Core y reporta si hay una versión nueva disponible. Requiere conexión al server y credentials configuradas.
+
+```bash
+python -m yvy check-updates
+```
+
+**Qué hace:**
+
+1. Hace GET `/api/v1/edge/sync` autenticado con HMAC.
+2. Si hay update disponible, guarda la metadata en `app_config` (disponible para `yvy update status`).
+
+**Cuándo usarlo:**
+
+- Para verificar manualmente si hay una versión nueva sin abrir la GUI.
+- En scripts de mantenimiento programado.
+
+---
+
+### `yvy update status`
+
+Muestra el estado completo del sistema de actualizaciones del nodo.
+
+```bash
+python -m yvy update status
+```
+
+**Qué muestra:**
+
+- Versión instalada actualmente.
+- Releases en disco con sus roles: `current`, `previous`, `stable` (arquitectura de slots).
+- Si hay update disponible y si ya fue descargado.
+- Si hay una instalación en curso o pendiente.
+
+**Salida ejemplo:**
+
+```
+YVY Edge — Estado de updates
+═════════════════════════════
+
+Versión instalada               •  1.3.0
+Release actual (current)        •  1.3.0
+Release anterior (previous)     •  1.2.1
+Último estable (last_stable)    •  1.2.0
+Releases en disco               •  1.2.0 (stable)  ·  1.2.1 (previous)  ·  1.3.0 (current)
+Actualización disponible        ✓  al día — no hay updates pendientes
+
+YVY Edge v1.3.0
+```
+
+**Qué son los slots:**
+
+La arquitectura guarda hasta 3 versiones en disco simultáneamente:
+- **current**: la que está corriendo ahora.
+- **previous**: la inmediata anterior (rollback rápido si algo falla).
+- **last_stable**: el último release marcado estable (protección contra cadenas de patches malos).
+
+Esto permite revertir instantáneamente sin re-descargar.
+
+---
+
+### `yvy update download`
+
+Descarga el paquete de la actualización pendiente desde YVY Core. Muestra barra de progreso.
+
+```bash
+python -m yvy update download
+```
+
+El paquete se guarda en `data/updates/pending/`. Se verifica la integridad SHA-256 al finalizar.
+
+---
+
+### `yvy update install`
+
+Instala el paquete descargado. Cierra la app, lanza `INSTALL_UPDATE.bat` en una ventana separada, y el instalador se encarga del resto.
+
+```bash
+python -m yvy update install
+# Con flag para saltear la confirmación interactiva:
+python -m yvy update install --yes
+```
+
+**Qué hace internamente:**
+
+1. Verifica que el paquete está descargado y el hash coincide.
+2. Verifica que hay espacio en disco (paquete × 3).
+3. Verifica que la versión actual cumple el `min_edge_version` requerido.
+4. Hace backup de `data/yvy.sqlite` en `data/backups/`.
+5. Escribe `data/updates/install_params.txt` con los parámetros de instalación.
+6. Lanza `INSTALL_UPDATE.bat` como proceso externo independiente.
+
+> **Importante:** el proceso completo tarda 2-3 minutos. No apagar la computadora.
+> Si algo falla, el watchdog integrado en el .bat revierte automáticamente a la versión anterior.
+
+---
+
+### `yvy update mark-stable`
+
+Marca manualmente un release como `last_stable`. Por default marca el release actual.
+
+```bash
+# Marcar el release actual como estable:
+python -m yvy update mark-stable
+
+# Marcar una versión específica:
+python -m yvy update mark-stable --version 1.2.1
+```
+
+La promoción también ocurre automáticamente si un release lleva ≥ 15 días como `current` sin errores graves.
+
+---
+
+### `yvy rollback`
+
+Revierte el sistema a un release anterior ya en disco. Lanza `INICIAR_YVY.bat` con la versión destino.
+
+```bash
+# Rollback a una versión específica:
+python -m yvy rollback --to 1.2.1
+
+# Rollback al último estable:
+python -m yvy rollback --to-stable
+
+# Con motivo personalizado (queda en audit log):
+python -m yvy rollback --to 1.2.1 --reason "bug crítico en sensor"
+
+# Sin confirmación interactiva (útil en scripts):
+python -m yvy rollback --to 1.2.1 --yes
+```
+
+**Advertencia sobre la base de datos:**
+
+Si la versión destino usa un schema de DB anterior al actual (porque hubo migraciones en el medio), la DB puede ser incompatible. En ese caso hay que restaurar el backup correspondiente de `data/backups/` manualmente. El CLI lo advierte antes de confirmar.
+
+**Cuándo usarlo:**
+
+- La versión nueva tiene un bug grave y hay que volver atrás de urgencia.
+- El watchdog automático no llegó a dispararse (apagón durante el update, etc.).
+- Un técnico hace rollback remoto guiado por teléfono.
 
 ---
 
@@ -266,11 +429,27 @@ python -m yvy test sensor
 # Si los datos no llegan al server:
 python -m yvy test sync
 
-# Si hay duda de qué versión está corriendo:
+# Si hay duda de qué versión está corriendo o del estado de updates:
 python -m yvy info
+python -m yvy update status
 ```
 
 La salida es coloquial y autoexplicativa. Si algo dice `✗` con texto en rojo y aparece una nota con flecha `→`, esa nota indica qué hacer.
+
+### Rollback de emergencia telefónico
+
+Si la versión nueva tiene un bug y hay que volver atrás:
+
+```bash
+# Ver qué versiones hay en disco:
+python -m yvy update status
+
+# Revertir al estable (la forma más segura):
+python -m yvy rollback --to-stable
+
+# O revertir a una versión específica:
+python -m yvy rollback --to 1.2.1 --reason "bug en sensor v1.3.0"
+```
 
 ---
 
@@ -297,15 +476,14 @@ El CLI **NO arranca daemons ni GUI**. Solo abre la DB, consulta, opcionalmente h
 
 ---
 
-## Limitaciones conocidas de Ola 1
+## Limitaciones conocidas
 
-Esta es la primera entrega del CLI. Cosas que **NO** hace todavía:
+Cosas que el CLI **NO** hace todavía:
 
 - **No tiene `yvy logs`**: no hay log file rotativo en `data/logs/`. Si querés ver logs, abrí stdout del launcher.
 - **No tiene `yvy service restart`**: el sync agent solo se reinicia matando el launcher y volviéndolo a abrir.
-- **No es ejecutable remoto desde el server**: solo corre localmente en cada nodo.
-
-Estas features están en backlog para Ola 2 (framework formal local) y Ola 3 (ejecución remota desde YVY Core).
+- **No es ejecutable remoto desde el server**: solo corre localmente en cada nodo. La ejecución remota está planificada para Ola 3.
+- **`yvy update install` requiere paquete descargado**: si no hay internet, descargar previamente con USB + `update download` no está disponible aún.
 
 ---
 
@@ -318,6 +496,35 @@ $ python -m yvy status && python -m yvy test sensor && echo "TODO OK"
 ```
 
 Si imprime `TODO OK` al final, te podés ir tranquilo.
+
+### Instalar una actualización manualmente
+
+```bash
+# 1. Verificar si hay update:
+python -m yvy check-updates
+
+# 2. Descargar el paquete:
+python -m yvy update download
+
+# 3. Verificar que quedó listo:
+python -m yvy update status
+
+# 4. Instalar (pide confirmación):
+python -m yvy update install
+```
+
+### Rollback de emergencia
+
+```bash
+# Ver versiones disponibles en disco:
+python -m yvy update status
+
+# Revertir al estable:
+python -m yvy rollback --to-stable --reason "bug crítico"
+
+# O revertir a versión específica:
+python -m yvy rollback --to 1.2.1
+```
 
 ### Scripts de monitoreo (cron / scheduled task)
 

@@ -994,3 +994,248 @@ def compute_check_updates(deps: CoreDependencies) -> dict[str, Any]:
         "pending": response.update_metadata,
         "error": None,
     }
+
+
+# ─── update status ───────────────────────────────────────────────────────
+
+
+def compute_update_status(deps: CoreDependencies) -> dict[str, Any]:
+    """Estado del sistema de updates: versión, slots, releases, pending."""
+    from yvy import __version__
+    from yvy.infrastructure.updates.installer import UpdateInstaller
+    from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
+        SQLiteAuditLogRepository,
+    )
+
+    checks: list[dict[str, Any]] = []
+    audit_repo = SQLiteAuditLogRepository(deps.factory)
+    installer = UpdateInstaller(
+        app_config_repo=deps.app_config_repo,
+        audit_repo=audit_repo,
+        root_path=deps.root,
+    )
+
+    checks.append({
+        "name": "Versión instalada",
+        "status": "info",
+        "detail": __version__,
+        "value": __version__,
+    })
+
+    current = deps.app_config_repo.get_current_release()
+    previous = deps.app_config_repo.get_previous_release()
+    stable = deps.app_config_repo.get_last_stable_release()
+
+    if current:
+        checks.append({
+            "name": "Release actual (current)",
+            "status": "info",
+            "detail": current,
+            "value": current,
+        })
+        if previous:
+            checks.append({
+                "name": "Release anterior (previous)",
+                "status": "info",
+                "detail": previous,
+                "value": previous,
+            })
+        if stable:
+            checks.append({
+                "name": "Último estable (last_stable)",
+                "status": "info",
+                "detail": stable,
+                "value": stable,
+            })
+    else:
+        checks.append({
+            "name": "Modo de instalación",
+            "status": "warn",
+            "detail": "flat (sin slots — primera actualización migrará automáticamente)",
+            "value": "flat",
+        })
+
+    releases = installer.get_releases_on_disk()
+    if releases:
+        details = "  ·  ".join(
+            f"{r['version']}"
+            + (f" ({', '.join(r['states'])})" if r["states"] else "")
+            for r in releases
+        )
+        checks.append({
+            "name": "Releases en disco",
+            "status": "info",
+            "detail": details,
+            "value": [{"version": r["version"], "states": r["states"]} for r in releases],
+        })
+
+    pending = deps.app_config_repo.get_pending_update()
+    if pending:
+        to_ver = pending.get("edge_version", "?")
+        is_dl = deps.app_config_repo.is_update_downloaded()
+        dl_label = "descargado ✓" if is_dl else "pendiente de descarga"
+        size_mb = pending.get("package_size_bytes", 0) / (1024 * 1024)
+        checks.append({
+            "name": "Actualización disponible",
+            "status": "ok" if is_dl else "warn",
+            "detail": f"v{to_ver}  {size_mb:.1f} MB  ({dl_label})",
+            "value": {"version": to_ver, "is_downloaded": is_dl},
+        })
+    else:
+        checks.append({
+            "name": "Actualización disponible",
+            "status": "ok",
+            "detail": "al día — no hay updates pendientes",
+            "value": None,
+        })
+
+    install_status = deps.app_config_repo.get_install_status()
+    if install_status and install_status not in ("completed", "failed"):
+        to_v = deps.app_config_repo.get_install_to_version() or "?"
+        checks.append({
+            "name": "Instalación en curso",
+            "status": "warn",
+            "detail": f"estado={install_status}  destino={to_v}",
+            "value": {"status": install_status, "to_version": to_v},
+        })
+
+    return {
+        "ok": True,
+        "checks": checks,
+        "notes": [],
+        "summary": f"YVY Edge v{__version__}",
+    }
+
+
+# ─── update install ──────────────────────────────────────────────────────
+
+
+def execute_update_install(deps: CoreDependencies) -> dict[str, Any]:
+    """Lanza INSTALL_UPDATE.bat tras prevalidar y escribir params.
+
+    En el contexto CLI no hay usuario autenticado; se registra user_id=None
+    (evento SYSTEM).
+
+    Retorna dict con:
+        ok: bool
+        prevalidation_ok: bool
+        reason: str | None   (si prevalidation falla)
+        launched: bool
+        error: str | None
+    """
+    from yvy.infrastructure.updates.installer import UpdateInstaller
+    from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
+        SQLiteAuditLogRepository,
+    )
+
+    audit_repo = SQLiteAuditLogRepository(deps.factory)
+    installer = UpdateInstaller(
+        app_config_repo=deps.app_config_repo,
+        audit_repo=audit_repo,
+        root_path=deps.root,
+    )
+
+    pre = installer.prevalidate()
+    if not pre.ok:
+        return {
+            "ok": False,
+            "prevalidation_ok": False,
+            "reason": pre.reason,
+            "launched": False,
+            "error": None,
+        }
+
+    try:
+        installer.request_install(requested_by_user_id=None)
+    except RuntimeError as exc:
+        return {
+            "ok": False,
+            "prevalidation_ok": True,
+            "reason": None,
+            "launched": False,
+            "error": str(exc),
+        }
+
+    return {
+        "ok": True,
+        "prevalidation_ok": True,
+        "reason": None,
+        "launched": True,
+        "error": None,
+    }
+
+
+# ─── rollback ────────────────────────────────────────────────────────────
+
+
+def execute_rollback(
+    deps: CoreDependencies,
+    *,
+    to_version: str,
+    reason: str,
+) -> dict[str, Any]:
+    """Rollback manual a un release en disco.
+
+    Retorna dict con:
+        ok: bool
+        to_version: str
+        reason: str | None
+    """
+    from yvy.infrastructure.updates.installer import UpdateInstaller
+    from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
+        SQLiteAuditLogRepository,
+    )
+
+    audit_repo = SQLiteAuditLogRepository(deps.factory)
+    installer = UpdateInstaller(
+        app_config_repo=deps.app_config_repo,
+        audit_repo=audit_repo,
+        root_path=deps.root,
+    )
+
+    result = installer.rollback(
+        to_version=to_version,
+        reason=reason,
+        performed_by=None,
+    )
+    return {
+        "ok": result.ok,
+        "to_version": result.to_version,
+        "reason": result.reason,
+    }
+
+
+# ─── update mark-stable ──────────────────────────────────────────────────
+
+
+def execute_mark_stable(
+    deps: CoreDependencies,
+    *,
+    version: str,
+) -> dict[str, Any]:
+    """Marca una versión como last_stable manualmente.
+
+    Retorna dict con:
+        ok: bool
+        version: str
+        error: str | None
+    """
+    from yvy.infrastructure.updates.retention import ReleaseRetention
+    from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
+        SQLiteAuditLogRepository,
+    )
+
+    releases_dir = deps.root / "releases"
+    audit_repo = SQLiteAuditLogRepository(deps.factory)
+    retention = ReleaseRetention(
+        app_config_repo=deps.app_config_repo,
+        audit_repo=audit_repo,
+        releases_dir=releases_dir,
+    )
+
+    try:
+        retention.mark_stable_manual(version=version, user_id=None)
+    except Exception as exc:
+        return {"ok": False, "version": version, "error": str(exc)}
+
+    return {"ok": True, "version": version, "error": None}

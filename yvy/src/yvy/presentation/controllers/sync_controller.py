@@ -445,3 +445,92 @@ class SyncController:
                 http_client.close()
             except Exception:
                 pass
+
+    # ─── Canal Core → Edge: instalador (Sprint C) ─────────────────────────
+
+    def get_installer(self):
+        """Retorna una instancia de UpdateInstaller, o None si falta root_path."""
+        if self._root_path is None or self._app_config_repo is None:
+            return None
+        try:
+            from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
+            from yvy.infrastructure.persistence.sqlite_audit_log_repository import SQLiteAuditLogRepository
+            from yvy.infrastructure.updates.installer import UpdateInstaller
+            _factory = SQLiteConnectionFactory(path=self._root_path / "data" / "yvy.sqlite")
+            _audit = SQLiteAuditLogRepository(_factory)
+            return UpdateInstaller(
+                app_config_repo=self._app_config_repo,  # type: ignore[arg-type]
+                audit_repo=_audit,
+                root_path=self._root_path,
+            )
+        except Exception:
+            logger.exception("Error construyendo UpdateInstaller")
+            return None
+
+    def prevalidate_install(self):
+        """Llama a UpdateInstaller.prevalidate(). Retorna PrevalidationResult o None."""
+        installer = self.get_installer()
+        if installer is None:
+            return None
+        return installer.prevalidate()
+
+    def request_install(self, user_id: int, on_done: Callable[[], None] | None = None) -> bool:
+        """Dispara la instalación: backup + lanzar .bat + señalizar cierre.
+
+        La app debe cerrarse después de este retorno.
+        Returns True si se pudo lanzar, False si no hay instalador.
+        """
+        installer = self.get_installer()
+        if installer is None:
+            return False
+        try:
+            installer.request_install(user_id)
+            if on_done:
+                on_done()
+            return True
+        except Exception:
+            logger.exception("Error en request_install")
+            return False
+
+    def get_releases_on_disk(self) -> list[dict]:
+        """Lista releases en disco para el modal y settings."""
+        installer = self.get_installer()
+        if installer is None:
+            return []
+        try:
+            return installer.get_releases_on_disk()
+        except Exception:
+            return []
+
+    def rollback(
+        self,
+        to_version: str,
+        reason: str,
+        user_id: int,
+    ):
+        """Rollback a un release anterior. Retorna RollbackResult o None."""
+        installer = self.get_installer()
+        if installer is None:
+            return None
+        return installer.rollback(to_version=to_version, reason=reason, performed_by=user_id)
+
+    def mark_stable(self, version: str, user_id: int) -> bool:
+        """Marca un release como estable manualmente."""
+        if self._root_path is None or self._app_config_repo is None:
+            return False
+        try:
+            from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
+            from yvy.infrastructure.persistence.sqlite_audit_log_repository import SQLiteAuditLogRepository
+            from yvy.infrastructure.updates.retention import ReleaseRetention
+            _factory = SQLiteConnectionFactory(path=self._root_path / "data" / "yvy.sqlite")
+            _audit = SQLiteAuditLogRepository(_factory)
+            retention = ReleaseRetention(
+                app_config_repo=self._app_config_repo,  # type: ignore[arg-type]
+                audit_repo=_audit,
+                releases_dir=self._root_path / "releases",
+            )
+            retention.mark_stable_manual(version, user_id)
+            return True
+        except Exception:
+            logger.exception("Error en mark_stable")
+            return False

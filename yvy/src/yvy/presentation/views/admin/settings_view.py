@@ -56,6 +56,9 @@ class SettingsView(tk.Frame):
         is_superadmin: bool = False,
         metrics_repo: object | None = None,
         help_repository: object | None = None,
+        sync_controller: object | None = None,
+        current_user_role: str = "alumno",
+        current_user_id: int = 0,
     ) -> None:
         super().__init__(parent, bg=BG_CREAM)
         self._update_uc = update_use_case
@@ -63,6 +66,9 @@ class SettingsView(tk.Frame):
         self._is_superadmin = is_superadmin
         self._metrics_repo = metrics_repo
         self._help_repository = help_repository
+        self._sync_controller = sync_controller
+        self._user_role = current_user_role.lower()
+        self._user_id = current_user_id
 
         # Cargar valores actuales
         default = RetentionPolicy.default()
@@ -90,6 +96,10 @@ class SettingsView(tk.Frame):
             text="Política de retención de datos del nodo local",
             style="Secondary.TLabel",
         ).pack(anchor="w", pady=(2, SPACE_LG))
+
+        # Sección actualizaciones (admin/superadmin únicamente)
+        if self._user_role in ("admin", "superadmin") and self._sync_controller is not None:
+            self._build_updates_section(container)
 
         # Card de retention
         card = tk.Frame(
@@ -303,6 +313,182 @@ class SettingsView(tk.Frame):
         if self._status_label is not None:
             self._status_label.configure(text="✓ Guardado")
             self.after(3000, lambda: self._status_label.configure(text="") if self._status_label else None)
+
+    def _build_updates_section(self, container: tk.Frame) -> None:
+        """C10: Sección 'Actualizaciones de software' en SettingsView."""
+        card = tk.Frame(
+            container,
+            bg=BG_CARD,
+            highlightbackground=BORDER,
+            highlightthickness=1,
+        )
+        card.pack(fill="x", pady=(0, SPACE_LG))
+
+        inner = tk.Frame(card, bg=BG_CARD, padx=SPACE_XL, pady=SPACE_XL)
+        inner.pack(fill="x")
+
+        tk.Label(inner, text="Actualizaciones de software", bg=BG_CARD, fg=TEXT_PRIMARY, font=FONT_BODY_BOLD).pack(anchor="w", pady=(0, SPACE_SM))
+
+        # Información de versión y update pendiente
+        try:
+            update_info = self._sync_controller.get_update_info()  # type: ignore[union-attr]
+            current_ver = update_info.get("current_version", "—")
+            pending = update_info.get("pending")
+            is_downloaded = update_info.get("is_downloaded", False)
+        except Exception:
+            current_ver = "—"
+            pending = None
+            is_downloaded = False
+
+        tk.Label(inner, text=f"Versión instalada: {current_ver}", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL).pack(anchor="w")
+
+        if pending:
+            to_ver = pending.get("edge_version", "—")
+            status_text = "descargado — listo para instalar" if is_downloaded else "disponible — pendiente de descarga"
+            tk.Label(
+                inner,
+                text=f"Update disponible: {to_ver} ({status_text})",
+                bg=BG_CARD,
+                fg=SUCCESS if is_downloaded else TEXT_SECONDARY,
+                font=FONT_SMALL,
+            ).pack(anchor="w", pady=(2, SPACE_SM))
+
+            if is_downloaded:
+                ttk.Button(
+                    inner,
+                    text=f"Instalar versión {to_ver}...",
+                    style="Primary.TButton",
+                    command=self._on_open_update_modal,
+                ).pack(anchor="w", pady=(0, SPACE_SM))
+        else:
+            tk.Label(inner, text="No hay actualizaciones pendientes.", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL).pack(anchor="w", pady=(2, SPACE_SM))
+
+        # Releases en disco
+        try:
+            releases = self._sync_controller.get_releases_on_disk()  # type: ignore[union-attr]
+        except Exception:
+            releases = []
+
+        if releases:
+            sep = tk.Frame(inner, bg=BORDER, height=1)
+            sep.pack(fill="x", pady=SPACE_SM)
+            tk.Label(inner, text="Releases en disco:", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL).pack(anchor="w")
+            for r in releases:
+                states_str = " · ".join(r.get("states", [])) or "—"
+                lbl_text = f"  {r['version']}   ({states_str})"
+                tk.Label(inner, text=lbl_text, bg=BG_CARD, fg=TEXT_PRIMARY, font=FONT_SMALL).pack(anchor="w")
+
+            sep2 = tk.Frame(inner, bg=BORDER, height=1)
+            sep2.pack(fill="x", pady=SPACE_SM)
+
+            btn_row = tk.Frame(inner, bg=BG_CARD)
+            btn_row.pack(anchor="w")
+
+            previous = next((r["version"] for r in releases if "previous" in r.get("states", [])), None)
+            stable = next((r["version"] for r in releases if "stable" in r.get("states", [])), None)
+
+            if previous:
+                ttk.Button(
+                    btn_row,
+                    text=f"Volver a versión anterior ({previous})",
+                    command=lambda v=previous: self._on_rollback(v, "rollback_to_previous"),
+                ).pack(side="left", padx=(0, SPACE_SM))
+
+            if stable and stable != previous:
+                ttk.Button(
+                    btn_row,
+                    text=f"Volver a última estable ({stable})",
+                    command=lambda v=stable: self._on_rollback(v, "rollback_to_stable"),
+                ).pack(side="left", padx=(0, SPACE_SM))
+
+            ttk.Button(
+                btn_row,
+                text="Marcar versión actual como estable",
+                command=self._on_mark_stable,
+            ).pack(side="left")
+
+    def _on_open_update_modal(self) -> None:
+        """Abre el modal de actualización desde Settings."""
+        if self._sync_controller is None:
+            return
+        try:
+            update_info = self._sync_controller.get_update_info()  # type: ignore[union-attr]
+            releases = self._sync_controller.get_releases_on_disk()  # type: ignore[union-attr]
+        except Exception:
+            return
+        releases_simple = [{"version": r["version"], "states": r.get("states", [])} for r in releases]
+
+        def _prevalidate():
+            return self._sync_controller.prevalidate_install()  # type: ignore[union-attr]
+
+        def _on_confirmed() -> None:
+            # Buscar la MainApplication parent para la pantalla de transición
+            w = self.winfo_toplevel()
+            if hasattr(w, "_show_install_transition"):
+                w._show_install_transition()  # type: ignore[union-attr]
+
+        from yvy.presentation.components.update_modal import UpdateModal
+        UpdateModal(
+            self,
+            update_info=update_info,
+            releases_on_disk=releases_simple,
+            user_role=self._user_role,
+            on_install_confirmed=_on_confirmed,
+            prevalidate_fn=_prevalidate,
+        )
+
+    def _on_rollback(self, to_version: str, reason: str) -> None:
+        if not messagebox.askyesno(
+            "Confirmar rollback",
+            f"¿Volver a la versión {to_version}?\n\n"
+            "El sistema se detendrá y reiniciará en esa versión.\n"
+            "Si esa versión tiene un schema de DB anterior, se restaurará\n"
+            "el backup pre-update correspondiente (se pierden datos del período intermedio).",
+            parent=self,
+        ):
+            return
+        if self._sync_controller is None:
+            return
+        try:
+            result = self._sync_controller.rollback(  # type: ignore[union-attr]
+                to_version=to_version,
+                reason=reason,
+                user_id=self._user_id,
+            )
+            if result and result.ok:
+                messagebox.showinfo("Rollback iniciado", f"Volviendo a versión {to_version}...", parent=self)
+                w = self.winfo_toplevel()
+                if hasattr(w, "_quit_for_install"):
+                    w._quit_for_install()  # type: ignore[union-attr]
+            else:
+                reason_str = result.reason if result else "error desconocido"
+                messagebox.showerror("Error", f"No se pudo hacer rollback: {reason_str}", parent=self)
+        except Exception as exc:
+            messagebox.showerror("Error", str(exc), parent=self)
+
+    def _on_mark_stable(self) -> None:
+        if self._sync_controller is None:
+            return
+        try:
+            update_info = self._sync_controller.get_update_info()  # type: ignore[union-attr]
+            current_ver = update_info.get("current_version", "")
+        except Exception:
+            current_ver = ""
+        if not current_ver:
+            return
+        if not messagebox.askyesno(
+            "Marcar como estable",
+            f"¿Marcar la versión actual ({current_ver}) como estable?\n\n"
+            "Esta versión se conservará aunque se instalen versiones más nuevas,\n"
+            "y se usará como punto de rollback seguro.",
+            parent=self,
+        ):
+            return
+        ok = self._sync_controller.mark_stable(current_ver, self._user_id)  # type: ignore[union-attr]
+        if ok:
+            messagebox.showinfo("Listo", f"Versión {current_ver} marcada como estable.", parent=self)
+        else:
+            messagebox.showerror("Error", "No se pudo marcar la versión.", parent=self)
 
     def _on_force_retention_clicked(self) -> None:
         if self._retention_uc is None:

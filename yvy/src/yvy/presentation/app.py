@@ -495,6 +495,54 @@ class MainApplication(tk.Tk):
         # Oferta de catchup al arranque — delay 2 s para que la UI se asiente
         self.after(2000, self._maybe_offer_startup_catchup)
 
+        # Resultado de update post-instalación — delay 1.5s (antes del catchup)
+        self.after(1500, self._maybe_show_update_result)
+
+    # ─── Resultado de update post-instalación (C9) ──────────────────────
+
+    def _maybe_show_update_result(self) -> None:
+        """Muestra el resultado de la instalación si es el primer arranque post-update."""
+        if self._app_config_repo is None:
+            return
+        try:
+            result = self._app_config_repo.pop_show_result()
+        except Exception:
+            return
+        if not result:
+            return
+
+        from tkinter import messagebox
+        to_ver = self._app_config_repo.get("update_install.to_version") or "nueva versión"
+        from_ver = self._app_config_repo.get("update_install.from_version") or "anterior"
+        error_detail = self._app_config_repo.get("update_install.error_detail") or ""
+
+        if result == "success":
+            messagebox.showinfo(
+                "Actualización completada",
+                f"El sistema se actualizó a la versión {to_ver} correctamente.\n"
+                "Funcionando normalmente.",
+                parent=self,
+            )
+            # Detener alerta de campana
+            if self._header is not None:
+                self._header.set_update_alert(False)
+        elif result == "rollback":
+            messagebox.showerror(
+                "La actualización falló",
+                f"No se pudo instalar la versión {to_ver}.\n"
+                f"El sistema volvió a la versión {from_ver} (funcionando normalmente).\n\n"
+                f"Detalle: {error_detail or 'watchdog timeout'}\n"
+                "Este error quedó registrado en la bitácora.",
+                parent=self,
+            )
+        elif result == "version_mismatch":
+            messagebox.showerror(
+                "Error de actualización",
+                f"Se esperaba la versión {to_ver} pero arrancó {from_ver}.\n"
+                "Contactar soporte técnico.",
+                parent=self,
+            )
+
     # ─── Catchup al arranque ─────────────────────────────────────────────
 
     def _maybe_offer_startup_catchup(self) -> None:
@@ -643,6 +691,16 @@ class MainApplication(tk.Tk):
         self._header.set_sync_status(sync_s, sync_t)
         self._header.set_ntp_status(ntp_s, ntp_t)
         self._header.set_connectivity_status(conn_s, conn_t)
+
+        # ── Alerta de update (campana roja parpadeante) ──────────────────
+        try:
+            update_info = self._sync_controller.get_update_info()
+            has_alert = bool(
+                update_info.get("pending") and update_info.get("is_downloaded")
+            )
+            self._header.set_update_alert(has_alert)
+        except Exception:
+            pass
 
     def _get_iea_name(self, user: User | MockUser) -> str:
         if isinstance(user, MockUser):
@@ -899,8 +957,9 @@ class MainApplication(tk.Tk):
                 )
 
         if key == "config" and self._update_retention_uc is not None:
-            # Solo superadmin puede forzar retention
             is_superadmin = False
+            user_role = "alumno"
+            user_id = 0
             if (
                 self._auth_controller is not None
                 and self._auth_controller.current_user is not None
@@ -908,6 +967,8 @@ class MainApplication(tk.Tk):
                 u = self._auth_controller.current_user
                 from yvy.domain.auth.enums import Role
                 is_superadmin = u.role == Role.SUPERADMIN
+                user_role = u.role.value
+                user_id = u.id
             return SettingsView(
                 self._content,
                 update_use_case=self._update_retention_uc,
@@ -915,6 +976,9 @@ class MainApplication(tk.Tk):
                 is_superadmin=is_superadmin,
                 metrics_repo=self._metrics_repo,
                 help_repository=self._help_repository,
+                sync_controller=self._sync_controller,
+                current_user_role=user_role,
+                current_user_id=user_id,
             )
 
         return _PlaceholderView(self._content, label=self._stub_label(key))
@@ -1010,7 +1074,85 @@ class MainApplication(tk.Tk):
         messagebox.showerror("Error de inicio de sesión", message)
 
     def _on_notifications(self) -> None:
-        logger.info("Click en bell de notificaciones (handler stub)")
+        """Abre el modal de actualización si hay un update descargado."""
+        if self._sync_controller is None:
+            return
+        update_info = self._sync_controller.get_update_info()
+        if not update_info.get("pending"):
+            return
+
+        user_role = "alumno"
+        if self._current_user is not None:
+            user_role = (
+                self._current_user.role.value
+                if isinstance(self._current_user, User)
+                else self._current_user.role
+            )
+
+        releases = self._sync_controller.get_releases_on_disk()
+        releases_simple = [
+            {"version": r["version"], "states": r.get("states", [])}
+            for r in releases
+        ]
+
+        def _prevalidate():
+            return self._sync_controller.prevalidate_install()  # type: ignore[union-attr]
+
+        def _on_confirmed() -> None:
+            self._show_install_transition()
+
+        from yvy.presentation.components.update_modal import UpdateModal
+        UpdateModal(
+            self,
+            update_info=update_info,
+            releases_on_disk=releases_simple,
+            user_role=user_role,
+            on_install_confirmed=_on_confirmed,
+            prevalidate_fn=_prevalidate,
+        )
+
+    def _show_install_transition(self) -> None:
+        """C9.4: pantalla de transición antes de lanzar el instalador."""
+        user_id = 0
+        if self._current_user is not None and hasattr(self._current_user, "id"):
+            user_id = self._current_user.id or 0  # type: ignore[union-attr]
+
+        # Mostrar overlay de transición
+        overlay = tk.Toplevel(self)
+        overlay.title("Instalando actualización...")
+        overlay.resizable(False, False)
+        overlay.grab_set()
+        overlay.protocol("WM_DELETE_WINDOW", lambda: None)  # no cerrable
+
+        frame = tk.Frame(overlay, bg=BG_CARD, padx=SPACE_2XL, pady=SPACE_2XL)
+        frame.pack(fill="both", expand=True)
+        tk.Label(frame, text="Instalando actualización...", bg=BG_CARD, fg=TEXT_PRIMARY, font=FONT_BODY_BOLD).pack(pady=(0, SPACE_MD))
+        tk.Label(frame, text="El sistema se va a cerrar y reiniciar automáticamente.", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY).pack()
+        tk.Label(frame, text="NO apagues la computadora.", bg=BG_CARD, fg=DANGER, font=FONT_BODY_BOLD).pack(pady=SPACE_SM)
+        tk.Label(frame, text="Esto puede tomar 2-3 minutos.", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY).pack()
+        overlay.update_idletasks()
+        # Centrar
+        w, h = overlay.winfo_width(), overlay.winfo_height()
+        overlay.geometry(f"+{(overlay.winfo_screenwidth()-w)//2}+{(overlay.winfo_screenheight()-h)//2}")
+
+        # Lanzar el bat después de 1s para que la UI se muestre
+        def _do_install() -> None:
+            ok = self._sync_controller.request_install(  # type: ignore[union-attr]
+                user_id=user_id,
+                on_done=self._quit_for_install,
+            )
+            if not ok:
+                overlay.destroy()
+                from tkinter import messagebox
+                messagebox.showerror("Error", "No se pudo iniciar la instalación.")
+
+        self.after(1000, _do_install)
+
+    def _quit_for_install(self) -> None:
+        """Cierra la app para que INSTALL_UPDATE.bat tome el control."""
+        logger.info("update.install.app_closing_for_install")
+        self.quit()
+        self.destroy()
 
     def _on_avatar_clicked(self) -> None:
         """Click en avatar: abre modal con opciones (cambiar usuario)."""

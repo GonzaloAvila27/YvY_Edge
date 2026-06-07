@@ -10,7 +10,7 @@ Arquitectura: DDD + Hexagonal.
 - presentation/: UI Tkinter.
 """
 
-__version__ = "1.2.1"
-__installer_version__ = "1.2.1"
+__version__ = "1.3.0"
+__installer_version__ = "1.3.0"
 __author__ = "Gonzalo Rubens Avila"
 __year__ = "2026"

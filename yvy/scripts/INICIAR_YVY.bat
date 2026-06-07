@@ -24,5 +24,26 @@ if not exist "%BACKUP_FILE%" (
 forfiles /P "%BACKUPS%" /M "yvy_*.sqlite" /D -30 /C "cmd /c del @path" >nul 2>&1
 
 :start_app
-:: pythonw.exe lanza sin ventana de consola; la salida queda en data\logs\yvy_app.log
+:: ── Modo slots vs. modo flat ───────────────────────────────────────────────────
+:: Si existe current.txt, leer el release activo y lanzar desde ese slot.
+:: Si no, usar modo flat (compatibilidad con instalaciones anteriores al primer update).
+if not exist "C:\YVY\current.txt" goto :flat_mode
+
+:: ── Modo slots: leer current.txt ─────────────────────────────────────────────
+set /p CURRENT_RELEASE=<"C:\YVY\current.txt"
+set "RELEASE_DIR=C:\YVY\%CURRENT_RELEASE%"
+
+if not exist "%RELEASE_DIR%\venv\Scripts\pythonw.exe" (
+    echo ERROR: release dir o venv no encontrado: %RELEASE_DIR%
+    echo Revirtiendo a modo flat...
+    goto :flat_mode
+)
+
+start "" "%RELEASE_DIR%\venv\Scripts\pythonw.exe" "%RELEASE_DIR%\scripts\launch_app.py"
+goto :end
+
+:: ── Modo flat: instalacion anterior al primer update ─────────────────────────
+:flat_mode
 start "" ".venv\Scripts\pythonw.exe" "scripts\launch_app.py"
+
+:end
