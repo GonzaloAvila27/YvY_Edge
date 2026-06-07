@@ -119,6 +119,8 @@ class SyncStatusView(tk.Frame):
         self._upd_status_label: tk.Label | None = None
         self._upd_detail_label: tk.Label | None = None
         self._upd_check_btn: ttk.Button | None = None
+        self._upd_download_btn: ttk.Button | None = None
+        self._upd_progress_label: tk.Label | None = None
 
         self._build()
         self.refresh()
@@ -564,6 +566,11 @@ class SyncStatusView(tk.Frame):
         )
         self._upd_detail_label.pack(anchor="w", pady=(SPACE_SM, SPACE_MD))
 
+        self._upd_progress_label = tk.Label(
+            inner, text="", bg=BG_CARD, fg=PRIMARY, font=FONT_SMALL, anchor="w"
+        )
+        self._upd_progress_label.pack(anchor="w", pady=(0, SPACE_SM))
+
         btn_row = tk.Frame(inner, bg=BG_CARD)
         btn_row.pack(anchor="w")
 
@@ -575,21 +582,21 @@ class SyncStatusView(tk.Frame):
         )
         self._upd_check_btn.pack(side="left", padx=(0, SPACE_SM))
 
-        ttk.Button(
+        self._upd_download_btn = ttk.Button(
             btn_row,
             text="Descargar actualización",
             style="Secondary.TButton",
             state="disabled",
-        ).pack(side="left")
+            command=self._on_download_clicked,
+        )
+        self._upd_download_btn.pack(side="left", padx=(0, SPACE_SM))
 
-        tk.Label(
-            inner,
-            text="(La descarga e instalación estarán disponibles en una próxima versión.)",
-            bg=BG_CARD,
-            fg=TEXT_SECONDARY,
-            font=FONT_SMALL,
-            anchor="w",
-        ).pack(anchor="w", pady=(SPACE_SM, 0))
+        ttk.Button(
+            btn_row,
+            text="Instalar",
+            style="Primary.TButton",
+            state="disabled",
+        ).pack(side="left")
 
     def _refresh_updates_section(self) -> None:
         """Actualiza los labels de la sección de actualizaciones."""
@@ -601,20 +608,34 @@ class SyncStatusView(tk.Frame):
         pending = info["pending"]
         current = info["current_version"]
         last_checked = info["last_checked_at"]
+        is_downloaded = info.get("is_downloaded", False)
+        downloaded_path = info.get("downloaded_path")
+        download_running = self._controller.is_download_running()
 
         if self._upd_check_btn is not None:
             self._upd_check_btn.configure(
-                state="normal" if has_checker else "disabled"
+                state="normal" if (has_checker and not download_running) else "disabled"
+            )
+
+        # Botón descargar: habilitado solo cuando hay pending, no descargado, no corriendo
+        if self._upd_download_btn is not None:
+            can_download = (
+                has_checker
+                and pending is not None
+                and not is_downloaded
+                and not download_running
+            )
+            self._upd_download_btn.configure(
+                state="normal" if can_download else "disabled",
+                text="Descargar actualización" if not download_running else "Descargando…",
             )
 
         if not has_checker:
-            self._upd_status_label.configure(
-                text="Sync no configurado.",
-                fg=TEXT_SECONDARY,
-            )
-            self._upd_detail_label.configure(
-                text="Las actualizaciones no están disponibles hasta que se configuren las credenciales de YVY Core."
-            )
+            self._upd_status_label.configure(text="Sync no configurado.", fg=TEXT_SECONDARY)
+            if self._upd_detail_label is not None:
+                self._upd_detail_label.configure(
+                    text="Las actualizaciones no están disponibles hasta que se configuren las credenciales de YVY Core."
+                )
             return
 
         # Timestamp de última verificación
@@ -631,10 +652,20 @@ class SyncStatusView(tk.Frame):
 
         if pending is None:
             self._upd_status_label.configure(
-                text=f"Sistema al día (versión {current})",
-                fg=SUCCESS,
+                text=f"Sistema al día (versión {current})", fg=SUCCESS
             )
-            self._upd_detail_label.configure(text=checked_str)
+            if self._upd_detail_label is not None:
+                self._upd_detail_label.configure(text=checked_str)
+        elif is_downloaded:
+            version = pending.get("edge_version", "?")
+            self._upd_status_label.configure(
+                text=f"Update {version} descargado, listo para instalar.", fg=SUCCESS
+            )
+            detail = f"Ruta: {downloaded_path}"
+            if checked_str:
+                detail += f"   {checked_str}"
+            if self._upd_detail_label is not None:
+                self._upd_detail_label.configure(text=detail)
         else:
             size_mb = pending.get("package_size_bytes", 0) / 1_000_000
             notes = pending.get("notes", "")
@@ -646,10 +677,10 @@ class SyncStatusView(tk.Frame):
             if checked_str:
                 detail_parts.append(checked_str)
             self._upd_status_label.configure(
-                text=f"Actualización disponible: {version}",
-                fg=WARNING,
+                text=f"Actualización disponible: {version}", fg=WARNING
             )
-            self._upd_detail_label.configure(text="   ".join(detail_parts))
+            if self._upd_detail_label is not None:
+                self._upd_detail_label.configure(text="   ".join(detail_parts))
 
     def _on_check_updates_clicked(self) -> None:
         """Dispara el daemon de update checker y refresca la sección en 5s."""
@@ -695,6 +726,49 @@ class SyncStatusView(tk.Frame):
             self.refresh()
 
         modal.close = _close_and_refresh  # type: ignore[method-assign]
+
+    def _on_download_clicked(self) -> None:
+        """Inicia la descarga del paquete en un thread; actualiza UI via after()."""
+        if self._upd_download_btn is not None:
+            self._upd_download_btn.configure(state="disabled", text="Descargando…")
+        if self._upd_progress_label is not None:
+            self._upd_progress_label.configure(text="Iniciando descarga…")
+
+        def _progress(downloaded: int, total: int) -> None:
+            pct = int(downloaded * 100 / total) if total > 0 else 0
+            dl_mb = downloaded / 1_000_000
+            tot_mb = total / 1_000_000
+            text = f"Descargando… {pct}%  ({dl_mb:.1f} / {tot_mb:.1f} MB)"
+            self.after(0, lambda t=text: (
+                self._upd_progress_label.configure(text=t)
+                if self._upd_progress_label is not None else None
+            ))
+
+        def _done(result: dict) -> None:
+            def _update() -> None:
+                if self._upd_progress_label is not None:
+                    if result.get("ok"):
+                        self._upd_progress_label.configure(
+                            text="Descarga completada. Hash SHA-256 verificado.", fg=SUCCESS
+                        )
+                    else:
+                        self._upd_progress_label.configure(
+                            text=f"Error: {result.get('error', 'desconocido')}", fg=DANGER
+                        )
+                self._refresh_updates_section()
+            self.after(0, _update)
+
+        started = self._controller.start_update_download(
+            progress_callback=_progress,
+            done_callback=_done,
+        )
+        if not started:
+            if self._upd_progress_label is not None:
+                self._upd_progress_label.configure(
+                    text="No se pudo iniciar: ya hay una descarga en curso o sync no configurado.",
+                    fg=WARNING,
+                )
+            self._refresh_updates_section()
 
     def _on_pause_resume_clicked(self) -> None:
         """Toggle pausar/reanudar según estado actual."""

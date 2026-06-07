@@ -38,6 +38,109 @@ from yvy.bootstrap import CoreDependencies
 from yvy.domain.sync.enums import SyncStatus
 
 
+# ─── update download ─────────────────────────────────────────────────────
+
+
+def download_update(
+    deps: CoreDependencies,
+    progress_callback=None,  # type: ignore[no-untyped-def]
+) -> dict[str, Any]:
+    """Descarga el paquete de update pendiente y verifica su integridad.
+
+    Retorna dict con:
+        ok: bool
+        already_downloaded: bool
+        version: str | None
+        bytes_downloaded: int
+        error: str | None
+        dest_path: str | None
+    """
+    import json as _json
+    from uuid import UUID
+
+    creds_path = deps.root / "data" / "station_credentials.json"
+    server_url = deps.app_config_repo.get("sync_server_url")
+
+    if not server_url or not creds_path.exists():
+        return {
+            "ok": False,
+            "already_downloaded": False,
+            "version": None,
+            "bytes_downloaded": 0,
+            "error": "sync_no_config: sin credentials o server_url no configurado",
+            "dest_path": None,
+        }
+
+    # Verificar que hay un update pendiente
+    pending = deps.app_config_repo.get_pending_update()
+    if pending is None:
+        return {
+            "ok": True,
+            "already_downloaded": False,
+            "version": None,
+            "bytes_downloaded": 0,
+            "error": None,
+            "dest_path": None,
+        }
+
+    try:
+        creds = _json.loads(creds_path.read_text(encoding="utf-8"))
+        station_uuid = UUID(creds["station_uuid"])
+        key_version = int(creds["key_version"])
+        key_bytes = bytes.fromhex(creds["key_hmac_hex"])
+    except Exception as exc:
+        return {
+            "ok": False,
+            "already_downloaded": False,
+            "version": pending.get("edge_version"),
+            "bytes_downloaded": 0,
+            "error": f"credentials_invalid: {exc}",
+            "dest_path": None,
+        }
+
+    from yvy.infrastructure.sync.http_client import HttpClient
+    from yvy.infrastructure.sync.update_downloader import UpdateDownloader
+
+    updates_dir = deps.root / "data" / "updates"
+    http_client = HttpClient(server_url=server_url, verify=True)
+    downloader = UpdateDownloader(
+        http_client=http_client,
+        app_config_repo=deps.app_config_repo,
+        station_uuid=station_uuid,
+        key_version=key_version,
+        key=key_bytes,
+        updates_dir=updates_dir,
+    )
+
+    try:
+        # Ya descargado y verificado
+        if downloader.is_already_downloaded():
+            return {
+                "ok": True,
+                "already_downloaded": True,
+                "version": pending.get("edge_version"),
+                "bytes_downloaded": 0,
+                "error": None,
+                "dest_path": deps.app_config_repo.get("update_pending.local_path"),
+            }
+
+        result = downloader.download(progress_callback=progress_callback)
+    finally:
+        try:
+            http_client.close()
+        except Exception:
+            pass
+
+    return {
+        "ok": result.success,
+        "already_downloaded": False,
+        "version": pending.get("edge_version"),
+        "bytes_downloaded": result.bytes_downloaded,
+        "error": result.error,
+        "dest_path": str(result.dest_path) if result.success else None,
+    }
+
+
 # ─── status: panorama general ────────────────────────────────────────────
 
 

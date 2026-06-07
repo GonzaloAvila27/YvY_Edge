@@ -27,6 +27,7 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, tzinfo
+from pathlib import Path
 
 from yvy.application.use_cases.sensor.run_catchup_recovery import (
     CatchupResult,
@@ -88,6 +89,7 @@ class SyncController:
         app_config_repo: object | None = None,
         update_check_trigger: threading.Event | None = None,
         live_source: object | None = None,
+        root_path: Path | None = None,
     ) -> None:
         self._catchup_use_case = catchup_use_case
         self._sync_repo = sync_repo
@@ -100,9 +102,12 @@ class SyncController:
         # Si es None (modo dev / sin sensor), el catchup intenta abrir el USB
         # directamente (puede fallar con ACCESS si el live ya lo tiene).
         self._live_source = live_source
+        self._root_path = root_path
 
         self._catchup_thread: threading.Thread | None = None
         self._catchup_lock = threading.Lock()
+        self._download_thread: threading.Thread | None = None
+        self._download_lock = threading.Lock()
 
     # ─── API de lectura para dashboard ───────────────────────────────────
 
@@ -328,10 +333,115 @@ class SyncController:
             except Exception:
                 logger.exception("Error leyendo datos de update checker")
 
+        is_downloaded = False
+        if self._app_config_repo is not None:
+            try:
+                is_downloaded = self._app_config_repo.is_update_downloaded()  # type: ignore[union-attr]
+            except Exception:
+                pass
+
         return {
             "current_version": __version__,
             "last_sync_version": last_sync_version,
             "last_checked_at": last_checked_at,
             "pending": pending,
             "has_update_checker": self.has_update_checker(),
+            "is_downloaded": is_downloaded,
+            "downloaded_path": (
+                self._app_config_repo.get("update_pending.local_path")  # type: ignore[union-attr]
+                if self._app_config_repo is not None else None
+            ),
         }
+
+    def start_update_download(
+        self,
+        progress_callback: Callable[[int, int], None] | None = None,
+        done_callback: Callable[[dict], None] | None = None,
+    ) -> bool:
+        """Inicia la descarga del update pendiente en un thread separado.
+
+        Returns False si no hay credentials/root_path configurado o ya
+        hay una descarga en curso.
+        """
+        if self._root_path is None or self._app_config_repo is None:
+            return False
+
+        with self._download_lock:
+            if self._download_thread is not None and self._download_thread.is_alive():
+                return False
+
+            self._download_thread = threading.Thread(
+                target=self._run_download,
+                args=(progress_callback, done_callback),
+                name="update-downloader",
+                daemon=True,
+            )
+            self._download_thread.start()
+        return True
+
+    def is_download_running(self) -> bool:
+        """True si hay una descarga en curso."""
+        return (
+            self._download_thread is not None
+            and self._download_thread.is_alive()
+        )
+
+    def _run_download(
+        self,
+        progress_callback: Callable[[int, int], None] | None,
+        done_callback: Callable[[dict], None] | None,
+    ) -> None:
+        import json as _json
+        from uuid import UUID
+
+        assert self._root_path is not None
+        creds_path = self._root_path / "data" / "station_credentials.json"
+        server_url = self._app_config_repo.get("sync_server_url")  # type: ignore[union-attr]
+
+        if not server_url or not creds_path.exists():
+            if done_callback:
+                done_callback({"ok": False, "error": "sync_no_config"})
+            return
+
+        try:
+            creds = _json.loads(creds_path.read_text(encoding="utf-8"))
+            station_uuid = UUID(creds["station_uuid"])
+            key_version = int(creds["key_version"])
+            key_bytes = bytes.fromhex(creds["key_hmac_hex"])
+        except Exception as exc:
+            if done_callback:
+                done_callback({"ok": False, "error": f"credentials: {exc}"})
+            return
+
+        from yvy.infrastructure.sync.http_client import HttpClient
+        from yvy.infrastructure.sync.update_downloader import UpdateDownloader
+
+        updates_dir = self._root_path / "data" / "updates"
+        http_client = HttpClient(server_url=server_url, verify=True)
+        downloader = UpdateDownloader(
+            http_client=http_client,
+            app_config_repo=self._app_config_repo,  # type: ignore[arg-type]
+            station_uuid=station_uuid,
+            key_version=key_version,
+            key=key_bytes,
+            updates_dir=updates_dir,
+        )
+
+        try:
+            result = downloader.download(progress_callback=progress_callback)
+            if done_callback:
+                done_callback({
+                    "ok": result.success,
+                    "error": result.error,
+                    "bytes_downloaded": result.bytes_downloaded,
+                    "dest_path": str(result.dest_path) if result.success else None,
+                })
+        except Exception as exc:
+            logger.exception("Error en _run_download")
+            if done_callback:
+                done_callback({"ok": False, "error": str(exc)})
+        finally:
+            try:
+                http_client.close()
+            except Exception:
+                pass

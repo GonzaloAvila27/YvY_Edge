@@ -307,6 +307,7 @@ def main() -> int:
         app_config_repo=app_config_repo,
         update_check_trigger=update_check_trigger,
         live_source=_live_source,  # None si el sensor no está disponible
+        root_path=ROOT,
     )
 
     # Callable que MainApplication consulta cada 15s para el indicador del

@@ -35,6 +35,24 @@ def _find_repo_root() -> Path:
     return Path.cwd()
 
 
+def _add_update_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Agrega el subparser ``update`` con su subcomando ``download``."""
+    update_parser = subparsers.add_parser(
+        "update",
+        help="Gestión de actualizaciones de software.",
+        description="Descarga y verifica paquetes de actualización de YVY Edge.",
+    )
+    update_subs = update_parser.add_subparsers(
+        dest="update_action",
+        metavar="<download>",
+        required=True,
+    )
+    update_subs.add_parser(
+        "download",
+        help="Descarga el paquete de update pendiente desde YVY Core.",
+    )
+
+
 def _add_test_parser(subparsers: argparse._SubParsersAction) -> None:
     """Agrega el subparser ``test`` con sus subcomandos."""
     test_parser = subparsers.add_parser(
@@ -111,6 +129,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "check-updates",
         help="Consulta YVY Core y reporta si hay actualizaciones disponibles.",
     )
+    _add_update_parser(subparsers)
     _add_test_parser(subparsers)
 
     return parser
@@ -185,6 +204,59 @@ def _cmd_test_sync(root: Path, no_migrate: bool, timeout: float) -> int:
     return 0 if report["ok"] else 1
 
 
+def _cmd_update_download(root: Path, no_migrate: bool) -> int:
+    from yvy.bootstrap import build_core_dependencies
+    from yvy.cli.handlers import download_update
+
+    deps = build_core_dependencies(root=root, run_migrations_on_start=not no_migrate)
+
+    pending = deps.app_config_repo.get_pending_update()
+    if pending is None:
+        print("No hay actualizaciones para descargar.")
+        return 0
+
+    version = pending.get("edge_version", "?")
+    size_mb = int(pending.get("package_size_bytes") or 0) / 1_000_000
+    print("Verificando update pendiente...")
+    print(f"  Versión disponible:  {version}")
+    print(f"  Tamaño:              {size_mb:.1f} MB")
+    print()
+
+    # Barra de progreso en consola
+    _last: list[int] = [0]
+
+    def _progress(downloaded: int, total: int) -> None:
+        pct = int(downloaded * 100 / total) if total > 0 else 0
+        if pct - _last[0] >= 2:  # actualizar cada 2%
+            filled = pct // 5
+            bar = "█" * filled + "░" * (20 - filled)
+            dl_mb = downloaded / 1_000_000
+            tot_mb = total / 1_000_000
+            print(f"\r  [{bar}] {pct}%  {dl_mb:.1f} / {tot_mb:.1f} MB", end="", flush=True)
+            _last[0] = pct
+
+    print("Descargando paquete...")
+    result = download_update(deps, progress_callback=_progress)
+    print()  # nueva línea tras la barra
+
+    if result.get("already_downloaded"):
+        print(f"El paquete {version} ya está descargado y verificado.")
+        print(f"Ruta: {result['dest_path']}")
+        return 0
+
+    if not result["ok"]:
+        print(f"Error en la descarga: {result['error']}")
+        return 1
+
+    print("Verificando integridad (SHA-256)...")
+    print("  Hash verificado: OK")
+    print()
+    print("Descarga completada.")
+    print("El paquete está listo para instalar.")
+    print("(La instalación estará disponible en una próxima versión.)")
+    return 0
+
+
 def _cmd_check_updates(root: Path, no_migrate: bool) -> int:
     from yvy.bootstrap import build_core_dependencies
     from yvy.cli.handlers import compute_check_updates
@@ -241,6 +313,9 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_info(root, no_migrate)
     if args.command == "check-updates":
         return _cmd_check_updates(root, no_migrate)
+    if args.command == "update":
+        if args.update_action == "download":
+            return _cmd_update_download(root, no_migrate)
     if args.command == "test":
         if args.test_target == "sensor":
             return _cmd_test_sensor()

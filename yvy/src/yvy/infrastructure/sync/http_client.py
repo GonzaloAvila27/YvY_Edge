@@ -51,9 +51,11 @@ detail, not a business-policy retry.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import secrets
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -158,6 +160,24 @@ class MalformedResponseError(SendError):
 
     Maps to ``FailureClass.SERVER`` in the agent.
     """
+
+
+@dataclass(frozen=True, slots=True)
+class DownloadResult:
+    """Resultado de una descarga de paquete de update."""
+
+    success: bool
+    bytes_downloaded: int
+    sha256_verified: bool
+    dest_path: Path
+    error: str | None = None
+
+
+# Chunk size para streaming (64 KB)
+_DOWNLOAD_CHUNK_SIZE = 65536
+
+# Timeout de descarga: connect corto, read generoso por chunk (no total)
+_DOWNLOAD_TIMEOUT = None  # se construye en el método para poder pasarlo
 
 
 # ─── Client ──────────────────────────────────────────────────────────────
@@ -417,6 +437,181 @@ class HttpClient:
             update_available=update_available,
             update_metadata=update_metadata,
         )
+
+    def download_update_package(
+        self,
+        *,
+        package_url: str,
+        station_uuid: UUID,
+        key_version: int,
+        key: bytes,
+        dest_path: Path,
+        expected_sha256: str,
+        expected_size_bytes: int,
+        progress_callback: Callable[[int, int], None] | None = None,
+    ) -> DownloadResult:
+        """Descarga el paquete de update desde Core con autenticación HMAC.
+
+        Streaming a disco en chunks de 64 KB. Verifica SHA-256 al terminar.
+        Si hash o tamaño no coinciden, borra el archivo y retorna error.
+
+        Raises: nunca — todos los errores se devuelven como DownloadResult.
+        """
+        from yvy.infrastructure.sync.hmac_signer import sign_envelope
+
+        nonce = secrets.token_hex(16)
+        sent_at_utc = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        canonical = {
+            "key_version": key_version,
+            "nonce": nonce,
+            "package_url": package_url,
+            "sent_at_utc": sent_at_utc,
+            "station_uuid": str(station_uuid),
+        }
+        signature = sign_envelope(canonical, key)
+
+        req_headers = {
+            "Authorization": f"HMAC {signature}",
+            "X-Key-Version": str(key_version),
+            "X-Nonce": nonce,
+            "X-Sent-At-UTC": sent_at_utc,
+            "X-Station-UUID": str(station_uuid),
+        }
+
+        # Timeout: connect y write cortos; read por chunk 60s (redes IEA lentas)
+        import httpx as _httpx
+        dl_timeout = _httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
+
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        bytes_downloaded = 0
+        hasher = hashlib.sha256()
+
+        try:
+            with self._client.stream(
+                "GET",
+                package_url,
+                headers=req_headers,
+                timeout=dl_timeout,
+            ) as response:
+                if response.status_code in (401, 403):
+                    return DownloadResult(
+                        success=False,
+                        bytes_downloaded=0,
+                        sha256_verified=False,
+                        dest_path=dest_path,
+                        error=f"auth: HTTP {response.status_code}",
+                    )
+                if response.status_code == 404:
+                    return DownloadResult(
+                        success=False,
+                        bytes_downloaded=0,
+                        sha256_verified=False,
+                        dest_path=dest_path,
+                        error="not_found: paquete no existe en server",
+                    )
+                if response.status_code != 200:
+                    return DownloadResult(
+                        success=False,
+                        bytes_downloaded=0,
+                        sha256_verified=False,
+                        dest_path=dest_path,
+                        error=f"http_error: status {response.status_code}",
+                    )
+
+                total = int(response.headers.get("content-length", expected_size_bytes))
+
+                with dest_path.open("wb") as fout:
+                    for chunk in response.iter_bytes(chunk_size=_DOWNLOAD_CHUNK_SIZE):
+                        fout.write(chunk)
+                        hasher.update(chunk)
+                        bytes_downloaded += len(chunk)
+                        if progress_callback is not None:
+                            try:
+                                progress_callback(bytes_downloaded, total)
+                            except Exception:
+                                pass
+
+        except _httpx.TimeoutException as exc:
+            self._cleanup_partial(dest_path)
+            return DownloadResult(
+                success=False,
+                bytes_downloaded=bytes_downloaded,
+                sha256_verified=False,
+                dest_path=dest_path,
+                error=f"network: timeout — {exc}",
+            )
+        except _httpx.ConnectError as exc:
+            self._cleanup_partial(dest_path)
+            return DownloadResult(
+                success=False,
+                bytes_downloaded=bytes_downloaded,
+                sha256_verified=False,
+                dest_path=dest_path,
+                error=f"network: connection failed — {exc}",
+            )
+        except _httpx.HTTPError as exc:
+            self._cleanup_partial(dest_path)
+            return DownloadResult(
+                success=False,
+                bytes_downloaded=bytes_downloaded,
+                sha256_verified=False,
+                dest_path=dest_path,
+                error=f"network: {exc}",
+            )
+        except OSError as exc:
+            self._cleanup_partial(dest_path)
+            return DownloadResult(
+                success=False,
+                bytes_downloaded=bytes_downloaded,
+                sha256_verified=False,
+                dest_path=dest_path,
+                error=f"disk: {exc}",
+            )
+
+        # Verificar integridad
+        actual_sha256 = hasher.hexdigest()
+        if actual_sha256.lower() != expected_sha256.lower():
+            self._cleanup_partial(dest_path)
+            return DownloadResult(
+                success=False,
+                bytes_downloaded=bytes_downloaded,
+                sha256_verified=False,
+                dest_path=dest_path,
+                error=(
+                    f"hash_mismatch: expected {expected_sha256[:16]}… "
+                    f"got {actual_sha256[:16]}…"
+                ),
+            )
+
+        if expected_size_bytes > 0 and bytes_downloaded != expected_size_bytes:
+            self._cleanup_partial(dest_path)
+            return DownloadResult(
+                success=False,
+                bytes_downloaded=bytes_downloaded,
+                sha256_verified=False,
+                dest_path=dest_path,
+                error=(
+                    f"size_mismatch: expected {expected_size_bytes} "
+                    f"got {bytes_downloaded}"
+                ),
+            )
+
+        return DownloadResult(
+            success=True,
+            bytes_downloaded=bytes_downloaded,
+            sha256_verified=True,
+            dest_path=dest_path,
+        )
+
+    @staticmethod
+    def _cleanup_partial(path: Path) -> None:
+        """Borra un archivo parcial si existe."""
+        try:
+            if path.exists():
+                path.unlink()
+        except OSError:
+            pass
 
     def close(self) -> None:
         """Close the underlying ``httpx.Client`` and its connection pool."""

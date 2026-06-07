@@ -106,3 +106,21 @@ class AppConfigRepository:
     def clear_pending_update(self) -> None:
         """Marca que no hay update pendiente (no borra las otras keys)."""
         self.set("update_pending.available", "false")
+
+    # ─── Helpers descarga (Sprint B) ─────────────────────────────────────
+
+    def mark_update_downloaded(self, local_path: str) -> None:
+        """Persiste que el paquete fue descargado y verificado."""
+        self.set("update_pending.downloaded", "true")
+        self.set("update_pending.downloaded_at", datetime.now(UTC).isoformat())
+        self.set("update_pending.local_path", local_path)
+
+    def is_update_downloaded(self) -> bool:
+        """True si el paquete ya fue descargado y marcado como verificado."""
+        return self.get("update_pending.downloaded") == "true"
+
+    def clear_downloaded_update(self) -> None:
+        """Limpia el flag de descarga (al instalar o descartar)."""
+        self.set("update_pending.downloaded", "false")
+        self.delete("update_pending.downloaded_at")
+        self.delete("update_pending.local_path")

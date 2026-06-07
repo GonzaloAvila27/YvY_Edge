@@ -12,7 +12,7 @@ def test_package_importable() -> None:
     """El paquete yvy debe ser importable."""
     import yvy
 
-    assert yvy.__version__ == "1.1.0"
+    assert yvy.__version__ == "1.2.1"
 
 
 @pytest.mark.unit
