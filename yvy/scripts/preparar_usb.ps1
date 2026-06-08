@@ -59,6 +59,10 @@ Copy-Item -Force "$ROOT\scripts\INICIAR_YVY.bat"    "$APPDIR\scripts\"
 Copy-Item -Force "$ROOT\scripts\VALIDAR_SENSOR.bat" "$APPDIR\scripts\"
 Copy-Item -Force "$ROOT\scripts\LANZAR_YVY.vbs"     "$APPDIR\scripts\"
 
+# INSTALL_UPDATE.bat va en la RAÍZ de yvy/ (no en scripts/) porque nunca
+# debe autosobrescribirse durante una actualización de slots.
+Copy-Item -Force "$ROOT\scripts\INSTALL_UPDATE.bat" "$APPDIR\INSTALL_UPDATE.bat"
+
 # resources: puede estar vacío, el directorio debe existir
 if (Test-Path "$ROOT\resources") {
     Copy-Item -Recurse -Force "$ROOT\resources" "$APPDIR\resources"
