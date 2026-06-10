@@ -180,10 +180,14 @@ if %errorlevel% neq 0 (
 )
 echo     OK  Dependencias instaladas
 
+:: Paso 4d: registrar paquete yvy en el venv (sin build tools)
+echo %DESTINO%\src> "%DESTINO%\.venv\Lib\site-packages\yvy.pth"
+echo     OK  Paquete yvy registrado en el venv
+
 :: ─── PASO 5: Crear acceso directo en el Escritorio ────────────────────────────
 echo.
 echo  [5/5] Creando acceso directo en el Escritorio...
-powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $desk = [Environment]::GetFolderPath('CommonDesktopDirectory'); $s = $ws.CreateShortcut($desk + '\YVY - Meteorologia.lnk'); $s.TargetPath = 'C:\YVY\scripts\INICIAR_YVY.bat'; $s.WorkingDirectory = 'C:\YVY'; $s.Description = 'YVY Sistema Meteorologico Escolar'; $s.WindowStyle = 1; $s.Save()" >nul 2>&1
+powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $desk = [Environment]::GetFolderPath('CommonDesktopDirectory'); $s = $ws.CreateShortcut($desk + '\YVY - Meteorologia.lnk'); $s.TargetPath = 'C:\YVY\scripts\INICIAR_YVY.bat'; $s.WorkingDirectory = 'C:\YVY'; $s.Description = 'YVY Sistema Meteorologico Escolar'; $s.IconLocation = 'C:\YVY\resources\yvy.ico, 0'; $s.WindowStyle = 1; $s.Save()" >nul 2>&1
 if %errorlevel% equ 0 (
     echo     OK  Acceso directo creado en el Escritorio
 ) else (

@@ -57,7 +57,8 @@ if sys.stdout is not None:
 
 logging.basicConfig(
     level=logging.WARNING,
-    format="%(levelname)-7s %(name)s : %(message)s",
+    format="%(asctime)s %(levelname)-7s %(name)s : %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
     handlers=_handlers,
 )
 

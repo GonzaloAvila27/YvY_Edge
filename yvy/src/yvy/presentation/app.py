@@ -235,6 +235,11 @@ class MainApplication(tk.Tk):
         self.geometry(f"{WINDOW_DEFAULT_WIDTH}x{WINDOW_DEFAULT_HEIGHT}")
         self.minsize(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT)
 
+        from yvy.config.paths import RESOURCES_DIR
+        _ico = RESOURCES_DIR / "yvy.ico"
+        if _ico.exists():
+            self.iconbitmap(str(_ico))
+
         # Cargar tema guardado ANTES de aplicar ttk styles
         from yvy.presentation.theme_manager import theme_manager, update_ttk_styles
         if app_config_repo is not None:

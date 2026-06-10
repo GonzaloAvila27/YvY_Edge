@@ -1,5 +1,52 @@
 # CHANGELOG
 
+## [1.2.1] - 2026-06-10
+
+### Added
+- `resources/yvy.ico` — ícono de la aplicación (multi-resolución: 16/32/48/256 px, 32-bit RGBA).
+- `config/paths.py`: constante `RESOURCES_DIR` apuntando a `<REPO_ROOT>/resources/`.
+- `presentation/app.py`: `self.iconbitmap(str(RESOURCES_DIR / "yvy.ico"))` en `MainApplication.__init__`.
+  Reemplaza el ícono de pluma de Tk en la ventana y en la barra de tareas.
+  La llamada es silenciosa si el archivo no existe (dev sin ícono funciona igual).
+- `scripts/INSTALAR.bat` paso 5: agrega `IconLocation = 'C:\YVY\resources\yvy.ico, 0'`
+  al acceso directo del Escritorio. Antes mostraba el ícono negro del CMD.
+
+## [1.2.0] - 2026-06-10
+
+### Added
+- `scripts/configure_sync.py` — script post-onboarding para cargar credenciales de sync
+  en un nodo ya instalado: copia `*_credentials.json` a `data/`, actualiza `sync_server_url`
+  y `station_uuid` en la DB SQLite. Valida UUID, `key_version` int y `key_hmac_hex` ≥ 32 bytes.
+  No borra datos ni re-ejecuta el wizard de onboarding.
+- `scripts/CONFIGURAR_SYNC.bat` — lanzador USB para `configure_sync.py`. Auto-detecta
+  `*credentials*.json` en el mismo directorio del USB, lee la URL actual de la DB como default,
+  detecta modo flat vs. slots para elegir el entorno Python correcto, y verifica con
+  `yvy test sync` al terminar.
+- `scripts/INSTALAR.bat` paso 4d: registra `C:\YVY\src` en el venv via archivo `.pth`
+  (`site-packages/yvy.pth`). Esto resolvía el fallo silencioso de `import yvy` desde el
+  entorno instalado.
+
+### Changed
+- `scripts/preparar_usb.ps1`: copia `configure_sync.py` a `dist/usb/yvy/scripts/` y
+  `CONFIGURAR_SYNC.bat` al root de `dist/usb/` en cada build del USB.
+- `scripts/launch_app.py`: formato del log corregido — se agrega `%(asctime)s` y
+  `datefmt="%Y-%m-%dT%H:%M:%S"` al `RotatingFileHandler`. El CLI (`main.py`) ya lo tenía;
+  la GUI tenía mensajes sin timestamp.
+
+### Fixed
+- `infrastructure/pywws/live_source.py`: reducido threshold de error USB consecutivo de 5 → 3.
+  A partir del 4° error: silencio total con una sola línea cada 30 intentos
+  (`"sensor ocupado (N intentos consecutivos)"`). El handler de `Exception` genérica
+  aplica la misma lógica — traceback completo solo los primeros 3, luego una línea c/30.
+- `infrastructure/scheduling/sensor_collector.py`: `exc_info` (traceback completo) solo
+  se emite en los primeros 3 errores consecutivos. Del 4° en adelante: una línea cada 30
+  (`WARNING sensor.capture.failure | N errores consecutivos (muestra c/30)`).
+
+### Internal
+- `dist/usb/yvy/src/src/` eliminado — directorio duplicado (`src` anidado dentro de `src`)
+  generado por un bug en la copia manual del USB. El snapshot de `dist/usb/` fue sincronizado
+  con todas las correcciones anteriores.
+
 ## [1.1.0] - 2026-06-03
 
 ### Added

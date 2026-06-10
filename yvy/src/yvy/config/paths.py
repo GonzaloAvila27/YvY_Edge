@@ -14,6 +14,7 @@ REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[3]
 # Carpetas top-level
 DATA_DIR: Final[Path] = REPO_ROOT / "data"
 ASSETS_DIR: Final[Path] = REPO_ROOT / "assets"
+RESOURCES_DIR: Final[Path] = REPO_ROOT / "resources"
 DOCS_DIR: Final[Path] = REPO_ROOT / "docs"
 DEPLOY_DIR: Final[Path] = REPO_ROOT / "deploy"
 MIGRATIONS_DIR: Final[Path] = REPO_ROOT / "migrations"

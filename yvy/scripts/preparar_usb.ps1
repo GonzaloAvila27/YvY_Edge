@@ -55,6 +55,7 @@ Copy-Item -Force "$ROOT\requirements.prod.txt" "$APPDIR\requirements.prod.txt"
 # scripts: solo los necesarios para producción (sin .ps1 ni smoke tests)
 New-Item -ItemType Directory -Force -Path "$APPDIR\scripts" | Out-Null
 Copy-Item -Force "$ROOT\scripts\launch_app.py"      "$APPDIR\scripts\"
+Copy-Item -Force "$ROOT\scripts\configure_sync.py"  "$APPDIR\scripts\"
 Copy-Item -Force "$ROOT\scripts\INICIAR_YVY.bat"    "$APPDIR\scripts\"
 Copy-Item -Force "$ROOT\scripts\VALIDAR_SENSOR.bat" "$APPDIR\scripts\"
 Copy-Item -Force "$ROOT\scripts\LANZAR_YVY.vbs"     "$APPDIR\scripts\"
@@ -114,7 +115,8 @@ Write-Host "  OK $wheelCount archivos en wheels\" -ForegroundColor Green
 # ── Copiar scripts al root del USB ───────────────────────────────────────────
 Copy-Item -Force "$ROOT\scripts\INSTALAR.bat"           "$DIST\INSTALAR.bat"
 Copy-Item -Force "$ROOT\scripts\CONFIGURAR_WINDOWS.bat" "$DIST\CONFIGURAR_WINDOWS.bat"
-Write-Host "  OK INSTALAR.bat + CONFIGURAR_WINDOWS.bat copiados" -ForegroundColor Green
+Copy-Item -Force "$ROOT\scripts\CONFIGURAR_SYNC.bat"    "$DIST\CONFIGURAR_SYNC.bat"
+Write-Host "  OK INSTALAR.bat + CONFIGURAR_WINDOWS.bat + CONFIGURAR_SYNC.bat copiados" -ForegroundColor Green
 
 # ── Resumen final ─────────────────────────────────────────────────────────────
 $sizeMB = [math]::Round(

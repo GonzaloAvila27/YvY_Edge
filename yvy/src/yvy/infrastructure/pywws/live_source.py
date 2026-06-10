@@ -337,20 +337,25 @@ class PywwsLiveSource:
             #   - LIBUSB_ERROR_NO_DEVICE: el sensor fue desenchufado.
             #   - LIBUSB_ERROR_BUSY: otro proceso (EasyWeather) reclamó el dispositivo.
             self._consecutive_errors += 1
-            if self._consecutive_errors >= 5:
-                logger.error(
-                    "PywwsLiveSource: %d errores USB consecutivos. Última causa: %s",
-                    self._consecutive_errors, exc,
-                )
-            else:
+            n = self._consecutive_errors
+            if n <= 3:
+                logger.warning("PywwsLiveSource: USB error (intento %d): %s", n, exc)
+            elif n % 30 == 0:
                 logger.warning(
-                    "PywwsLiveSource: USB error (intento %d): %s",
-                    self._consecutive_errors, exc,
+                    "PywwsLiveSource: sensor ocupado (%d intentos consecutivos): %s",
+                    n, exc,
                 )
             self._invalidate_iter()
             return None
         except Exception as exc:
-            logger.exception("PywwsLiveSource: error inesperado: %s", exc)
+            self._consecutive_errors += 1
+            n = self._consecutive_errors
+            if n <= 3:
+                logger.exception("PywwsLiveSource: error inesperado (intento %d): %s", n, exc)
+            elif n % 30 == 0:
+                logger.error(
+                    "PywwsLiveSource: error inesperado (%d consecutivo): %s", n, exc,
+                )
             self._invalidate_iter()
             return None
 

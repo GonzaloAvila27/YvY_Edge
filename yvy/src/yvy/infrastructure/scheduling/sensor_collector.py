@@ -107,12 +107,18 @@ class SensorCollectorDaemon(threading.Thread):
 
             if "error" in result_box:
                 consecutive_failures += 1
-                logger.error(
-                    "sensor.capture.failure | consecutive=%d error=%s",
-                    consecutive_failures,
-                    result_box["error"],
-                    exc_info=result_box["error"],
-                )
+                n, exc = consecutive_failures, result_box["error"]
+                if n <= 3:
+                    logger.error(
+                        "sensor.capture.failure | consecutive=%d error=%s",
+                        n, exc,
+                        exc_info=exc,
+                    )
+                elif n % 30 == 0:
+                    logger.warning(
+                        "sensor.capture.failure | %d errores consecutivos (muestra c/30): %s",
+                        n, exc,
+                    )
                 if self._shutdown.wait(timeout=_BACKOFF_FAILURE_S):
                     break
                 continue
