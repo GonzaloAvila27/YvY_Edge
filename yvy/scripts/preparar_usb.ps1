@@ -54,11 +54,13 @@ Copy-Item -Force "$ROOT\requirements.prod.txt" "$APPDIR\requirements.prod.txt"
 
 # scripts: solo los necesarios para producción (sin .ps1 ni smoke tests)
 New-Item -ItemType Directory -Force -Path "$APPDIR\scripts" | Out-Null
-Copy-Item -Force "$ROOT\scripts\launch_app.py"      "$APPDIR\scripts\"
-Copy-Item -Force "$ROOT\scripts\configure_sync.py"  "$APPDIR\scripts\"
-Copy-Item -Force "$ROOT\scripts\INICIAR_YVY.bat"    "$APPDIR\scripts\"
-Copy-Item -Force "$ROOT\scripts\VALIDAR_SENSOR.bat" "$APPDIR\scripts\"
-Copy-Item -Force "$ROOT\scripts\LANZAR_YVY.vbs"     "$APPDIR\scripts\"
+Copy-Item -Force "$ROOT\scripts\launch_app.py"             "$APPDIR\scripts\"
+Copy-Item -Force "$ROOT\scripts\configure_sync.py"         "$APPDIR\scripts\"
+Copy-Item -Force "$ROOT\scripts\diagnostico_sync_gap.py"   "$APPDIR\scripts\"
+Copy-Item -Force "$ROOT\scripts\YVY_CLI.bat"               "$APPDIR\scripts\"
+Copy-Item -Force "$ROOT\scripts\INICIAR_YVY.bat"           "$APPDIR\scripts\"
+Copy-Item -Force "$ROOT\scripts\VALIDAR_SENSOR.bat"        "$APPDIR\scripts\"
+Copy-Item -Force "$ROOT\scripts\LANZAR_YVY.vbs"            "$APPDIR\scripts\"
 
 # INSTALL_UPDATE.bat va en la RAÍZ de yvy/ (no en scripts/) porque nunca
 # debe autosobrescribirse durante una actualización de slots.
@@ -134,6 +136,10 @@ Write-Host "    $DIST\python-3.12.10-amd64.exe"
 Write-Host "      (bajar de https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe)"
 Write-Host "    $DIST\zadig.exe"
 Write-Host "      (bajar de https://zadig.akeo.ie)"
+Write-Host "    $DIST\sync_server_url.txt"
+Write-Host "      (crear con una línea: la URL del servidor, ej. https://edge.yvyedge.com)"
+Write-Host "    $DIST\<iea_code>_credentials.json"
+Write-Host "      (generado por el servidor para cada estación)"
 Write-Host ""
 Write-Host "  Luego copiar TODO el contenido de dist\usb\ al USB stick."
 Write-Host "  En la netbook IEA: ejecutar INSTALAR.bat como Administrador."

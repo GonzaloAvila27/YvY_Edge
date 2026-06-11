@@ -1,5 +1,42 @@
 # CHANGELOG
 
+## [1.2.2] - 2026-06-11
+
+### Fixed
+- **`CONFIGURAR_SYNC.bat`: múltiples errores en cmd.exe probados en IEA**
+  - Eliminado `chcp 65001` — causaba que `enabledelayedexpansion` fallara en algunas
+    configuraciones de Windows; `!CREDS!` y `%U` quedaban sin expandir.
+  - Eliminado Python one-liner inline para leer URL desde DB — generaba
+    `%U no se reconoce como comando interno` en cmd.exe.
+  - URL ahora se lee desde `sync_server_url.txt` en la raíz del USB (un archivo de
+    texto con una sola línea). Default: `https://edge.yvyedge.com`.
+  - Si `configure_sync.py` no está en `C:\YVY\scripts\`, se copia automáticamente
+    desde el USB (`yvy\scripts\configure_sync.py`).
+  - URL pasada via variable de entorno `YVY_SYNC_URL` en lugar de argumento `--server-url`,
+    evitando problemas con `://` en PowerShell y cmd.
+
+- **`configure_sync.py`: `--server-url` fallaba desde PowerShell**
+  - URLs con `://` podían fragmentarse al pasarlas como argumento en PowerShell.
+  - `--server-url` ahora es opcional; fallback a variable de entorno `YVY_SYNC_URL`.
+
+- **`configure_sync.py`: `PermissionError` al hacer backup de credentials**
+  - El sync agent podía tener el archivo abierto. El backup ahora captura
+    `PermissionError` y avisa sin interrumpir — las credentials se sobrescriben igual.
+
+### Added
+- `scripts/YVY_CLI.bat` — wrapper para el CLI en IEAs instaladas. Detecta modo flat
+  y modo slots, setea `PYTHONPATH` correctamente antes de invocar `-m yvy`.
+  Uso: `C:\YVY\scripts\YVY_CLI.bat <comando>`.
+- `scripts/diagnostico_sync_gap.py` — diagnóstico de discrepancias entre `sensor_data`
+  y `sync_queue`: totales, huérfanos, duplicados, rangos de fechas.
+  Uso: `python diagnostico_sync_gap.py --db C:\YVY\data\yvy.sqlite`.
+- `scripts/preparar_usb.ps1`: incluye `YVY_CLI.bat` y `diagnostico_sync_gap.py` en el
+  build del USB. Lista de archivos manuales extendida con `sync_server_url.txt` y
+  `<iea_code>_credentials.json`.
+- `docs/CLI_LANZAMIENTO.md` — guía de uso del CLI para técnicos en IEA.
+- `docs/configure_sync_GUIA.md` — guía completa de configuración de credentials post-install.
+- `docs/cli_fix_venv_path.md` — documentación técnica del bug del venv y su fix.
+
 ## [1.2.1] - 2026-06-10
 
 ### Added

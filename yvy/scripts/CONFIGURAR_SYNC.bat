@@ -1,144 +1,122 @@
 @echo off
 setlocal enabledelayedexpansion
-chcp 65001 >nul
-title Configurar Sync - YVY Sistema Meteorologico
+title Configurar Sync - YVY
 
 :: ─────────────────────────────────────────────────────────────────────────────
-:: CONFIGURAR_SYNC.bat  —  YVY Sistema Meteorológico Escolar
-::
-:: Para usar cuando YVY ya está instalado y hay que cargar las credenciales
-:: de sync (station_credentials.json) sin reinstalar ni borrar datos.
-::
-:: Correr desde el USB junto a los archivos *_credentials.json de la IEA.
+:: CONFIGURAR_SYNC.bat
+:: Carga station_credentials.json y configura sync_server_url en un nodo
+:: YVY ya instalado, sin reinstalar ni borrar datos.
+:: Ejecutar desde el USB junto al archivo *_credentials.json de la IEA.
 :: ─────────────────────────────────────────────────────────────────────────────
 
 echo.
 echo  =====================================================
-echo    YVY - Configurar credenciales de sincronización
+echo    YVY - Configurar credenciales de sincronizacion
 echo  =====================================================
 echo.
 
-:: ─── Verificar que YVY está instalado ────────────────────────────────────────
 set "BASE=C:\YVY"
-if not exist "%BASE%" (
-    echo  ERROR: YVY no está instalado en C:\YVY
+set "SCRIPTS=%BASE%\scripts"
+
+if not exist "%BASE%\data" (
+    echo  ERROR: YVY no esta instalado en C:\YVY
     echo  Correr INSTALAR.bat primero.
     echo.
     pause
     exit /b 1
 )
-if not exist "%BASE%\scripts\configure_sync.py" (
-    echo  ERROR: configure_sync.py no encontrado en %BASE%\scripts\
-    echo  Reinstalar desde el USB o copiar manualmente.
-    echo.
-    pause
-    exit /b 1
+
+:: Si configure_sync.py no esta en la instalacion, copiarlo desde el USB
+if not exist "%SCRIPTS%\configure_sync.py" (
+    if exist "%~dp0yvy\scripts\configure_sync.py" (
+        copy /Y "%~dp0yvy\scripts\configure_sync.py" "%SCRIPTS%\" >nul
+        echo  configure_sync.py copiado al sistema instalado.
+    ) else (
+        echo  ERROR: configure_sync.py no encontrado ni en %SCRIPTS%\ ni en el USB.
+        pause
+        exit /b 1
+    )
 )
 
-:: ─── Auto-detectar archivo de credentials en el directorio del USB ────────────
+:: ── Leer URL del servidor ──────────────────────────────────────────────────
+:: Primero desde sync_server_url.txt en el USB, si existe
+set "SERVER_URL="
+if exist "%~dp0sync_server_url.txt" (
+    set /p SERVER_URL=<"%~dp0sync_server_url.txt"
+)
+if "!SERVER_URL!"=="" set "SERVER_URL=https://edge.yvyedge.com"
+
+:: ── Detectar archivo de credentials en el USB ─────────────────────────────
 set "CREDS="
 for %%F in ("%~dp0*credentials*.json") do (
     if "!CREDS!"=="" set "CREDS=%%F"
 )
 
 if "!CREDS!"=="" (
-    echo  No se encontró ningún archivo *credentials*.json junto a este bat.
+    echo  No se encontro archivo *credentials*.json junto a este bat.
     echo.
     set /p "CREDS=Ruta completa al archivo credentials.json: "
-    if "!CREDS!"=="" (
-        echo  Sin archivo de credentials. Saliendo.
-        pause
-        exit /b 1
-    )
 )
-
+if "!CREDS!"=="" (
+    echo  Sin archivo de credentials. Saliendo.
+    pause
+    exit /b 1
+)
 if not exist "!CREDS!" (
-    echo  ERROR: No se encontró el archivo: !CREDS!
-    echo.
+    echo  ERROR: No se encontro: !CREDS!
     pause
     exit /b 1
 )
 
-echo  Archivo de credentials:  !CREDS!
+echo  Credentials : !CREDS!
+echo  Server URL  : !SERVER_URL!
+echo  Destino     : %BASE%\data\station_credentials.json
 echo.
-
-:: ─── URL del servidor ─────────────────────────────────────────────────────────
-set "DEFAULT_URL=https://yvy-edge.tecnicatura.edu.ar"
-
-:: Intentar leer URL ya configurada desde la DB
-set "CURRENT_URL="
-for /f "delims=" %%U in ('
-    "%BASE%\.venv\Scripts\python.exe" -c ^
-    "import sys; sys.path.insert(0,r\"%BASE%\src\"); from yvy.bootstrap import build_core_dependencies; from pathlib import Path; d=build_core_dependencies(root=Path(r\"%BASE%\"),run_migrations_on_start=False); v=d.app_config_repo.get(\"sync_server_url\"); print(v or \"\")" 2^>nul
-') do set "CURRENT_URL=%%U"
-
-if not "!CURRENT_URL!"=="" (
-    echo  URL actual en la DB:     !CURRENT_URL!
-    set "DEFAULT_URL=!CURRENT_URL!"
-)
-
-echo  URL del servidor YVY Core [!DEFAULT_URL!]:
-set /p "SERVER_URL="
-if "!SERVER_URL!"=="" set "SERVER_URL=!DEFAULT_URL!"
-
-echo.
-echo  ─────────────────────────────────────────────────
-echo  Credentials:  !CREDS!
-echo  Server URL:   !SERVER_URL!
-echo  Destino:      %BASE%\data\station_credentials.json
-echo  ─────────────────────────────────────────────────
-echo.
-set /p "CONFIRMAR=¿Continuar? [S/N]: "
-if /i "!CONFIRMAR!" neq "S" (
+set /p "OK=Continuar? [S/N]: "
+if /i "!OK!" neq "S" (
     echo  Cancelado.
     pause
     exit /b 0
 )
 
-:: ─── Detectar modo flat vs slots para el Python correcto ─────────────────────
+:: ── Detectar modo flat vs slots ────────────────────────────────────────────
 set "PY=%BASE%\.venv\Scripts\python.exe"
-set "PYTHONPATH_VAL=%BASE%\src"
 
 if exist "%BASE%\current.txt" (
     set /p CR=<"%BASE%\current.txt"
     if exist "%BASE%\!CR!\venv\Scripts\python.exe" (
         set "PY=%BASE%\!CR!\venv\Scripts\python.exe"
-        set "PYTHONPATH_VAL=%BASE%\!CR!\src"
     )
 )
 
 if not exist "!PY!" (
     echo.
-    echo  ERROR: No se encontró el entorno Python en !PY!
-    echo.
+    echo  ERROR: No se encontro el entorno Python en !PY!
     pause
     exit /b 1
 )
 
-:: ─── Ejecutar configure_sync.py ───────────────────────────────────────────────
+:: ── Ejecutar configure_sync.py (URL via env var para evitar problemas con ://) ──
 echo.
-echo  Aplicando configuración...
+echo  Aplicando configuracion...
 echo.
 
-set "PYTHONPATH=!PYTHONPATH_VAL!"
-"!PY!" "%BASE%\scripts\configure_sync.py" ^
-    --credentials "!CREDS!" ^
-    --server-url "!SERVER_URL!" ^
-    --root "%BASE%"
+set "YVY_SYNC_URL=!SERVER_URL!"
+"!PY!" "%SCRIPTS%\configure_sync.py" --credentials "!CREDS!" --root "%BASE%"
 
 if %errorlevel% neq 0 (
     echo.
-    echo  ERROR al aplicar la configuración.
+    echo  ERROR al aplicar la configuracion.
     pause
     exit /b 1
 )
 
-:: ─── Verificar con yvy test sync ─────────────────────────────────────────────
+:: ── Verificar con yvy test sync ────────────────────────────────────────────
 echo.
-echo  Verificando configuración...
+echo  Verificando...
 echo.
 
-set "PYTHONPATH=!PYTHONPATH_VAL!"
+set "PYTHONPATH=%BASE%\src"
 "!PY!" -m yvy test sync --root "%BASE%"
 
 if %errorlevel% equ 0 (
@@ -147,20 +125,12 @@ if %errorlevel% equ 0 (
     echo    CREDENCIALES CONFIGURADAS CORRECTAMENTE
     echo  =====================================================
     echo.
-    echo  Si YVY está abierto: cerrarlo y volver a abrir.
-    echo  El sync agent arrancará automáticamente al iniciar.
+    echo  Cerrar y reabrir YVY para activar el sync agent.
     echo.
 ) else (
     echo.
-    echo  ─────────────────────────────────────────────────────
-    echo  AVISO: las credentials se guardaron pero el test
-    echo  de sync falló. Posibles causas:
-    echo    - El servidor no está disponible ahora
-    echo    - La URL es incorrecta
-    echo    - UUID en credentials no coincide con app_config
-    echo.
-    echo  Intentar de nuevo con: YVY_CLI.bat test sync
-    echo  ─────────────────────────────────────────────────────
+    echo  AVISO: credentials guardadas pero test sync fallo.
+    echo  Verificar URL y conectividad con: YVY_CLI.bat test sync
     echo.
 )
 

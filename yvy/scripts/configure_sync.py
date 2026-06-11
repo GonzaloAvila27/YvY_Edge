@@ -67,13 +67,13 @@ def main(argv: list[str] | None = None) -> int:
         "--credentials",
         required=True,
         metavar="PATH",
-        help="Ruta al archivo station_credentials.json (ej. E:\\iea7_credentials.json).",
+        help="Ruta al archivo station_credentials.json.",
     )
     parser.add_argument(
         "--server-url",
-        required=True,
+        default=None,
         metavar="URL",
-        help="URL base del servidor YVY Core (ej. https://yvy-edge.tecnicatura.edu.ar).",
+        help="URL base del servidor YVY Core. Si no se pasa, se lee de YVY_SYNC_URL.",
     )
     parser.add_argument(
         "--root",
@@ -82,6 +82,14 @@ def main(argv: list[str] | None = None) -> int:
         help="Raíz del proyecto instalado (default: C:\\YVY).",
     )
     args = parser.parse_args(argv)
+
+    # Aceptar URL también por variable de entorno (evita problemas con :// en shells)
+    import os
+    server_url = args.server_url or os.environ.get("YVY_SYNC_URL", "").strip()
+    if not server_url:
+        print("ERROR: falta la URL del servidor.")
+        print("  Pasar con --server-url URL  o  set YVY_SYNC_URL=URL")
+        return 1
 
     root = Path(args.root) if args.root else _find_root()
     if not root.exists():
@@ -112,11 +120,13 @@ def main(argv: list[str] | None = None) -> int:
     data_dir.mkdir(exist_ok=True)
     dest = data_dir / "station_credentials.json"
 
-    backup = None
     if dest.exists():
         backup = dest.with_suffix(".json.bak")
-        shutil.copy2(dest, backup)
-        print(f"  Backup del archivo anterior: {backup.name}")
+        try:
+            shutil.copy2(dest, backup)
+            print(f"  Backup del archivo anterior: {backup.name}")
+        except PermissionError:
+            print("  AVISO: no se pudo hacer backup (archivo en uso) — se sobreescribe igual")
 
     shutil.copy2(creds_src, dest)
     print(f"  Credentials escritas en:     {dest}")
@@ -136,10 +146,10 @@ def main(argv: list[str] | None = None) -> int:
     deps = build_core_dependencies(root=root, run_migrations_on_start=True)
     repo = deps.app_config_repo
 
-    repo.set("sync_server_url", args.server_url)
+    repo.set("sync_server_url", server_url)
     repo.set("station_uuid", station_uuid)
 
-    print(f"  sync_server_url actualizado: {args.server_url}")
+    print(f"  sync_server_url actualizado: {server_url}")
     print(f"  station_uuid actualizado:    {station_uuid}")
     return 0
 
