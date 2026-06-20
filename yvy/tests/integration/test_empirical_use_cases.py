@@ -381,3 +381,79 @@ class TestListAndDetails:
     def test_details_inexistente_devuelve_none(self, empirical_repo):
         get_uc = GetObservationDetailsUseCase(empirical_repo)
         assert get_uc.execute(uuid.uuid4()) is None
+
+
+# ════════════════════════════════════════════════════════════════════════
+# Contrato de payload de sincronización — observer_id
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestSyncPayloadObserverId:
+    """observer_id debe ser siempre un string no vacío en el payload enviado a Core."""
+
+    # now_local del mock = 11:30 UTC; observed_at_local debe ser <= now_local
+    _OBS_UTC   = datetime(2026, 5, 12, 14, 30, tzinfo=UTC)
+    _OBS_LOCAL = datetime(2026, 5, 12, 11, 30, tzinfo=UTC)
+
+    def _make_input(self, actor):
+        return CreateObservationInput(
+            observed_at_utc=self._OBS_UTC,
+            observed_at_local=self._OBS_LOCAL,
+            actor=actor,
+            rain_mm=0.0, temp_c=20.0, wind_beaufort=0,
+            wind_direction=WindDirection.N, sky_coverage_pct=0,
+        )
+
+    def _get_payload(self, uc, sync_repo_mock, input_data):
+        sync_repo_mock.reset_mock()
+        uc.execute(input_data)
+        sync_call = sync_repo_mock.enqueue.call_args[0][0]
+        return json.loads(sync_call.payload)
+
+    def test_observer_id_es_string_no_vacio(
+        self, create_obs_uc, actor, sync_repo_mock
+    ):
+        payload = self._get_payload(create_obs_uc, sync_repo_mock, self._make_input(actor))
+        assert isinstance(payload["observer_id"], str)
+        assert payload["observer_id"].strip() != ""
+
+    def test_observer_id_usa_full_name_del_actor(
+        self, create_obs_uc, actor, sync_repo_mock
+    ):
+        payload = self._get_payload(create_obs_uc, sync_repo_mock, self._make_input(actor))
+        assert payload["observer_id"] == actor.full_name
+
+    def test_observer_id_fallback_a_username_cuando_full_name_solo_espacios(
+        self, sync_repo_mock, empirical_repo, audit_repo_mock, app_config_mock, time_provider_mock
+    ):
+        # User no permite full_name vacío, pero sí con espacios; usamos mock para
+        # testear la rama de fallback de _enqueue_sync directamente.
+        from unittest.mock import MagicMock
+        actor_mock = MagicMock()
+        actor_mock.full_name = "   "   # solo espacios → strip() = ""
+        actor_mock.username = "jperez"
+        actor_mock.id = 1
+        actor_mock.role = Role.ALUMNO
+
+        uc = CreateEmpiricalObservationUseCase(
+            empirical_repo=empirical_repo,
+            sync_repo=sync_repo_mock,
+            audit_repo=audit_repo_mock,
+            app_config=app_config_mock,
+            time_provider=time_provider_mock,
+        )
+        payload = self._get_payload(uc, sync_repo_mock, self._make_input(actor_mock))
+        assert payload["observer_id"] == "jperez"
+
+    def test_payload_no_contiene_created_by_user_id(
+        self, create_obs_uc, actor, sync_repo_mock
+    ):
+        payload = self._get_payload(create_obs_uc, sync_repo_mock, self._make_input(actor))
+        assert "created_by_user_id" not in payload
+
+    def test_payload_contiene_campos_requeridos_por_core(
+        self, create_obs_uc, actor, sync_repo_mock
+    ):
+        payload = self._get_payload(create_obs_uc, sync_repo_mock, self._make_input(actor))
+        for campo in ("record_id", "station_uuid", "observer_id", "observed_at_utc"):
+            assert campo in payload, f"campo requerido ausente: {campo!r}"

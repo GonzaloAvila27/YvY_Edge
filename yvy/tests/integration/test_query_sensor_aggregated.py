@@ -238,8 +238,13 @@ class TestExecute:
 
 
 class TestExecuteWindRose:
+    # Escala de wind_direction almacenada en DB: 1-16 (pywws raw, 1-indexed).
+    # 1=N, 2=NNE, 3=NE, 4=ENE, 5=E, 6=ESE, 7=SE, 8=SSE,
+    # 9=S, 10=SSW, 11=SW, 12=WSW, 13=W, 14=WNW, 15=NW, 16=NNW.
+    # Fórmula SQL: (CAST(wind_direction AS INT) - 1) % 16 → sector 0-15.
+
     def test_returns_16_sectors(self, conn, uc):
-        _insert(conn, _now_minus(1), wind_speed=5.0, wind_direction=0.0)
+        _insert(conn, _now_minus(1), wind_speed=5.0, wind_direction=1)  # Norte
 
         rose = uc.execute_wind_rose(_STATION, "24h")
 
@@ -248,8 +253,8 @@ class TestExecuteWindRose:
         assert len(rose.frequencies) == 16
 
     def test_norte_maps_to_sector_0(self, conn, uc):
-        # 0° = Norte → sector 0
-        _insert(conn, _now_minus(1), wind_speed=10.0, wind_direction=0.0)
+        # Valor 1 = Norte → (1-1) % 16 = sector 0
+        _insert(conn, _now_minus(1), wind_speed=10.0, wind_direction=1)
 
         rose = uc.execute_wind_rose(_STATION, "24h")
 
@@ -257,16 +262,16 @@ class TestExecuteWindRose:
         assert rose.avg_speeds[0] > 0.0
 
     def test_este_maps_to_sector_4(self, conn, uc):
-        # 90° = Este → sector 4 (90 / 22.5 = 4)
-        _insert(conn, _now_minus(1), wind_speed=8.0, wind_direction=90.0)
+        # Valor 5 = Este → (5-1) % 16 = sector 4
+        _insert(conn, _now_minus(1), wind_speed=8.0, wind_direction=5)
 
         rose = uc.execute_wind_rose(_STATION, "24h")
 
         assert rose.frequencies[4] >= 1
 
     def test_missing_sectors_have_zero_frequency(self, conn, uc):
-        # Solo datos en sector 0 → los otros 15 deben tener frecuencia 0
-        _insert(conn, _now_minus(1), wind_speed=5.0, wind_direction=0.0)
+        # Solo datos en Norte (valor 1 → sector 0) → los otros 15 son 0
+        _insert(conn, _now_minus(1), wind_speed=5.0, wind_direction=1)
 
         rose = uc.execute_wind_rose(_STATION, "24h")
 
@@ -280,9 +285,9 @@ class TestExecuteWindRose:
         assert all(s == 0.0 for s in rose.avg_speeds)
 
     def test_avg_speed_per_sector(self, conn, uc):
-        # Dos lecturas en Norte con velocidades 4 y 8 → avg = 6
-        _insert(conn, _now_minus(1), wind_speed=4.0, wind_direction=0.0)
-        _insert(conn, _now_minus(2), wind_speed=8.0, wind_direction=0.0)
+        # Dos lecturas en Norte (valor 1) con velocidades 4 y 8 → avg = 6
+        _insert(conn, _now_minus(1), wind_speed=4.0, wind_direction=1)
+        _insert(conn, _now_minus(2), wind_speed=8.0, wind_direction=1)
 
         rose = uc.execute_wind_rose(_STATION, "24h")
 

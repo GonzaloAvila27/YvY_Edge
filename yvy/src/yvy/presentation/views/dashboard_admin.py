@@ -5,7 +5,7 @@ Layout general:
     [Título "Dashboard"]                         [Exportar*]
     [Subtítulo]
 
-    ┌─ chart card (expand) ──────────────────┐  ┌─ KPI (260px) ──┐
+    ┌─ chart card (expand) ──────────────────┐  ┌─ KPI (160px) ──┐
     │ [controles si no es alumno]            │  │ Temperatura    │
     │ ─────────────────────────────────────  │  ├────────────────┤
     │ [ChartWidget — matplotlib embebido]    │  │ Humedad        │
@@ -85,8 +85,6 @@ _CHART_LABELS: list[str] = list(_CHART_LABEL_TO_KEY.keys())
 _DEFAULT_CHART_LABEL = SENSOR_CHARTS["vpd"].label   # "VPD — Riesgo agroclimático"
 _DEFAULT_PERIOD = "7d"
 _PERIODS = ["24h", "7d", "30d"]
-
-_KPI_CARD_WIDTH = 260
 
 # Mapa chart key → help article key para el HelpButton del gráfico
 _CHART_KEY_TO_HELP: dict[str, str] = {
@@ -390,15 +388,9 @@ class DashboardAdminView(tk.Frame):
         chart_card.pack(side="left", fill="both", expand=True, padx=(0, SPACE_LG))
         self._build_chart_area(chart_card)
 
-        # KPI cards — derecha, ancho fijo.
-        # Sin pack_propagate(False) para que la altura natural de los cards
-        # propague al body (evita que el card VPD quede cortado).
-        # El spacer invisible fuerza el ancho mínimo de la columna.
+        # KPI cards — derecha, ancho determinado por el contenido.
         kpi_col = tk.Frame(body, bg=BG_CREAM)
         kpi_col.pack(side="right")
-        _w = tk.Frame(kpi_col, bg=BG_CREAM, width=_KPI_CARD_WIDTH, height=1)
-        _w.pack_propagate(False)
-        _w.pack(fill="x")
         self._build_kpis(kpi_col)
 
     def _build_chart_area(self, card: tk.Frame) -> None:
@@ -566,7 +558,7 @@ class DashboardAdminView(tk.Frame):
             font=FONT_SMALL,
             anchor="w",
             justify="left",
-            wraplength=_KPI_CARD_WIDTH * 3,   # ancho generoso — se adapta al layout
+            wraplength=800,
         ).pack(anchor="w", pady=(SPACE_SM // 2, 0))
 
     def _build_events(self, parent: tk.Misc) -> None:
@@ -728,7 +720,7 @@ def _make_kpi(
     card = _make_card(parent)
     card.pack(fill="x", pady=(0, SPACE_SM))
 
-    inner = tk.Frame(card, bg=BG_CARD, padx=SPACE_LG, pady=SPACE_MD)
+    inner = tk.Frame(card, bg=BG_CARD, padx=SPACE_LG, pady=SPACE_SM)
     inner.pack(fill="x")
 
     label_row = tk.Frame(inner, bg=BG_CARD)
@@ -747,7 +739,7 @@ def _make_kpi(
         side="left"
     )
     tk.Label(
-        val_row, text=unit, bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY
+        val_row, text=unit, bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL
     ).pack(side="left", padx=(SPACE_SM, 0), pady=(SPACE_MD, 0))
 
     tk.Label(
@@ -774,7 +766,7 @@ def _make_kpi_vpd(
     card = _make_card(parent)
     card.pack(fill="x", pady=(0, SPACE_SM))
 
-    inner = tk.Frame(card, bg=BG_CARD, padx=SPACE_LG, pady=SPACE_MD)
+    inner = tk.Frame(card, bg=BG_CARD, padx=SPACE_LG, pady=SPACE_SM)
     inner.pack(fill="x")
 
     label_row = tk.Frame(inner, bg=BG_CARD)
@@ -798,7 +790,7 @@ def _make_kpi_vpd(
         font=FONT_KPI_VALUE,
     ).pack(side="left")
     tk.Label(
-        val_row, text="kPa", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY
+        val_row, text="kPa", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL
     ).pack(side="left", padx=(SPACE_SM, 0), pady=(SPACE_MD, 0))
 
     # Zona como delta

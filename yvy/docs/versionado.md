@@ -1,38 +1,36 @@
 # YVY Edge — Convención de versionado y deploys
 
+> **La política completa está en [`POLITICA_VERSIONADO.md`](POLITICA_VERSIONADO.md).**
+> Este archivo es un resumen operativo; la fuente de verdad de las reglas es el documento de política.
+
 ## Versiones
 
-YVY Edge mantiene **dos números de versión independientes**:
+YVY Edge mantiene **dos números de versión** que siempre deben ser iguales:
 
-| Campo | Dónde vive | Ejemplo |
+| Campo | Dónde vive | Valor actual |
 |---|---|---|
-| `app_version` | `src/yvy/__init__.py` → `__version__` | `1.0.0` |
-| `installer_version` | `src/yvy/__init__.py` → `__installer_version__` | `1.0.0` |
+| `app_version` | `src/yvy/__init__.py` → `__version__` | `1.4.0` |
+| `installer_version` | `src/yvy/__init__.py` → `__installer_version__` | `1.4.0` |
+| (package) | `pyproject.toml` → `version` | `1.4.0` |
+| (log) | `CHANGELOG.md` → último `## [X.Y.Z]` | `1.4.0` |
 
-Ambos siguen **semver** `MAJOR.MINOR.PATCH`.
+Siguen **semver** `MAJOR.MINOR.PATCH`.
 
 ---
 
 ## Qué cambia qué
 
-### `app_version` — sube cuando cambia el software en ejecución
+### MAJOR — rompe compatibilidad con IEAs instaladas
+Cambio de esquema de DB, cambio de protocolo HMAC, restructura del instalador.
 
-| Tipo de cambio | Versión |
-|---|---|
-| Nuevas funcionalidades visibles para el usuario | MINOR (`1.0.0 → 1.1.0`) |
-| Correcciones de bugs, mejoras internas | PATCH (`1.0.0 → 1.0.1`) |
-| Cambio de arquitectura, breaking changes de DB | MAJOR (`1.0.0 → 2.0.0`) |
+### MINOR — nueva funcionalidad compatible hacia atrás
+Nueva pantalla, nuevo formulario, nuevo comando CLI, nuevo campo en payload.
 
-### `installer_version` — sube cuando cambia el paquete USB
+### PATCH — bug fix o mejora sin cambio de contrato
+Corrección de lógica, UI, tipado de campo, tests, documentación.
 
-| Tipo de cambio | Versión |
-|---|---|
-| Nuevas dependencias en `wheels/` | PATCH como mínimo |
-| Cambio en `INSTALAR.bat` / `CONFIGURAR_WINDOWS.bat` | PATCH |
-| Python nuevo, restructura del paquete | MINOR o MAJOR |
-
-> Regla práctica: `installer_version` ≥ `app_version` siempre.
-> Si sube `app_version`, `installer_version` sube al mismo número.
+> Regla práctica: `installer_version` = `app_version` siempre.
+> Solo difieren si el paquete USB cambia sin cambio de código (caso excepcional).
 
 ---
 

@@ -234,6 +234,26 @@ class PywwsCatchupSource:
                 ) from exc
         return self._ws
 
+    def _close_ws(self) -> None:
+        """Cierra WeatherStation y libera el handle USB.
+
+        Idempotente: si ya estaba cerrado no hace nada.
+        Llamado desde read_since() en el bloque finally para garantizar
+        que el USB quede libre antes de señalizar signal_resume() al
+        live source.
+        """
+        if self._ws is not None:
+            _close = getattr(self._ws, "close", None)
+            if _close is not None:
+                try:
+                    _close()
+                except Exception as exc:
+                    logger.debug(
+                        "PywwsCatchupSource: ws.close() falló (ignorado): %s", exc
+                    )
+            self._ws = None
+            logger.info("PywwsCatchupSource: WeatherStation cerrada, USB liberado")
+
     def read_since(self, since: datetime) -> Iterator[dict[str, Any]]:
         """Itera sobre slots del buffer con timestamp reconstruido >= since.
 
@@ -245,6 +265,13 @@ class PywwsCatchupSource:
         Los slots se devuelven en **orden cronológico ascendente** (del más
         viejo al más reciente). Esto facilita consumo downstream.
 
+        Garantía de exclusión del USB: todo el acceso USB ocurre dentro
+        del bloque ``try`` de este método. El ``finally`` cierra la
+        WeatherStation antes de retornar el control al caller. De esta
+        forma, cuando el SyncController llama a ``signal_resume()``,
+        el handle USB ya fue liberado y el live source puede re-abrirlo
+        sin conflicto.
+
         Raises:
             ValueError: si ``since`` es naive (sin tzinfo).
             RuntimeError: si no se puede inicializar pywws o leer el fixed_block.
@@ -254,95 +281,105 @@ class PywwsCatchupSource:
                 f"since debe ser timezone-aware. Recibido naive: {since!r}"
             )
 
-        ws = self._ensure_ws_loaded()
-
-        # Fixed block para conocer current_pos, data_count, read_period
-        try:
-            fb = ws.get_fixed_block(unbuffered=True)
-        except Exception as exc:
-            raise RuntimeError(
-                f"No se pudo leer fixed_block de la consola: {exc}"
-            ) from exc
-
-        current_pos = fb.get("current_pos")
-        data_count = int(fb.get("data_count", 0))
-        default_period = int(fb.get("read_period", 5))
-
-        if current_pos is None or data_count == 0:
-            logger.warning(
-                "PywwsCatchupSource: buffer histórico vacío (data_count=%s, current_pos=%s)",
-                data_count, current_pos,
-            )
-            return
-
-        # Cap defensivo
-        max_slots = min(data_count, _MAX_SLOTS_HARD_LIMIT)
-        if data_count > _MAX_SLOTS_HARD_LIMIT:
-            logger.warning(
-                "PywwsCatchupSource: data_count=%d excede hard limit, "
-                "limitando a %d slots",
-                data_count, _MAX_SLOTS_HARD_LIMIT,
-            )
-
-        # ── Iteración hacia atrás reconstruyendo timestamps ─────────────────
-        # El slot en current_pos se asume con timestamp "ahora".
-        # Para cada slot anterior: ts -= slot.delay minutos.
-        ptr = current_pos
-        slot_ts = self._now_utc()
         slots_with_ts: list[dict[str, Any]] = []
 
-        for i in range(max_slots):
+        try:
+            ws = self._ensure_ws_loaded()
+
+            # Fixed block para conocer current_pos, data_count, read_period
             try:
-                slot = ws.get_data(ptr, unbuffered=True)
+                fb = ws.get_fixed_block(unbuffered=True)
             except Exception as exc:
+                raise RuntimeError(
+                    f"No se pudo leer fixed_block de la consola: {exc}"
+                ) from exc
+
+            current_pos = fb.get("current_pos")
+            data_count = int(fb.get("data_count", 0))
+            default_period = int(fb.get("read_period", 5))
+
+            if current_pos is None or data_count == 0:
                 logger.warning(
-                    "PywwsCatchupSource: error leyendo slot %d @ ptr=0x%04x: %s. "
-                    "Cortando iteración.",
-                    i, ptr if isinstance(ptr, int) else 0, exc,
+                    "PywwsCatchupSource: buffer histórico vacío (data_count=%s, current_pos=%s)",
+                    data_count, current_pos,
                 )
-                break
+                return
 
-            # Si el timestamp reconstruido ya cayó por debajo de since,
-            # paramos. Los slots más viejos no nos interesan.
-            if slot_ts < since:
-                logger.debug(
-                    "PywwsCatchupSource: corte por since alcanzado tras %d slots",
-                    i,
+            # Cap defensivo
+            max_slots = min(data_count, _MAX_SLOTS_HARD_LIMIT)
+            if data_count > _MAX_SLOTS_HARD_LIMIT:
+                logger.warning(
+                    "PywwsCatchupSource: data_count=%d excede hard limit, "
+                    "limitando a %d slots",
+                    data_count, _MAX_SLOTS_HARD_LIMIT,
                 )
-                break
 
-            # Inyectar el timestamp reconstruido como 'idx' para que el
-            # parser downstream lo procese sin cambios.
-            slot_with_ts = dict(slot)
-            slot_with_ts["idx"] = slot_ts.isoformat()
-            slots_with_ts.append(slot_with_ts)
+            # ── Iteración hacia atrás reconstruyendo timestamps ─────────────
+            # El slot en current_pos se asume con timestamp "ahora".
+            # Para cada slot anterior: ts -= slot.delay minutos.
+            ptr = current_pos
+            slot_ts = self._now_utc()
 
-            # Decrementar para el próximo slot (más antiguo)
-            try:
-                delay_min = int(slot.get("delay", default_period))
-                if delay_min <= 0:
+            for i in range(max_slots):
+                try:
+                    slot = ws.get_data(ptr, unbuffered=True)
+                except Exception as exc:
+                    logger.warning(
+                        "PywwsCatchupSource: error leyendo slot %d @ ptr=0x%04x: %s. "
+                        "Cortando iteración.",
+                        i, ptr if isinstance(ptr, int) else 0, exc,
+                    )
+                    break
+
+                # Si el timestamp reconstruido ya cayó por debajo de since,
+                # paramos. Los slots más viejos no nos interesan.
+                if slot_ts < since:
+                    logger.debug(
+                        "PywwsCatchupSource: corte por since alcanzado tras %d slots",
+                        i,
+                    )
+                    break
+
+                # Inyectar el timestamp reconstruido como 'idx' para que el
+                # parser downstream lo procese sin cambios.
+                slot_with_ts = dict(slot)
+                slot_with_ts["idx"] = slot_ts.isoformat()
+                slots_with_ts.append(slot_with_ts)
+
+                # Decrementar para el próximo slot (más antiguo)
+                try:
+                    delay_min = int(slot.get("delay", default_period))
+                    if delay_min <= 0:
+                        delay_min = default_period
+                except (TypeError, ValueError):
                     delay_min = default_period
-            except (TypeError, ValueError):
-                delay_min = default_period
 
-            slot_ts = slot_ts - timedelta(minutes=delay_min)
+                slot_ts = slot_ts - timedelta(minutes=delay_min)
 
-            # Decrementar el puntero al slot anterior
-            try:
-                ptr = ws.dec_ptr(ptr)
-            except Exception as exc:
-                logger.warning(
-                    "PywwsCatchupSource: dec_ptr falló tras %d slots: %s",
-                    i + 1, exc,
-                )
-                break
+                # Decrementar el puntero al slot anterior
+                try:
+                    ptr = ws.dec_ptr(ptr)
+                except Exception as exc:
+                    logger.warning(
+                        "PywwsCatchupSource: dec_ptr falló tras %d slots: %s",
+                        i + 1, exc,
+                    )
+                    break
 
-        logger.info(
-            "PywwsCatchupSource: recuperados %d slots del buffer (since=%s)",
-            len(slots_with_ts), since.isoformat(),
-        )
+            logger.info(
+                "PywwsCatchupSource: recuperados %d slots del buffer (since=%s)",
+                len(slots_with_ts), since.isoformat(),
+            )
+
+        finally:
+            # Liberar el USB siempre, incluso si la lectura falló parcialmente.
+            # El yield from de abajo opera sobre una lista en memoria —
+            # no necesita el WeatherStation abierto.
+            # Esto garantiza que signal_resume() encuentra el bus libre.
+            self._close_ws()
 
         # ── Devolver en orden cronológico ascendente ────────────────────────
         # El iterador natural va de reciente a viejo; revertimos para que
         # los downstream consumers procesen en orden temporal.
+        # El WS ya está cerrado: no hay acceso USB en este yield.
         yield from reversed(slots_with_ts)

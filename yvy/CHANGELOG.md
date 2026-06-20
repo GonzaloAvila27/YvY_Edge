@@ -1,5 +1,75 @@
 # CHANGELOG
 
+## [1.4.0] - 2026-06-20
+
+### Fixed
+
+- **Rosa de vientos: distribución completamente concentrada en Norte**
+  - La query SQL usaba `CAST((wind_direction + 11.25) / 22.5 AS INT) % 16`
+    diseñada para grados (0–360°). La base de datos almacena `wind_direction`
+    en escala 1–16 (1 = N, 2 = NNE … 16 = NNO), por lo que todos los valores
+    colapsaban al sector 0 (Norte).
+  - Corregido a `(CAST(wind_direction AS INT) - 1) % 16`, que mapea
+    directamente el rango 1–16 a sectores 0–15.
+  - Archivo: `application/use_cases/query_sensor_aggregated.py`
+
+- **Sync de Observación Empírica → Core: campo `observer_id` incorrecto**
+  - `_observation_to_sync_payload` enviaba `"created_by_user_id": <int>` (ej.
+    `1`). El endpoint `POST /api/v1/ingest/observation` del Core espera
+    `"observer_id": <str>` con un identificador textual del observador.
+  - El campo `created_by_user_id` fue eliminado del payload de sync; reemplazado
+    por `"observer_id"` con el valor `actor.full_name` (fallback a
+    `actor.username` si `full_name` está en blanco).
+  - Agregada aserción de guarda antes de serializar:
+    `assert isinstance(observer_id, str) and observer_id.strip()`.
+  - Archivo: `application/use_cases/empirical/create_empirical_observation.py`
+
+- **Formulario empírico (Step 1): alineación inconsistente de etiquetas e inputs**
+  - "Fecha:", "Hora:" y "Observador:" tenían anchos distintos y se empaquetaban
+    de forma independiente; los inputs (spinboxes) no arrancaban en la misma
+    columna horizontal.
+  - Reemplazados tres `pack(anchor="w")` independientes por un único
+    `tk.Frame` con `grid`: columna 0 con `minsize=110 px` para etiquetas
+    (`anchor="e"`), columna 1 para inputs (`sticky="w"`). Todas las filas
+    quedan alineadas verticalmente.
+  - Archivo: `presentation/views/empirical/wizard_view.py`
+
+- **Formulario empírico (Step 1, dark mode): nombre del observador ilegible**
+  - El `Label` del nombre del observador usaba `fg=COLORS["primary"]`
+    (`#1E3A5F`, azul profundo). Al activar dark mode, `recolor()` lo mapeaba
+    a `"header"` → DARK `"header"` = `#0D1621` (casi negro sobre fondo azul
+    oscuro `#0D1621`), resultando en contraste casi nulo.
+  - Corregido a `fg=ACCENT_GOLD` (`#C9A227`), color idéntico en ambas paletas
+    (la clave `"gold"` no varía entre LIGHT y DARK), con alto contraste sobre
+    crema y sobre azul marino.
+  - El `(username)` se separó en un `Label` propio con `fg=COLORS["text_muted"]`
+    para no competir visualmente con el nombre.
+  - Archivo: `presentation/views/empirical/wizard_view.py`
+
+### Added
+
+- **Botón Dark Mode bloqueado durante la carga de observación empírica**
+  - Cambiar el tema mientras el wizard estaba abierto podía producir un
+    re-render parcial (el body se reconstruye por step; el header no).
+  - `Header.set_theme_toggle_enabled(enabled: bool)` — nuevo método público
+    que deshabilita / habilita el botón de Dark Mode.
+  - Al abrir el wizard: `set_theme_toggle_enabled(False)`.
+    Al cerrarlo (completar, cancelar o confirmar salida forzada):
+    `set_theme_toggle_enabled(True)`. Los tres paths de salida pasan por
+    `_navigate("formulario")`, único punto donde `_empirical_wizard_active`
+    se resetea.
+  - Archivos: `presentation/components/header.py`,
+    `presentation/app.py`
+
+- **Tests: contrato de `observer_id` en payload de sync (`TestSyncPayloadObserverId`)**
+  - 5 tests nuevos en `tests/integration/test_empirical_use_cases.py`:
+    - `observer_id` es `str` no vacío
+    - Coincide con `actor.full_name`
+    - Fallback a `actor.username` cuando `full_name` es solo espacios
+    - `created_by_user_id` ausente del payload
+    - Presencia de todos los campos requeridos por el Core
+      (`record_id`, `station_uuid`, `observer_id`, `observed_at_utc`)
+
 ## [1.2.2] - 2026-06-11
 
 ### Fixed

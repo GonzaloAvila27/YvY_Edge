@@ -111,6 +111,15 @@ class WindRoseData:
 
 
 @dataclass(frozen=True)
+class WindStatsData:
+    """Estadísticas escalares de viento para el panel lateral de la rosa."""
+
+    max_gust_ms: float | None     # ráfaga máxima en m/s
+    max_gust_at: datetime | None  # cuándo ocurrió
+    avg_speed_ms: float | None    # velocidad promedio en m/s
+
+
+@dataclass(frozen=True)
 class DailyRainSeries:
     """Lluvia acumulada por día."""
 
@@ -217,7 +226,7 @@ class QuerySensorAggregatedUseCase:
         rows = conn.execute(
             """
             SELECT
-                CAST((wind_direction + 11.25) / 22.5 AS INT) % 16 AS sector,
+                (CAST(wind_direction AS INT) - 1) % 16 AS sector,
                 AVG(wind_speed)  AS avg_speed,
                 COUNT(*)         AS frequency
             FROM sensor_data
@@ -256,6 +265,61 @@ class QuerySensorAggregatedUseCase:
             sectors=sectors,
             avg_speeds=avg_speeds,
             frequencies=frequencies,
+        )
+
+    def execute_wind_stats(
+        self,
+        station_uuid: str,
+        period: str,
+    ) -> WindStatsData:
+        """Ráfaga máxima (con timestamp) y velocidad promedio del período.
+
+        Args:
+            station_uuid: UUID de la estación (no filtra en DB local).
+            period: "24h" | "7d" | "30d".
+
+        Returns:
+            WindStatsData con max_gust, cuándo ocurrió, y avg_speed.
+        """
+        since, _ = self._resolve_period(period)
+        since_iso = since.strftime("%Y-%m-%dT%H:%M:%SZ")
+        conn = self._factory.get_connection()
+
+        row = conn.execute(
+            """
+            SELECT MAX(wind_gust), AVG(wind_speed)
+            FROM sensor_data
+            WHERE observed_at >= :since AND is_valid = 1
+            """,
+            {"since": since_iso},
+        ).fetchone()
+
+        max_gust  = float(row[0]) if row and row[0] is not None else None
+        avg_speed = float(row[1]) if row and row[1] is not None else None
+
+        max_gust_at: datetime | None = None
+        if max_gust is not None:
+            ts_row = conn.execute(
+                """
+                SELECT observed_at FROM sensor_data
+                WHERE observed_at >= :since AND is_valid = 1
+                  AND wind_gust IS NOT NULL
+                ORDER BY wind_gust DESC LIMIT 1
+                """,
+                {"since": since_iso},
+            ).fetchone()
+            if ts_row and ts_row[0]:
+                try:
+                    ts_str = str(ts_row[0]).replace("Z", "+00:00").replace(" ", "T")
+                    dt = datetime.fromisoformat(ts_str)
+                    max_gust_at = dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+                except (ValueError, AttributeError):
+                    pass
+
+        return WindStatsData(
+            max_gust_ms=max_gust,
+            max_gust_at=max_gust_at,
+            avg_speed_ms=avg_speed,
         )
 
     def execute_rain_daily(

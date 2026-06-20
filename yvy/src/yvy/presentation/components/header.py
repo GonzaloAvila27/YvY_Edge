@@ -403,6 +403,11 @@ class Header(tk.Frame):
             if self._bell_img_normal is not None:
                 self._bell.configure(image=self._bell_img_normal)
 
+    def set_theme_toggle_enabled(self, enabled: bool) -> None:
+        """Habilita o deshabilita el botón de dark/light mode."""
+        if self._theme_btn is not None:
+            self._theme_btn.configure(state="normal" if enabled else "disabled")
+
     def _handle_theme_toggle(self) -> None:
         """Callback del botón toggle — delega al handler externo."""
         if self._on_theme_toggle:

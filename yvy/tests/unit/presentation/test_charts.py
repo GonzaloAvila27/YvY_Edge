@@ -25,6 +25,7 @@ from yvy.application.use_cases.query_sensor_aggregated import (
     AggregatedSeries,
     DailyRainSeries,
     WindRoseData,
+    WindStatsData,
 )
 from yvy.presentation.components.chart_widget import NoDataError
 
@@ -90,6 +91,13 @@ def _mock_uc(
             frequencies=freqs,
         )
 
+    def _execute_wind_stats(station_uuid, period):
+        return WindStatsData(
+            max_gust_ms=None,
+            max_gust_at=None,
+            avg_speed_ms=None,
+        )
+
     def _execute_rain_daily(station_uuid, period):
         dates = rain_dates or []
         mm = rain_mm or []
@@ -97,6 +105,7 @@ def _mock_uc(
 
     uc.execute.side_effect = _execute
     uc.execute_wind_rose.side_effect = _execute_wind_rose
+    uc.execute_wind_stats.side_effect = _execute_wind_stats
     uc.execute_rain_daily.side_effect = _execute_rain_daily
     return uc
 

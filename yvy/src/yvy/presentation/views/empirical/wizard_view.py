@@ -41,6 +41,7 @@ from yvy.presentation.controllers.empirical_controller import (
     EmpiricalController,
 )
 from yvy.presentation.theme import (
+    ACCENT_GOLD,
     BG_CARD,
     BORDER,
     COLORS,
@@ -58,6 +59,7 @@ from yvy.presentation.theme import (
     SPACE_LG,
     SPACE_MD,
     SPACE_SM,
+    SPACE_XS,
     TEXT_PRIMARY,
     TEXT_SECONDARY,
 )
@@ -242,44 +244,67 @@ class EmpiricalWizardView(tk.Frame):
             justify="left", wraplength=600,
         ).pack(anchor="w", pady=(0, SPACE_LG))
 
-        # Fecha (date picker simple con 3 spinbox)
-        date_frame = tk.Frame(container, bg=COLORS["bg"])
-        date_frame.pack(anchor="w", pady=SPACE_SM)
-        tk.Label(date_frame, text="Fecha:", font=FONTS["body"], bg=COLORS["bg"]).pack(side="left")
+        # Grid de 2 columnas: etiqueta (col 0, ancho fijo) | inputs (col 1)
+        form = tk.Frame(container, bg=COLORS["bg"])
+        form.pack(anchor="w")
+        # Col 0 ancho fijo → los inputs de todas las filas arrancan en la misma x
+        form.columnconfigure(0, minsize=110)
+        form.columnconfigure(1, weight=1)
 
         today = datetime.now(_TZ_AR).date()
         seven_days_ago = today - timedelta(days=7)
-
         d = self._state["observed_date"]
-        self._day_var = tk.StringVar(value=f"{d.day:02d}")
+        self._day_var   = tk.StringVar(value=f"{d.day:02d}")
         self._month_var = tk.StringVar(value=f"{d.month:02d}")
-        self._year_var = tk.StringVar(value=f"{d.year}")
+        self._year_var  = tk.StringVar(value=f"{d.year}")
 
-        ttk.Spinbox(date_frame, from_=1, to=31, textvariable=self._day_var, width=4).pack(side="left", padx=SPACE_SM)
-        tk.Label(date_frame, text="/", bg=COLORS["bg"]).pack(side="left")
-        ttk.Spinbox(date_frame, from_=1, to=12, textvariable=self._month_var, width=4).pack(side="left", padx=SPACE_SM)
-        tk.Label(date_frame, text="/", bg=COLORS["bg"]).pack(side="left")
-        ttk.Spinbox(date_frame, from_=seven_days_ago.year, to=today.year, textvariable=self._year_var, width=6).pack(side="left", padx=SPACE_SM)
-
-        # Hora
-        time_frame = tk.Frame(container, bg=COLORS["bg"])
-        time_frame.pack(anchor="w", pady=SPACE_SM)
-        tk.Label(time_frame, text="Hora:", font=FONTS["body"], bg=COLORS["bg"]).pack(side="left")
-        self._hour_var = tk.StringVar(value=f"{self._state['observed_hour']:02d}")
-        self._minute_var = tk.StringVar(value=f"{self._state['observed_minute']:02d}")
-        ttk.Spinbox(time_frame, from_=0, to=23, textvariable=self._hour_var, width=4).pack(side="left", padx=SPACE_SM)
-        tk.Label(time_frame, text=":", bg=COLORS["bg"]).pack(side="left")
-        ttk.Spinbox(time_frame, from_=0, to=59, textvariable=self._minute_var, width=4).pack(side="left", padx=SPACE_SM)
-
-        # Observador (read-only)
-        obs_frame = tk.Frame(container, bg=COLORS["bg"])
-        obs_frame.pack(anchor="w", pady=(SPACE_LG, 0))
-        tk.Label(obs_frame, text="Observador:", font=FONTS["body"], bg=COLORS["bg"]).pack(side="left")
+        # ── Fila 0: Fecha ─────────────────────────────────────────────────
         tk.Label(
-            obs_frame,
-            text=f"{self._current_user.full_name} ({self._current_user.username})",
-            font=FONTS["body_bold"], bg=COLORS["bg"], fg=COLORS["primary"],
-        ).pack(side="left", padx=SPACE_SM)
+            form, text="Fecha",
+            font=FONTS["body"], bg=COLORS["bg"], fg=COLORS["text"], anchor="e",
+        ).grid(row=0, column=0, sticky="e", pady=SPACE_SM, padx=(0, SPACE_MD))
+
+        date_inputs = tk.Frame(form, bg=COLORS["bg"])
+        date_inputs.grid(row=0, column=1, sticky="w", pady=SPACE_SM)
+        ttk.Spinbox(date_inputs, from_=1, to=31, textvariable=self._day_var, width=4).pack(side="left")
+        tk.Label(date_inputs, text="/", bg=COLORS["bg"], padx=SPACE_XS).pack(side="left")
+        ttk.Spinbox(date_inputs, from_=1, to=12, textvariable=self._month_var, width=4).pack(side="left")
+        tk.Label(date_inputs, text="/", bg=COLORS["bg"], padx=SPACE_XS).pack(side="left")
+        ttk.Spinbox(date_inputs, from_=seven_days_ago.year, to=today.year, textvariable=self._year_var, width=6).pack(side="left")
+
+        # ── Fila 1: Hora ──────────────────────────────────────────────────
+        tk.Label(
+            form, text="Hora",
+            font=FONTS["body"], bg=COLORS["bg"], fg=COLORS["text"], anchor="e",
+        ).grid(row=1, column=0, sticky="e", pady=SPACE_SM, padx=(0, SPACE_MD))
+
+        self._hour_var   = tk.StringVar(value=f"{self._state['observed_hour']:02d}")
+        self._minute_var = tk.StringVar(value=f"{self._state['observed_minute']:02d}")
+
+        time_inputs = tk.Frame(form, bg=COLORS["bg"])
+        time_inputs.grid(row=1, column=1, sticky="w", pady=SPACE_SM)
+        ttk.Spinbox(time_inputs, from_=0, to=23, textvariable=self._hour_var, width=4).pack(side="left")
+        tk.Label(time_inputs, text=":", bg=COLORS["bg"], padx=SPACE_XS).pack(side="left")
+        ttk.Spinbox(time_inputs, from_=0, to=59, textvariable=self._minute_var, width=4).pack(side="left")
+
+        # ── Fila 2: Observador (read-only) ────────────────────────────────
+        tk.Label(
+            form, text="Observador",
+            font=FONTS["body"], bg=COLORS["bg"], fg=COLORS["text"], anchor="e",
+        ).grid(row=2, column=0, sticky="e", pady=(SPACE_LG, 0), padx=(0, SPACE_MD))
+
+        obs_value = tk.Frame(form, bg=COLORS["bg"])
+        obs_value.grid(row=2, column=1, sticky="w", pady=(SPACE_LG, 0))
+        tk.Label(
+            obs_value,
+            text=f"{self._current_user.full_name}",
+            font=FONTS["body_bold"], bg=COLORS["bg"], fg=ACCENT_GOLD,
+        ).pack(side="left")
+        tk.Label(
+            obs_value,
+            text=f"({self._current_user.username})",
+            font=FONTS["body"], bg=COLORS["bg"], fg=COLORS["text_muted"],
+        ).pack(side="left", padx=(SPACE_SM, 0))
 
     # ════════════════════════════════════════════════════════════════════
     # Step 2: Cuantitativas

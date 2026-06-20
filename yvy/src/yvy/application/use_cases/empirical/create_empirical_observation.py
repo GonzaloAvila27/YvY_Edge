@@ -140,7 +140,7 @@ class CreateEmpiricalObservationUseCase:
             observation.observation_id, observation.created_by_user_id, observation.is_valid,
         )
 
-        sync_enqueued = self._enqueue_sync(observation)
+        sync_enqueued = self._enqueue_sync(observation, input_data.actor)
 
         self._audit_repo.append(
             AuditLogEntry(
@@ -206,10 +206,13 @@ class CreateEmpiricalObservationUseCase:
                 warnings_list.append("rain_mm_out_of_range")
         return warnings_list
 
-    def _enqueue_sync(self, observation: EmpiricalObservation) -> bool:
+    def _enqueue_sync(self, observation: EmpiricalObservation, actor: User) -> bool:
         try:
             station_uuid = self._app_config.get_station_uuid()
-            payload_dict = self._observation_to_sync_payload(observation, station_uuid)
+            observer_display = (actor.full_name or "").strip() or actor.username.strip()
+            payload_dict = self._observation_to_sync_payload(observation, station_uuid, observer_display)
+            assert isinstance(payload_dict["observer_id"], str) and payload_dict["observer_id"].strip(), \
+                f"observer_id debe ser str no vacío, got {payload_dict['observer_id']!r}"
             job = SyncJob(
                 event_id=observation.observation_id,
                 station_uuid=station_uuid,
@@ -228,11 +231,15 @@ class CreateEmpiricalObservationUseCase:
             return False
 
     def _observation_to_sync_payload(
-        self, obs: EmpiricalObservation, station_uuid: uuid.UUID
+        self,
+        obs: EmpiricalObservation,
+        station_uuid: uuid.UUID,
+        observer_display: str,
     ) -> dict[str, Any]:
         return {
             "record_id": str(obs.observation_id),
             "station_uuid": str(station_uuid),
+            "observer_id": observer_display,
             "observed_at_utc": obs.observed_at_utc.isoformat(),
             "observed_at_local": obs.observed_at_local.isoformat(),
             "rain_mm": obs.rain_mm,
@@ -251,6 +258,5 @@ class CreateEmpiricalObservationUseCase:
             "general_notes": obs.general_notes,
             "is_valid": obs.is_valid,
             "validation_notes": obs.validation_notes,
-            "created_by_user_id": obs.created_by_user_id,
             "created_at_utc": obs.created_at_utc.isoformat() if obs.created_at_utc else None,
         }

@@ -823,6 +823,8 @@ class MainApplication(tk.Tk):
             if key == "formulario":
                 # El wizard mismo navega de vuelta a "formulario" al cancelar/completar
                 self._empirical_wizard_active = False
+                if self._header is not None:
+                    self._header.set_theme_toggle_enabled(True)
             else:
                 from tkinter import messagebox
                 salir = messagebox.askyesno(
@@ -835,6 +837,8 @@ class MainApplication(tk.Tk):
                 if not salir:
                     return
                 self._empirical_wizard_active = False
+                if self._header is not None:
+                    self._header.set_theme_toggle_enabled(True)
 
         for child in self._content.winfo_children():
             child.pack_forget()
@@ -1015,6 +1019,8 @@ class MainApplication(tk.Tk):
         for child in self._content.winfo_children():
             child.pack_forget()
         self._empirical_wizard_active = True
+        if self._header is not None:
+            self._header.set_theme_toggle_enabled(False)
         wizard = EmpiricalWizardView(
             self._content,
             controller=self._empirical_controller,
