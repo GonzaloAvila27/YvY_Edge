@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 import numpy as np
 from matplotlib.axes import Axes
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
     from yvy.application.use_cases.query_sensor_aggregated import (
         QuerySensorAggregatedUseCase,
     )
+    from yvy.domain.observatorio.period_range import PeriodRange
 
 _CARDINAL_LABELS = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"]
 _CARDINAL_ANGLES_DEG = np.arange(0, 360, 45)
@@ -82,9 +84,16 @@ class WindRoseChart(BaseChart):
         period: str,
         station_uuid: str,
         query_uc: QuerySensorAggregatedUseCase,
+        *,
+        period_range: PeriodRange | None = None,
+        tz: ZoneInfo | None = None,
     ) -> None:
-        rose  = query_uc.execute_wind_rose(station_uuid, period)
-        stats = query_uc.execute_wind_stats(station_uuid, period)
+        if period_range is not None:
+            rose  = query_uc.execute_wind_rose_range(station_uuid, period_range.start, period_range.end)
+            stats = query_uc.execute_wind_stats_range(station_uuid, period_range.start, period_range.end)
+        else:
+            rose  = query_uc.execute_wind_rose(station_uuid, period)
+            stats = query_uc.execute_wind_stats(station_uuid, period)
 
         if not any(f > 0 for f in rose.frequencies):
             raise NoDataError()

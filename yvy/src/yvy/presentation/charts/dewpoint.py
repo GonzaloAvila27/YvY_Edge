@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import bisect
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 from yvy.application.use_cases.compute_derived import dewpoint_c
-from yvy.presentation.charts.base import BaseChart, format_xaxis
+from yvy.presentation.charts.base import (
+    BaseChart,
+    draw_night_bands,
+    format_xaxis,
+    format_xaxis_range,
+)
 from yvy.presentation.components.chart_widget import NoDataError, apply_yvy_style
 from yvy.presentation.theme import BG_CARD, BORDER, DANGER, PRIMARY, SUCCESS
 
@@ -17,9 +23,10 @@ if TYPE_CHECKING:
     from yvy.application.use_cases.query_sensor_aggregated import (
         QuerySensorAggregatedUseCase,
     )
+    from yvy.domain.observatorio.period_range import PeriodRange
 
-_TS_TOLERANCE_S = 60  # tolerancia en segundos para alineación de timestamps
-_FOG_MARGIN_C = 2.0   # umbral T - Td < 2°C → riesgo de niebla
+_TS_TOLERANCE_S = 60
+_FOG_MARGIN_C = 2.0
 
 
 class DewpointChart(BaseChart):
@@ -29,6 +36,7 @@ class DewpointChart(BaseChart):
         - Línea de temperatura (azul primario).
         - Línea de punto de rocío (verde oliva).
         - Puntos rojos donde la diferencia T - Td < 2°C (riesgo de niebla).
+        - Bandas nocturnas cuando tz es provisto.
         - Leyenda con las tres series.
     """
 
@@ -42,10 +50,17 @@ class DewpointChart(BaseChart):
         period: str,
         station_uuid: str,
         query_uc: QuerySensorAggregatedUseCase,
+        *,
+        period_range: PeriodRange | None = None,
+        tz: ZoneInfo | None = None,
     ) -> None:
         # ── 1. Obtener series ─────────────────────────────────────────
-        temp_series = query_uc.execute("temp_out", period, station_uuid)
-        hum_series  = query_uc.execute("hum_out",  period, station_uuid)
+        if period_range is not None:
+            temp_series = query_uc.execute_range("temp_out", period_range.start, period_range.end, station_uuid)
+            hum_series  = query_uc.execute_range("hum_out",  period_range.start, period_range.end, station_uuid)
+        else:
+            temp_series = query_uc.execute("temp_out", period, station_uuid)
+            hum_series  = query_uc.execute("hum_out",  period, station_uuid)
 
         if not temp_series.timestamps or not hum_series.timestamps:
             raise NoDataError()
@@ -57,7 +72,6 @@ class DewpointChart(BaseChart):
                 hum_by_ts[ts.timestamp()] = val
 
         hum_epochs_sorted = sorted(hum_by_ts.keys())
-
         aligned_ts  = []
         temps       = []
         dewpoints   = []
@@ -90,13 +104,17 @@ class DewpointChart(BaseChart):
         # ── 3. Estilo base ────────────────────────────────────────────
         apply_yvy_style(ax)
 
-        # ── 4. Líneas principales ─────────────────────────────────────
+        # ── 4. Bandas nocturnas (detrás de las series) ────────────────
+        if period_range is not None and tz is not None:
+            draw_night_bands(ax, period_range.start, period_range.end, tz)
+
+        # ── 5. Líneas principales ─────────────────────────────────────
         ax.plot(aligned_ts, temps,     color=PRIMARY, linewidth=1.8,
                 label="Temperatura (°C)", zorder=3)
         ax.plot(aligned_ts, dewpoints, color=SUCCESS, linewidth=1.5,
                 linestyle="--", label="Punto de rocío (°C)", zorder=3)
 
-        # ── 5. Riesgo de niebla ───────────────────────────────────────
+        # ── 6. Riesgo de niebla ───────────────────────────────────────
         fog_ts  = []
         fog_dps = []
         for ts, t, dp in zip(aligned_ts, temps, dewpoints):
@@ -108,18 +126,12 @@ class DewpointChart(BaseChart):
             ax.scatter(fog_ts, fog_dps, color=DANGER, s=25, zorder=5,
                        label="Riesgo niebla", marker="o")
 
-        # ── 6. Leyenda y etiquetas ────────────────────────────────────
-        ax.legend(
-            loc="upper right",
-            fontsize=9,
-            framealpha=0.85,
-            facecolor=BG_CARD,
-            edgecolor=BORDER,
-        )
+        # ── 7. Leyenda y etiquetas ────────────────────────────────────
+        ax.legend(loc="upper right", fontsize=9, framealpha=0.85,
+                  facecolor=BG_CARD, edgecolor=BORDER)
         ax.set_title(self.label)
         ax.set_ylabel("°C")
 
-        # Rango Y con padding
         all_vals = temps + dewpoints
         valid = [v for v in all_vals if v is not None]
         if valid:
@@ -127,5 +139,8 @@ class DewpointChart(BaseChart):
             pad = (hi - lo) * 0.05 if hi != lo else 1.0
             ax.set_ylim(lo - pad, hi + pad)
 
-        # ── 7. Eje X ──────────────────────────────────────────────────
-        format_xaxis(figure, ax, period)
+        # ── 8. Eje X ──────────────────────────────────────────────────
+        if period_range is not None:
+            format_xaxis_range(figure, ax, period_range.start, period_range.end)
+        else:
+            format_xaxis(figure, ax, period)

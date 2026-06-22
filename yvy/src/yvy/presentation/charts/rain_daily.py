@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -15,6 +16,7 @@ if TYPE_CHECKING:
     from yvy.application.use_cases.query_sensor_aggregated import (
         QuerySensorAggregatedUseCase,
     )
+    from yvy.domain.observatorio.period_range import PeriodRange
 
 _MAX_DAYS_WITH_LABELS = 10
 
@@ -32,8 +34,14 @@ class RainDailyChart(BaseChart):
         period: str,
         station_uuid: str,
         query_uc: QuerySensorAggregatedUseCase,
+        *,
+        period_range: PeriodRange | None = None,
+        tz: ZoneInfo | None = None,
     ) -> None:
-        rain = query_uc.execute_rain_daily(station_uuid, period)
+        if period_range is not None:
+            rain = query_uc.execute_rain_daily_range(station_uuid, period_range.start, period_range.end)
+        else:
+            rain = query_uc.execute_rain_daily(station_uuid, period)
 
         if not rain.dates:
             raise NoDataError()

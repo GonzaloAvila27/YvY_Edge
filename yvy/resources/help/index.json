@@ -34,7 +34,13 @@
           "key": "glosario_viento",
           "title": "Viento",
           "summary": "YVY reporta velocidad (m/s), dirección (grados) y ráfaga. Más de 11 m/s ya indica tormenta. En Misiones el viento del noreste es dominante; las tormentas severas llegan del oeste o suroeste. La dirección es crítica para fumigación en zafra.",
-          "related": ["glosario_sensacion_termica"]
+          "related": ["glosario_rosa_vientos", "glosario_sensacion_termica"]
+        },
+        {
+          "key": "glosario_rosa_vientos",
+          "title": "Rosa de vientos",
+          "summary": "Gráfico circular que muestra de dónde sopló el viento durante el período, combinando frecuencia y velocidad promedio por dirección. En Misiones el viento del noreste es dominante; las tormentas severas ingresan del oeste o suroeste. Útil para planificar fumigación y cortinas rompevientos.",
+          "related": ["glosario_viento"]
         },
         {
           "key": "glosario_lluvia_uv",
@@ -46,7 +52,13 @@
           "key": "glosario_dewpoint",
           "title": "Punto de rocío",
           "summary": "Temperatura a la que el aire formaría gotas. Cuando la diferencia con la temperatura ambiente es menor a 2°C puede aparecer niebla o rocío en madrugadas. Se calcula a partir de temperatura y humedad. Relevante para hongos y condensación en cultivos.",
-          "related": ["glosario_temperatura", "glosario_humedad", "glosario_vpd"]
+          "related": ["glosario_temperatura", "glosario_humedad", "glosario_vpd", "glosario_heladas"]
+        },
+        {
+          "key": "glosario_heladas",
+          "title": "Probable helada radiativa",
+          "summary": "YVY indica en 3 niveles (alta/media/baja) la probabilidad de helada radiativa, evaluando temperatura exterior y punto de rocío. Las bandas sombreadas en el gráfico marcan el período nocturno 18:00–08:00. El sensor es consumer-grade: la indicación es probabilística, no confirmada.",
+          "related": ["glosario_temperatura", "glosario_dewpoint"]
         }
       ]
     },

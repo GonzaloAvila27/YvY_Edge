@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import bisect
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 from yvy.application.use_cases.compute_derived import vpd_kpa, vpd_zone
-from yvy.presentation.charts.base import BaseChart, format_xaxis
+from yvy.presentation.charts.base import BaseChart, format_xaxis, format_xaxis_range
 from yvy.presentation.components.chart_widget import NoDataError, apply_yvy_style
 from yvy.presentation.theme import ACCENT_GOLD, BG_CARD, BORDER, TEXT_PRIMARY
 
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
     from yvy.application.use_cases.query_sensor_aggregated import (
         QuerySensorAggregatedUseCase,
     )
+    from yvy.domain.observatorio.period_range import PeriodRange
 
 # Colores de zonas VPD
 _ZONE_FUNGAL = "#8B0000"   # riesgo fúngico
@@ -47,10 +49,17 @@ class VpdChart(BaseChart):
         period: str,
         station_uuid: str,
         query_uc: QuerySensorAggregatedUseCase,
+        *,
+        period_range: PeriodRange | None = None,
+        tz: ZoneInfo | None = None,
     ) -> None:
         # ── 1. Obtener series de temperatura y humedad ────────────────
-        temp_series = query_uc.execute("temp_out", period, station_uuid)
-        hum_series = query_uc.execute("hum_out", period, station_uuid)
+        if period_range is not None:
+            temp_series = query_uc.execute_range("temp_out", period_range.start, period_range.end, station_uuid)
+            hum_series  = query_uc.execute_range("hum_out",  period_range.start, period_range.end, station_uuid)
+        else:
+            temp_series = query_uc.execute("temp_out", period, station_uuid)
+            hum_series  = query_uc.execute("hum_out", period, station_uuid)
 
         if not temp_series.timestamps or not hum_series.timestamps:
             raise NoDataError()
@@ -149,4 +158,7 @@ class VpdChart(BaseChart):
         ax.set_ylim(0, y_max)
 
         # ── 10. Eje X ─────────────────────────────────────────────────
-        format_xaxis(figure, ax, period)
+        if period_range is not None:
+            format_xaxis_range(figure, ax, period_range.start, period_range.end)
+        else:
+            format_xaxis(figure, ax, period)

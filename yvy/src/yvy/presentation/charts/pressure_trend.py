@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 from yvy.application.use_cases.compute_derived import pressure_trend_3h
-from yvy.presentation.charts.base import BaseChart, format_xaxis
+from yvy.presentation.charts.base import BaseChart, format_xaxis, format_xaxis_range
 from yvy.presentation.components.chart_widget import NoDataError, apply_yvy_style
 from yvy.presentation.theme import DANGER, PRIMARY, SUCCESS, TEXT_SECONDARY
 
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
     from yvy.application.use_cases.query_sensor_aggregated import (
         QuerySensorAggregatedUseCase,
     )
+    from yvy.domain.observatorio.period_range import PeriodRange
 
 
 class PressureTrendChart(BaseChart):
@@ -36,9 +38,15 @@ class PressureTrendChart(BaseChart):
         period: str,
         station_uuid: str,
         query_uc: QuerySensorAggregatedUseCase,
+        *,
+        period_range: PeriodRange | None = None,
+        tz: ZoneInfo | None = None,
     ) -> None:
         # ── 1. Obtener serie de presión ───────────────────────────────
-        pres_series = query_uc.execute("pressure_abs", period, station_uuid)
+        if period_range is not None:
+            pres_series = query_uc.execute_range("pressure_abs", period_range.start, period_range.end, station_uuid)
+        else:
+            pres_series = query_uc.execute("pressure_abs", period, station_uuid)
 
         if not pres_series.timestamps:
             raise NoDataError()
@@ -148,4 +156,7 @@ class PressureTrendChart(BaseChart):
         ax2.axhline(0, color=TEXT_SECONDARY, linewidth=0.5, linestyle=":", zorder=1)
 
         # ── 8. Eje X ──────────────────────────────────────────────────
-        format_xaxis(figure, ax, period)
+        if period_range is not None:
+            format_xaxis_range(figure, ax, period_range.start, period_range.end)
+        else:
+            format_xaxis(figure, ax, period)

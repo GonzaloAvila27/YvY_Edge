@@ -92,6 +92,16 @@ _AGG_SQL: dict[str, str] = {
 
 
 @dataclass(frozen=True)
+class FrostSeries:
+    """Serie temporal con campos paralelos para el gráfico de probable helada."""
+
+    timestamps: list[datetime]
+    temp_c:     list[float | None]
+    hum_pct:    list[float | None]
+    wind_mps:   list[float | None]
+
+
+@dataclass(frozen=True)
 class AggregatedSeries:
     """Serie temporal aggregada lista para graficar."""
 
@@ -403,6 +413,305 @@ class QuerySensorAggregatedUseCase:
 
         return DailyRainSeries(dates=dates, mm=mm)
 
+    def execute_range(
+        self,
+        field: str,
+        start_dt: datetime,
+        end_dt: datetime,
+        station_uuid: str,
+        aggregation: str = "avg",
+    ) -> AggregatedSeries:
+        """Serie temporal en un rango datetime arbitrario (para períodos 1y, custom).
+
+        A diferencia de execute(), acepta extremos datetime en lugar de un
+        string de período, permitiendo rangos de cualquier duración.
+
+        Args:
+            field:        nombre del campo (ver _FIELD_MAP).
+            start_dt:     extremo inferior del rango (timezone-aware).
+            end_dt:       extremo superior del rango (timezone-aware).
+            station_uuid: UUID de la estación (no filtra en DB local).
+            aggregation:  "avg" | "max" | "sum".
+
+        Returns:
+            AggregatedSeries con timestamps UTC y valores float|None.
+        """
+        col = self._resolve_field(field)
+        agg = self._resolve_aggregation(aggregation)
+        bucket_s = self._frost_bucket_s(start_dt, end_dt)
+        since_iso = start_dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        until_iso = end_dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        t0 = time.monotonic()
+        rows = self._query_buckets_range(col, agg, since_iso, until_iso, bucket_s)
+        elapsed_ms = (time.monotonic() - t0) * 1000
+
+        timestamps = []
+        values = []
+        for ts_str, val in rows:
+            try:
+                ts_clean = ts_str.replace(" ", "T").replace("Z", "")
+                ts = datetime.fromisoformat(ts_clean).replace(tzinfo=UTC)
+            except (ValueError, AttributeError):
+                continue
+            timestamps.append(ts)
+            values.append(float(val) if val is not None else None)
+
+        logger.info(
+            "query.sensor_aggregated.executed",
+            extra={
+                "field": col,
+                "period": "range",
+                "aggregation": aggregation,
+                "n_points": len(timestamps),
+                "elapsed_ms": round(elapsed_ms, 1),
+            },
+        )
+
+        return AggregatedSeries(
+            timestamps=timestamps,
+            values=values,
+            field=col,
+            unit=_UNITS.get(col, ""),
+        )
+
+    def execute_rain_daily_range(
+        self,
+        station_uuid: str,
+        start_dt: datetime,
+        end_dt: datetime,
+    ) -> DailyRainSeries:
+        """Lluvia acumulada por día en un rango datetime arbitrario.
+
+        Mismo algoritmo que execute_rain_daily pero con extremos (start_dt, end_dt)
+        en lugar de un string de período.
+        """
+        since_iso = start_dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        until_iso = end_dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        t0 = time.monotonic()
+        conn = self._factory.get_connection()
+        rows = conn.execute(
+            """
+            WITH daily AS (
+                SELECT
+                    date(observed_at) AS day,
+                    MAX(rain_total)   AS max_rain
+                FROM sensor_data
+                WHERE observed_at >= :since
+                  AND observed_at <  :until
+                  AND rain_total IS NOT NULL
+                  AND is_valid = 1
+                GROUP BY day
+            ),
+            deltas AS (
+                SELECT
+                    day,
+                    max_rain,
+                    LAG(max_rain, 1, NULL) OVER (ORDER BY day) AS prev_rain
+                FROM daily
+            )
+            SELECT
+                day,
+                CASE
+                    WHEN prev_rain IS NULL  THEN 0.0
+                    WHEN max_rain >= prev_rain THEN max_rain - prev_rain
+                    ELSE 0.0
+                END AS mm_day
+            FROM deltas
+            ORDER BY day
+            """,
+            {"since": since_iso, "until": until_iso},
+        ).fetchall()
+        elapsed_ms = (time.monotonic() - t0) * 1000
+
+        dates: list[date] = []
+        mm: list[float] = []
+        for row in rows:
+            try:
+                d = date.fromisoformat(str(row[0]))
+            except (ValueError, TypeError):
+                continue
+            dates.append(d)
+            mm.append(float(row[1]) if row[1] is not None else 0.0)
+
+        logger.info(
+            "query.sensor_aggregated.executed",
+            extra={"field": "rain_daily", "period": "range", "n_points": len(dates),
+                   "elapsed_ms": round(elapsed_ms, 1)},
+        )
+        return DailyRainSeries(dates=dates, mm=mm)
+
+    def execute_wind_rose_range(
+        self,
+        station_uuid: str,
+        start_dt: datetime,
+        end_dt: datetime,
+    ) -> WindRoseData:
+        """Rosa de viento en un rango datetime arbitrario."""
+        since_iso = start_dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        until_iso = end_dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        t0 = time.monotonic()
+        conn = self._factory.get_connection()
+        rows = conn.execute(
+            """
+            SELECT
+                (CAST(wind_direction AS INT) - 1) % 16 AS sector,
+                AVG(wind_speed)  AS avg_speed,
+                COUNT(*)         AS frequency
+            FROM sensor_data
+            WHERE observed_at >= :since
+              AND observed_at <  :until
+              AND wind_direction IS NOT NULL
+              AND wind_speed IS NOT NULL
+              AND is_valid = 1
+            GROUP BY sector
+            ORDER BY sector
+            """,
+            {"since": since_iso, "until": until_iso},
+        ).fetchall()
+        elapsed_ms = (time.monotonic() - t0) * 1000
+
+        sector_map: dict[int, tuple[float, int]] = {}
+        for row in rows:
+            sector_map[int(row[0])] = (float(row[1] or 0.0), int(row[2]))
+
+        sectors = list(range(16))
+        avg_speeds = [sector_map.get(s, (0.0, 0))[0] for s in sectors]
+        frequencies = [sector_map.get(s, (0.0, 0))[1] for s in sectors]
+
+        logger.info(
+            "query.sensor_aggregated.executed",
+            extra={"field": "wind_rose", "period": "range", "n_points": sum(frequencies),
+                   "elapsed_ms": round(elapsed_ms, 1)},
+        )
+        return WindRoseData(sectors=sectors, avg_speeds=avg_speeds, frequencies=frequencies)
+
+    def execute_wind_stats_range(
+        self,
+        station_uuid: str,
+        start_dt: datetime,
+        end_dt: datetime,
+    ) -> WindStatsData:
+        """Ráfaga máxima y velocidad promedio en un rango datetime arbitrario."""
+        since_iso = start_dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        until_iso = end_dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        conn = self._factory.get_connection()
+
+        row = conn.execute(
+            """
+            SELECT MAX(wind_gust), AVG(wind_speed)
+            FROM sensor_data
+            WHERE observed_at >= :since AND observed_at < :until AND is_valid = 1
+            """,
+            {"since": since_iso, "until": until_iso},
+        ).fetchone()
+
+        max_gust  = float(row[0]) if row and row[0] is not None else None
+        avg_speed = float(row[1]) if row and row[1] is not None else None
+
+        max_gust_at: datetime | None = None
+        if max_gust is not None:
+            ts_row = conn.execute(
+                """
+                SELECT observed_at FROM sensor_data
+                WHERE observed_at >= :since AND observed_at < :until
+                  AND is_valid = 1 AND wind_gust IS NOT NULL
+                ORDER BY wind_gust DESC LIMIT 1
+                """,
+                {"since": since_iso, "until": until_iso},
+            ).fetchone()
+            if ts_row and ts_row[0]:
+                try:
+                    ts_str = str(ts_row[0]).replace("Z", "+00:00").replace(" ", "T")
+                    dt = datetime.fromisoformat(ts_str)
+                    max_gust_at = dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+                except (ValueError, AttributeError):
+                    pass
+
+        return WindStatsData(
+            max_gust_ms=max_gust,
+            max_gust_at=max_gust_at,
+            avg_speed_ms=avg_speed,
+        )
+
+    def execute_frost_series(
+        self,
+        start_dt: datetime,
+        end_dt: datetime,
+    ) -> FrostSeries:
+        """Serie temporal de temp/hum/viento en buckets para el gráfico de probable helada.
+
+        A diferencia de execute(), acepta un rango datetime arbitrario en vez de
+        un período string, y devuelve los tres campos en paralelo en una sola query.
+
+        Args:
+            start_dt: extremo inferior del rango (timezone-aware).
+            end_dt:   extremo superior del rango (timezone-aware).
+
+        Returns:
+            FrostSeries con listas paralelas de timestamps UTC y valores.
+        """
+        bucket_s = self._frost_bucket_s(start_dt, end_dt)
+        since_iso = start_dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        until_iso = end_dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        t0 = time.monotonic()
+        conn = self._factory.get_connection()
+        rows = conn.execute(
+            """
+            SELECT
+                datetime(
+                    (strftime('%s', observed_at) / :bucket_s) * :bucket_s,
+                    'unixepoch'
+                ) AS bucket,
+                AVG(temp_outdoor) AS avg_temp,
+                AVG(hum_outdoor)  AS avg_hum,
+                AVG(wind_speed)   AS avg_wind
+            FROM sensor_data
+            WHERE observed_at >= :since
+              AND observed_at <  :until
+              AND is_valid = 1
+            GROUP BY bucket
+            ORDER BY bucket
+            """,
+            {"bucket_s": bucket_s, "since": since_iso, "until": until_iso},
+        ).fetchall()
+        elapsed_ms = (time.monotonic() - t0) * 1000
+
+        timestamps: list[datetime] = []
+        temp_c:     list[float | None] = []
+        hum_pct:    list[float | None] = []
+        wind_mps:   list[float | None] = []
+
+        for bucket_str, avg_temp, avg_hum, avg_wind in rows:
+            try:
+                ts_clean = str(bucket_str).replace(" ", "T").replace("Z", "")
+                ts = datetime.fromisoformat(ts_clean).replace(tzinfo=UTC)
+            except (ValueError, AttributeError):
+                continue
+            timestamps.append(ts)
+            temp_c.append(float(avg_temp) if avg_temp is not None else None)
+            hum_pct.append(float(avg_hum) if avg_hum is not None else None)
+            wind_mps.append(float(avg_wind) if avg_wind is not None else None)
+
+        logger.info(
+            "query.sensor_aggregated.executed",
+            extra={
+                "field": "frost_series",
+                "n_points": len(timestamps),
+                "elapsed_ms": round(elapsed_ms, 1),
+            },
+        )
+
+        return FrostSeries(
+            timestamps=timestamps,
+            temp_c=temp_c,
+            hum_pct=hum_pct,
+            wind_mps=wind_mps,
+        )
+
     # ─── Privados ─────────────────────────────────────────────────────────
 
     def _query_buckets(
@@ -412,10 +721,8 @@ class QuerySensorAggregatedUseCase:
         since: datetime,
         bucket_s: int,
     ) -> list[tuple[str, float | None]]:
-        """Ejecuta la query de bucket aggregation. col ya está validada."""
+        """Ejecuta la query de bucket aggregation (ventana abierta). col ya está validada."""
         since_iso = since.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-        # col y agg vienen de whitelists — inyección directa es segura.
         sql = f"""
             SELECT
                 datetime(
@@ -431,9 +738,36 @@ class QuerySensorAggregatedUseCase:
             ORDER BY bucket
         """
         conn = self._factory.get_connection()
+        rows = conn.execute(sql, {"bucket_s": bucket_s, "since": since_iso}).fetchall()
+        return [(row[0], row[1]) for row in rows]
+
+    def _query_buckets_range(
+        self,
+        col: str,
+        agg: str,
+        since_iso: str,
+        until_iso: str,
+        bucket_s: int,
+    ) -> list[tuple[str, float | None]]:
+        """Bucket aggregation entre [since_iso, until_iso). col ya está validada."""
+        sql = f"""
+            SELECT
+                datetime(
+                    (strftime('%s', observed_at) / :bucket_s) * :bucket_s,
+                    'unixepoch'
+                ) AS bucket,
+                {agg}({col}) AS value
+            FROM sensor_data
+            WHERE observed_at >= :since
+              AND observed_at <  :until
+              AND {col} IS NOT NULL
+              AND is_valid = 1
+            GROUP BY bucket
+            ORDER BY bucket
+        """
+        conn = self._factory.get_connection()
         rows = conn.execute(
-            sql,
-            {"bucket_s": bucket_s, "since": since_iso},
+            sql, {"bucket_s": bucket_s, "since": since_iso, "until": until_iso}
         ).fetchall()
         return [(row[0], row[1]) for row in rows]
 
@@ -458,6 +792,14 @@ class QuerySensorAggregatedUseCase:
         window, bucket_s = config
         since = datetime.now(UTC) - window
         return since, bucket_s
+
+    @staticmethod
+    def _frost_bucket_s(start_dt: datetime, end_dt: datetime) -> int:
+        duration = end_dt - start_dt
+        if duration <= timedelta(hours=24):  return 1800    # 30 min → ~48 pts
+        if duration <= timedelta(days=7):    return 10800   #  3 h  → ~56 pts
+        if duration <= timedelta(days=30):   return 43200   # 12 h  → ~60 pts
+        return 86400                                         # 24 h  → ~365 pts (1y)
 
     @staticmethod
     def _resolve_aggregation(aggregation: str) -> str:

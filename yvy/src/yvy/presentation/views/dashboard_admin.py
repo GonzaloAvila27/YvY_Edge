@@ -30,6 +30,7 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta, tzinfo
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import TYPE_CHECKING, Any
@@ -39,7 +40,9 @@ from tkinter import ttk
 
 from yvy.presentation.charts import SENSOR_CHARTS
 from yvy.presentation.components.chart_widget import ChartWidget
+from yvy.presentation.views.observatorio.frost_view import FrostView
 from yvy.presentation.components.help_button import HelpButton
+from yvy.presentation.components.period_selector import PeriodSelector
 from yvy.presentation.theme import (
     ACCENT_GOLD,
     BG_CARD,
@@ -81,10 +84,35 @@ _NO_DATA_DELTA = "sin datos suficientes"
 _CHART_LABEL_TO_KEY: dict[str, str] = {
     chart.label: key for key, chart in SENSOR_CHARTS.items()
 }
+_FROST_LABEL = "Heladas y eventos térmicos"
+_CHART_LABEL_TO_KEY[_FROST_LABEL] = "frost"
 _CHART_LABELS: list[str] = list(_CHART_LABEL_TO_KEY.keys())
 _DEFAULT_CHART_LABEL = SENSOR_CHARTS["vpd"].label   # "VPD — Riesgo agroclimático"
 _DEFAULT_PERIOD = "7d"
 _PERIODS = ["24h", "7d", "30d"]
+
+# Roles que tienen acceso completo al catálogo de gráficos (D81)
+_FULL_ACCESS_ROLES: frozenset[str] = frozenset({"profesor", "admin", "superadmin"})
+
+
+def allowed_chart_labels_for_role(role: str) -> list[str]:
+    """Etiquetas de gráfico disponibles para el rol dado.
+
+    El rol desconocido se trata como alumno (fail-safe al subconjunto más
+    restrictivo — D81).  El alumno ve todos los gráficos del Observatorio
+    excepto Heladas, que es interpretativa y requiere contexto pedagógico
+    no disponible en la Pizarra YVY actual.
+
+    Args:
+        role: "alumno" | "profesor" | "admin" | "superadmin" (u otro).
+
+    Returns:
+        Lista de etiquetas en el orden de inserción de _CHART_LABEL_TO_KEY.
+    """
+    if role in _FULL_ACCESS_ROLES:
+        return list(_CHART_LABELS)
+    # alumno (y cualquier rol desconocido)
+    return [label for label in _CHART_LABELS if label != _FROST_LABEL]
 
 # Mapa chart key → help article key para el HelpButton del gráfico
 _CHART_KEY_TO_HELP: dict[str, str] = {
@@ -97,6 +125,8 @@ _CHART_KEY_TO_HELP: dict[str, str] = {
     "punto_rocio":      "glosario_dewpoint",
     "amplitud_termica": "glosario_amplitud_termica",
     "presion_tendencia":"glosario_tendencia_presion",
+    "rosa_vientos":     "glosario_rosa_vientos",
+    "frost":            "glosario_heladas",
 }
 
 
@@ -171,6 +201,11 @@ class DashboardAdminView(tk.Frame):
 
         self._db_factory = db_factory
         self._local_tz = local_tz or UTC
+        self._tz: ZoneInfo = (
+            local_tz
+            if isinstance(local_tz, ZoneInfo)
+            else ZoneInfo("America/Argentina/Cordoba")
+        )
         self._query_uc = query_sensor_aggregated_uc
         self._current_user = current_user
         self._station_uuid = station_uuid or ""
@@ -181,13 +216,12 @@ class DashboardAdminView(tk.Frame):
 
         # Widgets del área de gráfico (inicializados en _build)
         self._chart_widget: ChartWidget | None = None
+        self._frost_view: FrostView | None = None
         self._chart_combo: ttk.Combobox | None = None
         self._period_var: tk.StringVar | None = None
-        self._chart_help_btn: HelpButton | None = None  # HelpButton dinámico del gráfico
+        self._period_selector: PeriodSelector | None = None
+        self._chart_help_btn: HelpButton | None = None
         self._chart_title_lbl: tk.Label | None = None
-        # Para alumno (sin selectors), el chart key y period son fijos
-        self._alumno_chart_key: str = "vpd"
-        self._alumno_period: str = "24h"
 
         self._data = self._load_data()
         self._derived = self._load_derived()
@@ -397,8 +431,7 @@ class DashboardAdminView(tk.Frame):
         inner = tk.Frame(card, bg=BG_CARD, padx=SPACE_XL, pady=SPACE_LG)
         inner.pack(fill="both", expand=True)
 
-        if not self._is_alumno():
-            self._build_chart_controls(inner)
+        self._build_chart_controls(inner)
 
         # Header del gráfico con HelpButton dinámico
         chart_hdr = tk.Frame(inner, bg=BG_CARD)
@@ -427,22 +460,29 @@ class DashboardAdminView(tk.Frame):
         self._chart_widget = ChartWidget(inner, width_px=560, height_px=290)
         self._chart_widget.pack(fill="both", expand=True)
 
+        if self._query_uc is not None:
+            self._frost_view = FrostView(inner, query_uc=self._query_uc, tz=self._tz)
+            # No se empaca aquí; se muestra solo cuando el Combobox elige "frost"
+
         # Primer render diferido 80ms para que Tk asiente el layout
         self.after(80, self._trigger_render)
 
     def _build_chart_controls(self, parent: tk.Frame) -> None:
-        """Barra de selectores: Combobox de gráfico + radio de período."""
+        """Barra de selectores: Combobox de gráfico (filtrado por rol) + PeriodSelector."""
         bar = tk.Frame(parent, bg=BG_CARD)
         bar.pack(fill="x", pady=(0, SPACE_MD))
 
-        # ── Selector de gráfico ────────────────────────────────────────
+        role = self._get_role()
+
+        # ── Selector de gráfico (filtrado por rol — D81) ───────────────
         tk.Label(
             bar, text="Gráfico:", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY
         ).pack(side="left", padx=(0, SPACE_SM))
 
+        chart_labels = allowed_chart_labels_for_role(role)
         self._chart_combo = ttk.Combobox(
             bar,
-            values=_CHART_LABELS,
+            values=chart_labels,
             state="readonly",
             width=22,
             font=FONT_BODY,
@@ -454,20 +494,18 @@ class DashboardAdminView(tk.Frame):
         # ── Separador visual ───────────────────────────────────────────
         tk.Frame(bar, bg=BG_CARD, width=SPACE_XL).pack(side="left")
 
-        # ── Selector de período ────────────────────────────────────────
-        tk.Label(
-            bar, text="Período:", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY
-        ).pack(side="left", padx=(0, SPACE_SM))
-
-        self._period_var = tk.StringVar(value=_DEFAULT_PERIOD)
-        for p in _PERIODS:
-            ttk.Radiobutton(
-                bar,
-                text=p,
-                variable=self._period_var,
-                value=p,
-                command=self._trigger_render,
-            ).pack(side="left", padx=(0, SPACE_SM))
+        # ── Selector de período (D82: alumno fijo en 24h) ─────────────
+        _ALL_PERIOD_PRESETS = ["24h", "7d", "30d", "1y", "custom"]
+        period_presets = ["24h"] if self._is_alumno() else _ALL_PERIOD_PRESETS
+        period_default = "24h" if self._is_alumno() else _DEFAULT_PERIOD
+        self._period_selector = PeriodSelector(
+            bar,
+            on_change=lambda _: self._trigger_render(),
+            tz=self._tz,
+            initial_preset=period_default,
+            allowed_presets=period_presets,
+        )
+        self._period_selector.pack(side="left")
 
     def _make_help_factory(
         self, key: str
@@ -645,18 +683,17 @@ class DashboardAdminView(tk.Frame):
     # ─── Render del gráfico ───────────────────────────────────────────────
 
     def _current_chart_key(self) -> str:
-        if self._is_alumno():
-            return self._alumno_chart_key
         if self._chart_combo is not None:
             label = self._chart_combo.get()
-            return _CHART_LABEL_TO_KEY.get(label, "temperatura")
-        return "temperatura"
+            return _CHART_LABEL_TO_KEY.get(label, "vpd")
+        return "vpd"
 
     def _current_period(self) -> str:
-        if self._is_alumno():
-            return self._alumno_period
-        if self._period_var is not None:
-            return self._period_var.get()
+        if self._period_selector is not None:
+            try:
+                return self._period_selector.get_period_range().preset_label
+            except Exception:
+                pass
         return _DEFAULT_PERIOD
 
     def _trigger_render(self) -> None:
@@ -675,23 +712,46 @@ class DashboardAdminView(tk.Frame):
             label = self._chart_combo.get() if self._chart_combo else _DEFAULT_CHART_LABEL
             self._chart_title_lbl.configure(text=label)
 
+        # Resolver período antes de despachar (puede lanzar ValueError para custom inválido)
+        try:
+            period_range = self._period_selector.get_period_range() if self._period_selector else None
+        except ValueError:
+            return
+
+        if chart_key == "frost":
+            self._chart_widget.pack_forget()
+            if self._frost_view is not None:
+                self._frost_view.pack(fill="both", expand=True)
+                if period_range is not None:
+                    self._frost_view.refresh(period_range)
+            return
+        else:
+            if self._frost_view is not None:
+                self._frost_view.pack_forget()
+            self._chart_widget.pack(fill="both", expand=True)
+
         if self._query_uc is None:
             self._chart_widget.show_empty("Sin conexión al sistema de sensores")
             return
-
-        period = self._current_period()
-        station_uuid = self._station_uuid
-        query_uc = self._query_uc
 
         chart = SENSOR_CHARTS.get(chart_key)
         if chart is None:
             self._chart_widget.show_error(f"Gráfico '{chart_key}' no encontrado")
             return
 
+        station_uuid = self._station_uuid
+        query_uc     = self._query_uc
+        _tz          = self._tz
+
         # Captura explícita de variables para evitar closure tardío en el thread
         self._chart_widget.render(
-            lambda fig, ax, c=chart, p=period, s=station_uuid: c.render(
-                fig, ax, p, s, query_uc
+            lambda fig, ax, c=chart, pr=period_range, s=station_uuid, t=_tz: c.render(
+                fig, ax,
+                pr.preset_label if pr else "24h",
+                s,
+                query_uc,
+                period_range=pr,
+                tz=t,
             )
         )
 

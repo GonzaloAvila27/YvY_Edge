@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
     from yvy.application.use_cases.query_sensor_aggregated import (
         QuerySensorAggregatedUseCase,
     )
+    from yvy.domain.observatorio.period_range import PeriodRange
 
 # Umbrales de intensidad (°C)
 _AMP_MODERATE = 10.0   # < 10°C → moderada (oliva)
@@ -55,9 +57,15 @@ class ThermalAmplitudeChart(BaseChart):
         period: str,
         station_uuid: str,
         query_uc: QuerySensorAggregatedUseCase,
+        *,
+        period_range: PeriodRange | None = None,
+        tz: ZoneInfo | None = None,
     ) -> None:
         # ── 1. Obtener serie de temperatura ───────────────────────────
-        temp_series = query_uc.execute("temp_out", period, station_uuid)
+        if period_range is not None:
+            temp_series = query_uc.execute_range("temp_out", period_range.start, period_range.end, station_uuid)
+        else:
+            temp_series = query_uc.execute("temp_out", period, station_uuid)
 
         if not temp_series.timestamps:
             raise NoDataError()
