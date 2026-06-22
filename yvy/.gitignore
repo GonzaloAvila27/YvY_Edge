@@ -73,6 +73,9 @@ data/update_backups/*
 # Credenciales de sincronización — NUNCA commitear
 data/station_credentials.json
 data/theme.json
+# Credenciales de estación (cualquier ubicación) y carpeta de secretos
+*_credentials.json
+docs/CREDENTIALS/
 # Backups automáticos de DB
 data/backups/
 
