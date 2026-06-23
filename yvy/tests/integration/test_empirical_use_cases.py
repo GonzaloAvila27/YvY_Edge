@@ -190,20 +190,25 @@ class TestCreateObservation:
         assert result.observation.is_valid is True
         assert "missing:" in (result.observation.validation_notes or "")
 
-    def test_temp_fuera_de_rango_marca_is_valid_false(
-        self, create_obs_uc, empirical_repo, actor
+    def test_temp_fuera_de_rango_bloquea_sin_persistir(
+        self, create_obs_uc, empirical_repo, actor, sync_repo_mock
     ):
+        """Valores fuera de rango bloquean: no se persisten ni siquiera
+        confirmados (el observador debe corregir o dejar el campo vacío)."""
         input_data = CreateObservationInput(
             observed_at_utc=datetime(2026, 5, 12, 14, 30, tzinfo=UTC),
             observed_at_local=datetime(2026, 5, 12, 11, 30, tzinfo=UTC),
             actor=actor,
             rain_mm=0.0, temp_c=99.0,  # fuera de rango
             wind_beaufort=0, wind_direction=WindDirection.N, sky_coverage_pct=0,
-            confirmed_with_warnings=True,
+            confirmed_with_warnings=True,  # aun confirmado, fuera de rango bloquea
         )
         result = create_obs_uc.execute(input_data)
-        assert result.observation.is_valid is False
-        assert "temp_c_out_of_range" in (result.observation.validation_notes or "")
+        assert result.persisted is False
+        assert "temp_c_out_of_range" in result.quality_warnings
+        # No se guardó nada ni se encoló sync
+        assert empirical_repo.count_observations() == 0
+        sync_repo_mock.enqueue.assert_not_called()
 
     def test_fecha_futura_levanta_error(
         self, create_obs_uc, actor, time_provider_mock

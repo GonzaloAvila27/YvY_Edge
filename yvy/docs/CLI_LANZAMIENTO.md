@@ -25,7 +25,14 @@ C:\YVY\scripts\YVY_CLI.bat test db
 
 # Verificar conexión al servidor
 C:\YVY\scripts\YVY_CLI.bat test sync
+
+# Configurar credentials de sync (solo si el nodo no las tiene)
+C:\YVY\scripts\YVY_CLI.bat configure-sync --credentials E:\iea7_credentials.json --server-url https://edge.yvyedge.com
 ```
+
+> `configure-sync` es **idempotente**: si el nodo ya está configurado, no pisa
+> nada (seguro de correr varias veces). Para reemplazar credentials existentes,
+> agregar `--force` (hace backup `.bak` del archivo anterior).
 
 ---
 
@@ -59,6 +66,7 @@ Después el CLI funciona normalmente con `YVY_CLI.bat`.
 | `YVY_CLI.bat test sensor` | Verifica USB y detección del WH1081 |
 | `YVY_CLI.bat test db` | Verifica DB accesible y migraciones |
 | `YVY_CLI.bat test sync` | Verifica credentials + conectividad al servidor |
+| `YVY_CLI.bat configure-sync --credentials <ruta> --server-url <url>` | Setea credentials de sync (solo si no existen; `--force` pisa) |
 
 Para la guía completa con ejemplos de salida e interpretación: `docs\yvy_CLI_GUIA.md`
 

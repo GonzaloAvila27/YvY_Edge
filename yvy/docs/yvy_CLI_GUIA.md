@@ -35,6 +35,7 @@ Todos los comandos:
 | `yvy test sensor` | Verifica USB y detección del WH1081 |
 | `yvy test db` | Verifica DB accesible y migraciones aplicadas |
 | `yvy test sync` | Verifica credentials + conectividad al server |
+| `yvy configure-sync` | Setea credentials de sync (idempotente; `--force` pisa) |
 
 ---
 
@@ -415,6 +416,59 @@ Sync con problemas
 
 ---
 
+### `yvy configure-sync`
+
+Instala las credentials de sync de un nodo: copia `station_credentials.json` a
+`data/` y setea `sync_server_url` + `station_uuid` en `app_config`. Reemplaza al
+script `configure_sync.py` desde el CLI, con la ventaja de ser **idempotente**.
+
+```bash
+python -m yvy configure-sync --credentials E:\iea7_credentials.json --server-url https://edge.yvyedge.com
+
+# Sobrescribir credentials existentes (hace backup .bak):
+python -m yvy configure-sync --credentials E:\nuevas.json --server-url https://edge.yvyedge.com --force
+```
+
+**Comportamiento "solo si no existen":**
+
+- Por defecto, si el nodo **ya está configurado** (existe `station_credentials.json`
+  Y hay `sync_server_url`), **no toca nada** y sale con código 0. Esto lo hace
+  seguro de correr en instaladores que se ejecutan varias veces.
+- Con `--force` sobrescribe igual, dejando un backup `.bak` del archivo anterior.
+
+**Qué valida antes de tocar nada:**
+
+1. El archivo de credentials existe y es JSON válido (tolera BOM UTF-8).
+2. `station_uuid` es UUID, `key_version` es int, `key_hmac_hex` es hex ≥ 32 bytes.
+
+**Cuándo usarlo:**
+
+- Al configurar un nodo nuevo después de `INSTALAR.bat`.
+- En un instalador/script automatizado (no rompe si ya estaba configurado).
+- La URL también se puede pasar por la variable de entorno `YVY_SYNC_URL`.
+
+**Salida ejemplo (nodo nuevo):**
+
+```
+  Credentials escritas en:  C:\YVY\data\station_credentials.json
+  station_uuid:             11111111-1111-4111-8111-111111111111
+  sync_server_url:          https://edge.yvyedge.com
+Sync configurado correctamente.
+```
+
+**Salida ejemplo (ya configurado, sin `--force`):**
+
+```
+Sync ya configurado en este nodo:
+  station_uuid:     11111111-1111-4111-8111-111111111111
+  sync_server_url:  https://edge.yvyedge.com
+No se modificó nada. Usar --force para sobrescribir.
+```
+
+Verificá después con `yvy test sync`.
+
+---
+
 ## Diagnóstico telefónico — guion sugerido
 
 Cuando alguien te llama de otra IEA con un problema, esta secuencia ahorra tiempo:
@@ -544,15 +598,14 @@ fi
 # 1. Después del INSTALAR.bat:
 python -m yvy test sensor   # verifica que el sensor esté OK
 
-# 2. Configurar el server URL (esto todavía hay que hacerlo desde código,
-#    en Ola 2 vendrá un `yvy config set sync_server_url ...`):
-python scripts/configure_sync_url.py https://yvy-edge.tecnicatura.edu.ar
+# 2. Configurar credentials + server URL en un solo paso (idempotente):
+python -m yvy configure-sync \
+    --credentials E:\iea7_credentials.json \
+    --server-url https://edge.yvyedge.com
 
-# 3. Copiar credentials.json a data/station_credentials.json
-
-# 4. Verificar config:
+# 3. Verificar config:
 python -m yvy test sync
 
-# 5. Si todo OK, arrancar el launcher:
+# 4. Si todo OK, arrancar el launcher:
 python scripts/launch_app.py
 ```

@@ -78,7 +78,9 @@ class EmpiricalController:
             callbacks.on_unexpected_error(exc)
             return
 
-        if result.quality_warnings and not input_data.confirmed_with_warnings:
+        # persisted=False → se bloqueó (fuera de rango) o requiere confirmar
+        # (campos faltantes). La view decide cómo resolver cada caso.
+        if not result.persisted:
             callbacks.on_warnings(result)
         else:
             callbacks.on_success(result)

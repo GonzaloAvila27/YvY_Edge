@@ -71,11 +71,17 @@ class CreateObservationInput:
 
 @dataclass(frozen=True, slots=True)
 class CreateObservationResult:
-    """Output del use case."""
+    """Output del use case.
+
+    persisted: True solo si la observación se guardó en la base. False cuando
+        se bloqueó por valores fuera de rango o por campos faltantes sin
+        confirmar (en esos casos el caller debe pedir corrección/confirmación).
+    """
 
     observation: EmpiricalObservation
     sync_enqueued: bool
     quality_warnings: list[str]
+    persisted: bool = False
 
 
 class CreateEmpiricalObservationUseCase:
@@ -112,24 +118,30 @@ class CreateEmpiricalObservationUseCase:
         range_warnings = self._detect_range_warnings(input_data)
         quality_warnings = missing_critical + range_warnings
 
-        if quality_warnings and not input_data.confirmed_with_warnings:
+        # Valores fuera de rango NUNCA se persisten: bloquean siempre (incluso
+        # con confirmed_with_warnings). El observador debe corregir con un valor
+        # plausible o dejar el campo vacío si no lo conoce. Evita guardar datos
+        # físicamente absurdos (que además los CHECK del schema rechazarían).
+        # Campos críticos faltantes son confirmables: no invalidan la carga.
+        if range_warnings or (missing_critical and not input_data.confirmed_with_warnings):
             return CreateObservationResult(
                 observation=tentative,
                 sync_enqueued=False,
                 quality_warnings=quality_warnings,
+                persisted=False,
             )
 
-        is_valid = not range_warnings
+        # Sin valores fuera de rango → la observación guardada es válida.
         validation_notes = build_validation_notes(
             obs=tentative,
             missing_critical=missing_critical,
-            range_warnings=range_warnings,
+            range_warnings=[],
         )
 
         observation = self._build_observation(
             input_data=input_data,
             observation_id=observation_id,
-            is_valid=is_valid,
+            is_valid=True,
             validation_notes=validation_notes,
             now_utc=self._time_provider.now_utc(),
         )
@@ -162,6 +174,7 @@ class CreateEmpiricalObservationUseCase:
             observation=observation,
             sync_enqueued=sync_enqueued,
             quality_warnings=quality_warnings,
+            persisted=True,
         )
 
     def _build_observation(

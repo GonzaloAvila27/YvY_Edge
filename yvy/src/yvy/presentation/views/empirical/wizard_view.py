@@ -891,12 +891,43 @@ class EmpiricalWizardView(tk.Frame):
         self._on_complete()
 
     def _handle_warnings(self, result: CreateObservationResult) -> None:
-        """Si hay warnings, pregunta confirmación y reenvía."""
-        labels = [_FIELD_LABELS_ES.get(w, w) for w in result.quality_warnings]
-        msg = "Atención:\n\n" + "\n".join(f"• {label}" for label in labels)
-        msg += "\n\n¿Querés guardar la observación de todos modos?"
-        if messagebox.askyesno("Datos faltantes o fuera de rango", msg):
-            self._submit_observation(with_confirmation=True)
+        """Resuelve los warnings de calidad.
+
+        Distingue dos clases:
+        - Valores FUERA DE RANGO (temp/lluvia): se bloquea el guardado. El
+          observador debe corregir con un valor plausible o dejar el campo
+          vacío si no lo conoce. No se registran valores físicamente absurdos.
+        - Campos críticos FALTANTES: no invalidan la carga; se ofrece guardar
+          de todos modos (la observación queda completa-parcial pero válida).
+        """
+        range_warnings = [
+            w for w in result.quality_warnings if w.endswith("_out_of_range")
+        ]
+        missing_warnings = [
+            w for w in result.quality_warnings if not w.endswith("_out_of_range")
+        ]
+
+        # 1) Fuera de rango → bloquear, guiar a corregir o dejar vacío
+        if range_warnings:
+            labels = [_FIELD_LABELS_ES.get(w, w) for w in range_warnings]
+            msg = (
+                "Estos valores están fuera de rango y no se pueden registrar:\n\n"
+                + "\n".join(f"• {label}" for label in labels)
+                + "\n\nCorregilos con un valor plausible. Si no conocés el valor "
+                "real, dejá el campo vacío."
+            )
+            messagebox.showwarning("Valores fuera de rango", msg)
+            return  # no se guarda; el observador vuelve a editar
+
+        # 2) Solo faltan campos críticos → permitir guardar igual
+        if missing_warnings:
+            labels = [_FIELD_LABELS_ES.get(w, w) for w in missing_warnings]
+            msg = "Faltan algunos datos:\n\n" + "\n".join(
+                f"• {label}" for label in labels
+            )
+            msg += "\n\n¿Querés guardar la observación de todos modos?"
+            if messagebox.askyesno("Datos faltantes", msg):
+                self._submit_observation(with_confirmation=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

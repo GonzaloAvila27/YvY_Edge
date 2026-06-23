@@ -24,10 +24,28 @@ class UsernameAlreadyExistsError(AuthError):
 
 
 class TooManyAdminsError(AuthError):
-    """Intento de crear más de 2 admins en la app local.
+    """Intento de crear más admins comunes que el límite institucional.
 
-    El límite es por decisión institucional. Si querés aumentarlo,
-    cambiar la constante MAX_ADMINS en CreateUserUseCase.
+    El límite (MAX_COMMON_ADMINS) cuenta solo cuentas con rol ADMIN; el
+    superadmin queda fuera del conteo. Si querés aumentarlo, cambiar la
+    constante en CreateUserUseCase.
+    """
+
+
+class SuperadminAlreadyExistsError(AuthError):
+    """Intento de crear un segundo superadmin.
+
+    El superadmin es singleton: se crea una sola vez en el onboarding.
+    Recuperación/cambio posterior solo por CLI (hero-rescue).
+    """
+
+
+class SuperadminProtectedError(AuthError):
+    """Intento de modificar/eliminar el superadmin desde la UI.
+
+    El superadmin no puede desactivarse, cambiar de rol ni resetear su
+    password desde la interfaz. Esas operaciones solo se permiten por
+    CLI (hero-rescue), que opera por fuera de estos use cases.
     """
 
 

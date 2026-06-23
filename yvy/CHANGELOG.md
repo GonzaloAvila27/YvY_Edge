@@ -1,5 +1,100 @@
 # CHANGELOG
 
+## [1.5.0] - 2026-06-22
+
+### Added
+
+- **Observatorio: bandas nocturnas en gráficos térmicos**
+  - Franjas sombreadas `[18:00–08:00]` (hora local) en temperatura, humedad,
+    presión, viento y punto de rocío. Excluidas en VPD, rosa de vientos,
+    amplitud térmica, tendencia de presión y lluvia diaria (no las necesitan
+    o tienen fondos propios).
+  - Helpers `format_xaxis_range()` y `draw_night_bands()` en `charts/base.py`.
+  - Archivos: `presentation/charts/*.py`, `domain/observatorio/night_periods.py`
+
+- **Vista "Heladas y eventos térmicos" (probable helada radiativa)**
+  - Gráfico multiparámetro con detección de probable helada en 3 niveles
+    (alta/media/baja) según temperatura y punto de rocío. Lenguaje contractual:
+    "probable helada", nunca "confirmada" (WH1081 es consumer-grade).
+  - Disponible para profesor/admin/superadmin; el alumno no la ve.
+  - Archivos: `presentation/views/observatorio/frost_view.py`,
+    `domain/observatorio/frost_detection.py`
+
+- **Selector de período unificado (24h/7d/30d/1y/Personalizado)**
+  - `PeriodSelector` reemplaza los radiobuttons legacy del dashboard. El alumno
+    queda restringido a 24h.
+  - Soporta rangos datetime arbitrarios vía `execute_range()` en
+    `QuerySensorAggregatedUseCase`.
+
+- **Filtrado de gráficos por rol** (`allowed_chart_labels_for_role`)
+  - El alumno ve todos los gráficos excepto "Heladas". Rol desconocido →
+    subconjunto alumno (fail-safe).
+
+- **Comando CLI `configure-sync`** — setea credentials de sync (idempotente)
+  - `python -m yvy configure-sync --credentials <PATH> --server-url <URL>`.
+  - Por defecto NO pisa una config existente (seguro en instaladores repetidos);
+    `--force` sobrescribe con backup `.bak`. Valida estructura antes de tocar nada.
+  - Archivos: `cli/handlers.py` (`configure_sync`), `cli/__main__.py`
+
+- **Artículos de ayuda**: `glosario_heladas`, `glosario_rosa_vientos`
+  (linkeados en `index.json` y en `_CHART_KEY_TO_HELP`).
+
+- **Guarda de consistencia de versión** (`tests/unit/test_version_consistency.py`)
+  - Falla si `pyproject.toml [tool.poetry].version` ≠ `yvy.__version__`. Evita el
+    drift que rompería el chequeo de versión del OTA.
+
+### Changed
+
+- **Política de administradores reforzada**
+  - Cap de **2 admins comunes** (rol ADMIN) **+** superadmin aparte (antes el cap
+    de 2 incluía al superadmin). `MAX_COMMON_ADMINS = 2`.
+  - Superadmin **singleton** e **inmutable desde la UI**: no se puede desactivar,
+    cambiar de rol ni resetear su password desde la interfaz (solo CLI
+    `hero-rescue`). La UI deshabilita esas acciones; el dominio las rechaza con
+    `SuperadminProtectedError` / `SuperadminAlreadyExistsError`.
+  - Archivos: `application/use_cases/auth/{create_user,manage_user,change_password}.py`,
+    `presentation/views/admin/users_view.py`, `presentation/components/user_form_modal.py`
+
+- **`__version__` centralizado como fuente única de verdad**
+  - La app corre desde fuente en producción, así que `src/yvy/__init__.py:__version__`
+    es la referencia de runtime; `pyproject.toml` debe seguirla (enforzado por test).
+
+### Fixed
+
+- **Observaciones empíricas con valores fuera de rango se perdían en silencio**
+  - El schema tiene `CHECK(temp_c BETWEEN -50 AND 60)` y el repo guardaba con
+    `INSERT OR IGNORE`, que **descarta sin error** cualquier fila que viole un
+    CHECK. Los valores extremos nunca se persistían pese a mostrar "Sync encolado".
+  - Repo: `INSERT OR IGNORE` → `INSERT … ON CONFLICT(id) DO NOTHING` (mantiene
+    idempotencia por UUID, pero deja de tragar violaciones).
+  - Use case: los valores fuera de rango **bloquean** la carga (no se persisten
+    valores absurdos); el wizard guía a corregir o dejar el campo vacío. Los
+    campos faltantes siguen siendo confirmables. Flag `persisted` en el resultado.
+  - Archivos: `infrastructure/persistence/sqlite_empirical_repository.py`,
+    `application/use_cases/empirical/create_empirical_observation.py`,
+    `presentation/controllers/empirical_controller.py`,
+    `presentation/views/empirical/wizard_view.py`
+
+- **CLI: lectura de credentials no toleraba BOM**
+  - Un `station_credentials.json` con BOM UTF-8 (común en archivos generados en
+    Windows) rompía `configure-sync`, `test sync` y `update download`. Todos los
+    reads pasaron a `utf-8-sig`.
+
+- **FrostView: título duplicado en pantalla**
+  - Se quitó el subtítulo interno redundante; el título lo provee la cabecera del
+    dashboard y el propio matplotlib.
+
+- **`__version__` desincronizado (1.4.0) respecto de `pyproject` (1.5.0)**
+  - El bump previo quedó a medias. Corregido a 1.5.0; el chequeo de versión del
+    OTA en `launch_app` ya no marca `version_mismatch`.
+
+### Internal
+
+- `dist/usb/yvy/scripts/`: agregados `YVY_CLI.bat` y `diagnostico_sync_gap.py` que
+  faltaban en el snapshot (un USB recién instalado no tenía el CLI).
+- `docs/CLI_LANZAMIENTO.md`, `docs/yvy_CLI_GUIA.md`: documentado `configure-sync`.
+- `docs/observatorio_decisiones.md`: decisiones D78–D82.
+
 ## [1.4.0] - 2026-06-20
 
 ### Fixed

@@ -39,10 +39,8 @@ from yvy.presentation.components.chart_widget import apply_yvy_style
 from yvy.presentation.theme import (
     BG_CARD,
     BORDER,
-    FONT_SMALL,
     SPACE_LG,
     SPACE_MD,
-    SPACE_SM,
     TEXT_SECONDARY,
 )
 
@@ -99,17 +97,10 @@ class FrostView(tk.Frame):
     # ─── Construcción ─────────────────────────────────────────────────────
 
     def _build(self) -> None:
+        # El título lo provee la cabecera del dashboard (_chart_title_lbl) y el
+        # propio matplotlib (ax.set_title). No repetir un subtítulo aquí.
         inner = tk.Frame(self, bg=BG_CARD, padx=SPACE_LG, pady=SPACE_MD)
         inner.pack(fill="both", expand=True)
-
-        tk.Label(
-            inner,
-            text="Heladas y eventos térmicos",
-            bg=BG_CARD,
-            fg=TEXT_SECONDARY,
-            font=FONT_SMALL,
-            anchor="w",
-        ).pack(fill="x", pady=(0, SPACE_SM))
 
         self._chart = ChartWidget(inner, width_px=560, height_px=340)
         self._chart.pack(fill="both", expand=True)

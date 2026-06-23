@@ -133,7 +133,22 @@ class UserFormModal(tk.Toplevel):
             if self._mode == "edit"
             else "Contraseña (mín. 8 caracteres)"
         )
-        self._field(body, pwd_label_text, self._password_var, width=30, show="•")
+        pwd_entry = self._field(
+            body, pwd_label_text, self._password_var, width=30, show="•"
+        )
+
+        # El superadmin no se resetea desde la UI: solo por CLI (hero-rescue).
+        if self._mode == "edit" and self._editing is not None and (
+            self._editing.role == Role.SUPERADMIN
+        ):
+            pwd_entry.configure(state="disabled")
+            tk.Label(
+                body,
+                text="(La contraseña del superadmin solo se resetea por CLI)",
+                bg=BG_CARD,
+                fg=TEXT_SECONDARY,
+                font=FONT_SMALL,
+            ).pack(anchor="w", pady=(2, 0))
 
         # Role
         tk.Label(
@@ -143,10 +158,18 @@ class UserFormModal(tk.Toplevel):
             fg=TEXT_PRIMARY,
             font=FONT_SMALL,
         ).pack(anchor="w", pady=(SPACE_SM, 2))
+        # En creación NO se ofrece Superadmin: es singleton, se crea solo en
+        # el onboarding. Su recuperación posterior es por CLI (hero-rescue).
+        if self._mode == "create":
+            role_values = [
+                lbl for role, lbl in _ROLE_LABELS.items() if role != Role.SUPERADMIN
+            ]
+        else:
+            role_values = list(_ROLE_LABELS.values())
         role_combo = ttk.Combobox(
             body,
             textvariable=self._role_var,
-            values=list(_ROLE_LABELS.values()),
+            values=role_values,
             state="readonly" if self._mode == "create" else "disabled",
             width=28,
         )

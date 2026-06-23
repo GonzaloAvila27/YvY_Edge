@@ -29,7 +29,10 @@ _MAX_LIST_LIMIT = 200
 class SQLiteEmpiricalRepository:
     """Implementación SQLite del EmpiricalRepository.
 
-    save_* usa INSERT OR IGNORE sobre el PK natural (UUID v4).
+    save_* usa INSERT ... ON CONFLICT(pk) DO NOTHING sobre el PK natural
+    (UUID v4): idempotente ante reintentos de sync, pero —a diferencia de
+    INSERT OR IGNORE— NO traga violaciones de CHECK/NOT NULL (esas vuelven a
+    lanzar IntegrityError en vez de descartar la fila en silencio).
     """
 
     def __init__(self, conn: sqlite3.Connection) -> None:
@@ -43,7 +46,7 @@ class SQLiteEmpiricalRepository:
         try:
             self._conn.execute(
                 """
-                INSERT OR IGNORE INTO empirical_observation (
+                INSERT INTO empirical_observation (
                     observation_id,
                     observed_at_utc, observed_at_local,
                     rain_mm, temp_c, wind_beaufort, wind_direction, humidity_percept,
@@ -52,6 +55,7 @@ class SQLiteEmpiricalRepository:
                     is_valid, validation_notes,
                     created_by_user_id, created_at_utc
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(observation_id) DO NOTHING
                 """,
                 (
                     str(obs.observation_id),
@@ -156,7 +160,7 @@ class SQLiteEmpiricalRepository:
         try:
             self._conn.execute(
                 """
-                INSERT OR IGNORE INTO empirical_event (
+                INSERT INTO empirical_event (
                     event_record_id,
                     observation_date, observation_id,
                     event_type, started_at_local, ended_at_local,
@@ -164,6 +168,7 @@ class SQLiteEmpiricalRepository:
                     is_valid,
                     created_by_user_id, created_at_utc
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(event_record_id) DO NOTHING
                 """,
                 (
                     str(event.event_record_id),

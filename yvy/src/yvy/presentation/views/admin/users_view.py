@@ -29,6 +29,7 @@ import logging
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+from yvy.domain.auth.enums import Role
 from yvy.domain.auth.exceptions import AuthError
 from yvy.domain.auth.models import User
 from yvy.presentation.components.user_form_modal import UserFormModal
@@ -270,6 +271,9 @@ class UsersView(tk.Frame):
             self._toggle_btn.configure(
                 text="Reactivar" if not u.is_active else "Desactivar"
             )
+            # El superadmin no se desactiva desde la UI (solo CLI hero-rescue).
+            if u.role == Role.SUPERADMIN:
+                self._toggle_btn.state(["disabled"])
         else:
             for btn in self._action_buttons:
                 btn.state(["disabled"])

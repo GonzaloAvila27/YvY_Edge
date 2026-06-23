@@ -31,6 +31,9 @@ class _FakeAppConfig:
     def get(self, key: str) -> str | None:
         return self._data.get(key)
 
+    def set(self, key: str, value: str) -> None:
+        self._data[key] = value
+
 
 class _FakeSyncRepo:
     def __init__(
@@ -500,3 +503,125 @@ class TestFormatting:
         result = row("Label", Status.OK, "detail text")
         assert "Label" in result
         assert "detail text" in result
+
+
+# ─── configure_sync ───────────────────────────────────────────────────────
+
+
+def _write_creds(path: Path, *, station_uuid: str | None = None) -> str:
+    """Escribe un station_credentials.json válido. Devuelve el station_uuid."""
+    import json
+    su = station_uuid or str(uuid4())
+    path.write_text(
+        json.dumps({
+            "station_uuid": su,
+            "key_version": 1,
+            "key_hmac_hex": "ab" * 32,  # 32 bytes
+        }),
+        encoding="utf-8",
+    )
+    return su
+
+
+class TestConfigureSync:
+    def test_writes_credentials_and_config_on_fresh_node(self, tmp_path: Path) -> None:
+        from yvy.cli.handlers import configure_sync
+        deps = _build_deps(tmp_path)
+        src = tmp_path / "iea_creds.json"
+        su = _write_creds(src)
+
+        result = configure_sync(
+            deps, creds_path=src, server_url="https://core.example.ar", force=False,
+        )
+
+        assert result["ok"] is True
+        assert result["skipped"] is False
+        assert result["station_uuid"] == su
+        # El archivo quedó en data/station_credentials.json
+        dest = tmp_path / "data" / "station_credentials.json"
+        assert dest.exists()
+        # app_config actualizado
+        assert deps.app_config_repo.get("sync_server_url") == "https://core.example.ar"
+        assert deps.app_config_repo.get("station_uuid") == su
+
+    def test_skips_when_already_configured(self, tmp_path: Path) -> None:
+        from yvy.cli.handlers import configure_sync
+        # Nodo ya configurado: archivo presente + sync_server_url seteado
+        (tmp_path / "data").mkdir()
+        dest = tmp_path / "data" / "station_credentials.json"
+        existing_uuid = _write_creds(dest)
+        deps = _build_deps(tmp_path, app_config_data={
+            "sync_server_url": "https://old.example.ar",
+            "station_uuid": existing_uuid,
+        })
+
+        # Intento setear OTRAS credentials sin --force
+        src = tmp_path / "new_creds.json"
+        _write_creds(src)
+        result = configure_sync(
+            deps, creds_path=src, server_url="https://new.example.ar", force=False,
+        )
+
+        assert result["skipped"] is True
+        assert result["reason"] == "already_configured"
+        # No se pisó: server_url sigue siendo el viejo
+        assert deps.app_config_repo.get("sync_server_url") == "https://old.example.ar"
+
+    def test_force_overwrites_and_backs_up(self, tmp_path: Path) -> None:
+        from yvy.cli.handlers import configure_sync
+        (tmp_path / "data").mkdir()
+        dest = tmp_path / "data" / "station_credentials.json"
+        _write_creds(dest)
+        deps = _build_deps(tmp_path, app_config_data={
+            "sync_server_url": "https://old.example.ar",
+        })
+
+        src = tmp_path / "new_creds.json"
+        new_uuid = _write_creds(src)
+        result = configure_sync(
+            deps, creds_path=src, server_url="https://new.example.ar", force=True,
+        )
+
+        assert result["ok"] is True
+        assert result["skipped"] is False
+        assert result["station_uuid"] == new_uuid
+        assert deps.app_config_repo.get("sync_server_url") == "https://new.example.ar"
+        # Backup creado
+        assert (tmp_path / "data" / "station_credentials.json.bak").exists()
+
+    def test_missing_credentials_file_errors(self, tmp_path: Path) -> None:
+        from yvy.cli.handlers import configure_sync
+        deps = _build_deps(tmp_path)
+        result = configure_sync(
+            deps, creds_path=tmp_path / "nope.json",
+            server_url="https://core.example.ar", force=False,
+        )
+        assert result["ok"] is False
+        assert result["reason"] == "creds_not_found"
+
+    def test_invalid_credentials_errors(self, tmp_path: Path) -> None:
+        from yvy.cli.handlers import configure_sync
+        import json
+        deps = _build_deps(tmp_path)
+        src = tmp_path / "bad.json"
+        src.write_text(json.dumps({
+            "station_uuid": str(uuid4()), "key_version": 1,
+            "key_hmac_hex": "abcd",  # muy corto
+        }), encoding="utf-8")
+        result = configure_sync(
+            deps, creds_path=src, server_url="https://core.example.ar", force=False,
+        )
+        assert result["ok"] is False
+        assert result["reason"] == "creds_invalid"
+
+    def test_missing_server_url_errors(self, tmp_path: Path, monkeypatch) -> None:
+        from yvy.cli.handlers import configure_sync
+        monkeypatch.delenv("YVY_SYNC_URL", raising=False)
+        deps = _build_deps(tmp_path)
+        src = tmp_path / "creds.json"
+        _write_creds(src)
+        result = configure_sync(
+            deps, creds_path=src, server_url=None, force=False,
+        )
+        assert result["ok"] is False
+        assert result["reason"] == "no_server_url"

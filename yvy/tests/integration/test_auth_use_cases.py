@@ -24,6 +24,8 @@ from yvy.domain.auth.enums import AuditEventType, Role
 from yvy.domain.auth.exceptions import (
     CannotDeactivateLastAdminError,
     InvalidCredentialsError,
+    SuperadminAlreadyExistsError,
+    SuperadminProtectedError,
     TooManyAdminsError,
     UserInactiveError,
     UsernameAlreadyExistsError,
@@ -153,10 +155,10 @@ class TestCreateUser:
                 role=Role.PROFESOR,
             )
 
-    def test_enforces_max_admins(
+    def test_enforces_max_common_admins(
         self, create_user_use_case: CreateUserUseCase
     ) -> None:
-        """No se pueden crear más de 2 cuentas administrativas."""
+        """Superadmin + 2 admins comunes OK; el 3er admin común falla."""
         create_user_use_case.execute(
             username="superuser",
             full_name="Super User",
@@ -169,14 +171,39 @@ class TestCreateUser:
             password="strongpass2",
             role=Role.ADMIN,
         )
+        # El superadmin NO cuenta contra el cap de comunes: el 2do admin común OK.
+        create_user_use_case.execute(
+            username="admin2",
+            full_name="Admin Two",
+            password="strongpass3",
+            role=Role.ADMIN,
+        )
 
-        # El 3ro debe fallar
+        # El 3er admin común debe fallar
         with pytest.raises(TooManyAdminsError):
             create_user_use_case.execute(
-                username="admin2",
-                full_name="Admin Two",
-                password="strongpass3",
+                username="admin3",
+                full_name="Admin Three",
+                password="strongpass4",
                 role=Role.ADMIN,
+            )
+
+    def test_superadmin_is_singleton(
+        self, create_user_use_case: CreateUserUseCase
+    ) -> None:
+        """No se puede crear un segundo superadmin desde el use case."""
+        create_user_use_case.execute(
+            username="superuser",
+            full_name="Super User",
+            password="strongpass1",
+            role=Role.SUPERADMIN,
+        )
+        with pytest.raises(SuperadminAlreadyExistsError):
+            create_user_use_case.execute(
+                username="superuser2",
+                full_name="Super User 2",
+                password="strongpass2",
+                role=Role.SUPERADMIN,
             )
 
     def test_max_admins_constant_is_2(self) -> None:
@@ -408,6 +435,56 @@ class TestChangePassword:
 
         login_use_case.execute("alice", "newpass_by_admin")
 
+    def test_admin_cannot_reset_superadmin_password(
+        self,
+        change_password_use_case: ChangePasswordUseCase,
+        create_user_use_case: CreateUserUseCase,
+    ) -> None:
+        """Un admin no puede resetear la password del superadmin desde la UI."""
+        superadmin = create_user_use_case.execute(
+            username="superuser",
+            full_name="Super User",
+            password="superpass0",
+            role=Role.SUPERADMIN,
+        )
+        admin = create_user_use_case.execute(
+            username="admin1",
+            full_name="Admin",
+            password="adminpass",
+            role=Role.ADMIN,
+        )
+
+        with pytest.raises(SuperadminProtectedError):
+            change_password_use_case.execute(
+                target_user_id=superadmin.id,
+                new_password="hacked_by_admin",
+                old_password=None,
+                actor_user_id=admin.id,
+            )
+
+    def test_superadmin_can_change_own_password(
+        self,
+        change_password_use_case: ChangePasswordUseCase,
+        create_user_use_case: CreateUserUseCase,
+        login_use_case: LoginUseCase,
+    ) -> None:
+        """Self-service: el superadmin sí puede cambiar su propia password."""
+        superadmin = create_user_use_case.execute(
+            username="superuser",
+            full_name="Super User",
+            password="superpass0",
+            role=Role.SUPERADMIN,
+        )
+
+        change_password_use_case.execute(
+            target_user_id=superadmin.id,
+            new_password="new_superpass",
+            old_password="superpass0",
+            actor_user_id=superadmin.id,
+        )
+
+        login_use_case.execute("superuser", "new_superpass")
+
 
 # ═════════════════════════════════════════════════════════════════════════
 # SetUserActiveUseCase
@@ -416,17 +493,35 @@ class TestChangePassword:
 
 @pytest.mark.integration
 class TestSetUserActive:
-    def test_cannot_deactivate_last_admin(
+    def test_cannot_deactivate_superadmin(
         self,
         set_active_use_case: SetUserActiveUseCase,
         create_user_use_case: CreateUserUseCase,
     ) -> None:
-        """Defensivo: no podés dejarte sin admins."""
+        """El superadmin es inmutable desde la UI: no se desactiva."""
+        u = create_user_use_case.execute(
+            username="superuser",
+            full_name="Super User",
+            password="adminpass",
+            role=Role.SUPERADMIN,
+        )
+
+        with pytest.raises(SuperadminProtectedError):
+            set_active_use_case.execute(
+                target_user_id=u.id, is_active=False
+            )
+
+    def test_cannot_deactivate_last_common_admin(
+        self,
+        set_active_use_case: SetUserActiveUseCase,
+        create_user_use_case: CreateUserUseCase,
+    ) -> None:
+        """Defensivo: sin superadmin, no podés desactivar el único admin común."""
         u = create_user_use_case.execute(
             username="onlyadmin",
             full_name="Only Admin",
             password="adminpass",
-            role=Role.SUPERADMIN,
+            role=Role.ADMIN,
         )
 
         with pytest.raises(CannotDeactivateLastAdminError):

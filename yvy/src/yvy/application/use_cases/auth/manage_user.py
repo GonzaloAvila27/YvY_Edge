@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from yvy.domain.auth.enums import AuditEventType, AuditSource, Role
 from yvy.domain.auth.exceptions import (
     CannotDeactivateLastAdminError,
+    SuperadminProtectedError,
     UserNotFoundError,
 )
 from yvy.domain.auth.models import AuditLogEntry
@@ -21,7 +22,8 @@ class SetUserActiveUseCase:
     """Activar o desactivar un user.
 
     Reglas:
-    - Desactivar el último admin/superadmin activo → CannotDeactivateLastAdminError.
+    - El superadmin no puede desactivarse desde la UI → SuperadminProtectedError.
+    - Desactivar el último admin común activo → CannotDeactivateLastAdminError.
     - Audit USER_DEACTIVATED o USER_REACTIVATED según el caso.
     """
 
@@ -42,8 +44,16 @@ class SetUserActiveUseCase:
         if target.is_active == is_active:
             return  # No-op
 
-        # Si vamos a desactivar a un admin/superadmin, validar que no sea el último.
-        if not is_active and target.role in (Role.ADMIN, Role.SUPERADMIN):
+        # El superadmin es inmutable desde la UI: no se desactiva. Solo CLI.
+        if not is_active and target.role == Role.SUPERADMIN:
+            raise SuperadminProtectedError(
+                "El superadmin no puede desactivarse desde la interfaz. "
+                "Usar CLI (hero-rescue) si es estrictamente necesario."
+            )
+
+        # Defensivo: no dejar la app sin ningún admin activo. Cuenta admin
+        # común + superadmin (el superadmin, inmutable, suele ser el ancla).
+        if not is_active and target.role == Role.ADMIN:
             active_admins = self.user_repo.count_active_admins()
             if active_admins <= 1:
                 raise CannotDeactivateLastAdminError(

@@ -9,10 +9,15 @@ import pytest
 
 @pytest.mark.unit
 def test_package_importable() -> None:
-    """El paquete yvy debe ser importable."""
+    """El paquete yvy debe ser importable y exponer una versión válida.
+
+    No se afirma un valor fijo (eso obligaría a tocar este test en cada
+    release y reintroduciría el drift). La consistencia con pyproject la
+    enforcea tests/unit/test_version_consistency.py.
+    """
     import yvy
 
-    assert yvy.__version__ == "1.4.0"
+    assert isinstance(yvy.__version__, str) and yvy.__version__
 
 
 @pytest.mark.unit

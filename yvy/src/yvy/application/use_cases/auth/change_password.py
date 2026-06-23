@@ -14,8 +14,12 @@ import logging
 from dataclasses import dataclass
 
 from yvy.application.ports.password_hasher import PasswordHasher
-from yvy.domain.auth.enums import AuditEventType, AuditSource
-from yvy.domain.auth.exceptions import InvalidCredentialsError, UserNotFoundError
+from yvy.domain.auth.enums import AuditEventType, AuditSource, Role
+from yvy.domain.auth.exceptions import (
+    InvalidCredentialsError,
+    SuperadminProtectedError,
+    UserNotFoundError,
+)
 from yvy.domain.auth.models import AuditLogEntry, validate_password_strength
 from yvy.domain.auth.repository import AuditLogRepository, UserRepository
 
@@ -53,8 +57,18 @@ class ChangePasswordUseCase:
         if target is None:
             raise UserNotFoundError(f"User id={target_user_id} no existe")
 
-        # Si self-service, verificar old_password
         is_self_service = (actor_user_id == target_user_id)
+
+        # El superadmin solo puede cambiar su propia password (self-service).
+        # Un admin NO puede resetear la password del superadmin desde la UI;
+        # esa recuperación es exclusiva del CLI (hero-rescue).
+        if target.role == Role.SUPERADMIN and not is_self_service:
+            raise SuperadminProtectedError(
+                "La password del superadmin no puede resetearse desde la "
+                "interfaz. Usar CLI (hero-rescue)."
+            )
+
+        # Si self-service, verificar old_password
         if is_self_service:
             if old_password is None:
                 raise InvalidCredentialsError(

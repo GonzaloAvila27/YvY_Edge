@@ -3,7 +3,9 @@
 Aplica:
 - Validación de password fuerte (min 8 chars).
 - Validación de username único.
-- Límite hardcoded de 2 admins (incluye superadmins) en la app local.
+- Límite institucional de admins: máximo 2 admins COMUNES (rol ADMIN)
+  más un único superadmin (singleton). El superadmin NO cuenta contra
+  el cap de admins comunes.
 - Audit USER_CREATED.
 
 NO valida permisos del que crea (eso es responsabilidad del controller
@@ -20,6 +22,7 @@ from uuid import uuid4
 from yvy.application.ports.password_hasher import PasswordHasher
 from yvy.domain.auth.enums import AuditEventType, AuditSource, Role
 from yvy.domain.auth.exceptions import (
+    SuperadminAlreadyExistsError,
     TooManyAdminsError,
     UsernameAlreadyExistsError,
 )
@@ -29,8 +32,12 @@ from yvy.domain.auth.repository import AuditLogRepository, UserRepository
 logger = logging.getLogger(__name__)
 
 
-# Límite institucional: máximo 2 cuentas con rol admin o superadmin.
-MAX_ADMINS = 2
+# Límite institucional: máximo 2 cuentas con rol ADMIN (comunes).
+# El superadmin es singleton y queda fuera de este conteo.
+MAX_COMMON_ADMINS = 2
+
+# Alias retro-compatible (algunos tests/imports usan el nombre viejo).
+MAX_ADMINS = MAX_COMMON_ADMINS
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,16 +77,22 @@ class CreateUserUseCase:
                 f"Ya existe un usuario con username '{username}'"
             )
 
-        # Límite de admins
-        if role in (Role.ADMIN, Role.SUPERADMIN):
-            current = (
-                self.user_repo.count_by_role(Role.ADMIN)
-                + self.user_repo.count_by_role(Role.SUPERADMIN)
-            )
-            if current >= MAX_ADMINS:
+        # Límite de admins comunes (rol ADMIN): máximo MAX_COMMON_ADMINS.
+        if role == Role.ADMIN:
+            current = self.user_repo.count_by_role(Role.ADMIN)
+            if current >= MAX_COMMON_ADMINS:
                 raise TooManyAdminsError(
-                    f"Límite de {MAX_ADMINS} cuentas administrativas alcanzado. "
-                    f"Desactivá una existente antes de crear otra."
+                    f"Límite de {MAX_COMMON_ADMINS} administradores comunes "
+                    f"alcanzado. Desactivá uno existente antes de crear otro."
+                )
+
+        # Superadmin: singleton. Solo se crea en el onboarding (cuando aún
+        # no existe ninguno). Cualquier intento posterior se rechaza.
+        if role == Role.SUPERADMIN:
+            if self.user_repo.count_by_role(Role.SUPERADMIN) >= 1:
+                raise SuperadminAlreadyExistsError(
+                    "Ya existe un superadmin. Es una cuenta única; "
+                    "su recuperación se hace por CLI (hero-rescue)."
                 )
 
         # Crear

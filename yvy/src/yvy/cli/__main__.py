@@ -14,6 +14,7 @@ Subcomandos:
     test sensor           Verifica USB y detección del WH1081.
     test db               Verifica DB accesible y migrada.
     test sync             Verifica config + conectividad al server.
+    configure-sync        Setea credentials de sync (idempotente; --force pisa).
 
 Cada subcomando devuelve exit code 0 si todo OK, 1 si hay problemas.
 Útil para scripts y monitoreo: ``if python -m yvy test sync; then ...``.
@@ -150,6 +151,36 @@ def _add_test_parser(subparsers: argparse._SubParsersAction) -> None:
     )
 
 
+def _add_configure_sync_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Agrega el subparser ``configure-sync``."""
+    p = subparsers.add_parser(
+        "configure-sync",
+        help="Setea credentials de sync (solo si no existen, salvo --force).",
+        description=(
+            "Instala station_credentials.json + sync_server_url en el nodo. "
+            "Idempotente: por defecto NO pisa una configuración existente "
+            "(seguro de correr en instaladores). Usar --force para sobrescribir."
+        ),
+    )
+    p.add_argument(
+        "--credentials",
+        required=True,
+        metavar="PATH",
+        help="Ruta al archivo station_credentials.json a instalar.",
+    )
+    p.add_argument(
+        "--server-url",
+        default=None,
+        metavar="URL",
+        help="URL base de YVY Core (o variable de entorno YVY_SYNC_URL).",
+    )
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="Sobrescribir aunque ya esté configurado (hace backup .bak).",
+    )
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="yvy",
@@ -196,6 +227,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_update_parser(subparsers)
     _add_rollback_parser(subparsers)
     _add_test_parser(subparsers)
+    _add_configure_sync_parser(subparsers)
 
     return parser
 
@@ -449,6 +481,41 @@ def _cmd_update_download(root: Path, no_migrate: bool) -> int:
     return 0
 
 
+def _cmd_configure_sync(
+    root: Path,
+    no_migrate: bool,
+    creds_path: str,
+    server_url: str | None,
+    force: bool,
+) -> int:
+    from yvy.bootstrap import build_core_dependencies
+    from yvy.cli.handlers import configure_sync
+
+    deps = build_core_dependencies(root=root, run_migrations_on_start=not no_migrate)
+    result = configure_sync(
+        deps, creds_path=Path(creds_path), server_url=server_url, force=force,
+    )
+
+    if result["skipped"]:
+        print("Sync ya configurado en este nodo:")
+        print(f"  station_uuid:     {result['station_uuid']}")
+        print(f"  sync_server_url:  {result['server_url']}")
+        print("No se modificó nada. Usar --force para sobrescribir.")
+        return 0
+
+    if not result["ok"]:
+        print(f"Error: {result['error']}")
+        return 1
+
+    for note in result.get("notes", []):
+        print(f"  {note}")
+    print(f"  Credentials escritas en:  {result['dest_path']}")
+    print(f"  station_uuid:             {result['station_uuid']}")
+    print(f"  sync_server_url:          {result['server_url']}")
+    print("Sync configurado correctamente.")
+    return 0
+
+
 def _cmd_check_updates(root: Path, no_migrate: bool) -> int:
     from yvy.bootstrap import build_core_dependencies
     from yvy.cli.handlers import compute_check_updates
@@ -505,6 +572,14 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_info(root, no_migrate)
     if args.command == "check-updates":
         return _cmd_check_updates(root, no_migrate)
+    if args.command == "configure-sync":
+        return _cmd_configure_sync(
+            root,
+            no_migrate,
+            creds_path=args.credentials,
+            server_url=args.server_url,
+            force=args.force,
+        )
     if args.command == "update":
         if args.update_action == "status":
             return _cmd_update_status(root, no_migrate)
