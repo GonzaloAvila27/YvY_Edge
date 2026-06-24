@@ -59,6 +59,24 @@
           "title": "Probable helada radiativa",
           "summary": "YVY indica en 3 niveles (alta/media/baja) la probabilidad de helada radiativa, evaluando temperatura exterior y punto de rocío. Las bandas sombreadas en el gráfico marcan el período nocturno 18:00–08:00. El sensor es consumer-grade: la indicación es probabilística, no confirmada.",
           "related": ["glosario_temperatura", "glosario_dewpoint"]
+        },
+        {
+          "key": "glosario_beaufort",
+          "title": "Escala de Beaufort (viento)",
+          "summary": "Estima la fuerza del viento sin instrumentos, observando el entorno: de 0 (humo vertical, calma) a 12 (huracán). En Misiones lo habitual es 0–6. Para fumigar, seguro es 0–3. Si dudás entre dos niveles, elegí el menor. Útil para la carga manual de viento en observaciones de campo.",
+          "related": ["glosario_viento", "glosario_rosa_vientos"]
+        },
+        {
+          "key": "glosario_nubes",
+          "title": "Tipos de nubes",
+          "summary": "Cómo identificar la nube predominante y qué anticipa: cirros (altos, finos, primer aviso de cambio), cúmulos (algodonosos, buen tiempo), estratos (capa gris, llovizna), cumulonimbos (torres, tormenta). Elegí la que más se parece a lo que ves. Útil para la observación cualitativa del cielo.",
+          "related": ["glosario_cobertura_cielo", "glosario_heladas"]
+        },
+        {
+          "key": "glosario_cobertura_cielo",
+          "title": "Cobertura del cielo",
+          "summary": "Qué porción del cielo está tapada por nubes, estimada a ojo en cuartos: 0% despejado, 25% poco nublado, 50% parcial, 75% mayormente nublado, 100% cubierto. Un cielo despejado de noche favorece helada y rocío; uno cubierto retiene calor. Para la carga manual de observaciones.",
+          "related": ["glosario_nubes", "glosario_heladas"]
         }
       ]
     },

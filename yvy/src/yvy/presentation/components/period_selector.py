@@ -19,11 +19,14 @@ from yvy.domain.observatorio.period_range import PeriodRange
 from yvy.domain.observatorio.range_clamp import clamp_to_data_range
 from yvy.presentation.theme import (
     BG_CARD,
+    BORDER,
     DANGER,
     FONT_BODY,
     FONT_SMALL,
+    PRIMARY,
     SPACE_SM,
     SPACE_XS,
+    TEXT_PRIMARY,
     TEXT_SECONDARY,
 )
 
@@ -127,6 +130,19 @@ class PeriodSelector(tk.Frame):
 
     # ─── Construcción ─────────────────────────────────────────────────────
 
+    def _make_date_entry(self) -> tk.Entry:
+        """Entry de fecha con colores explícitos.
+
+        Sin bg/fg explícitos, en dark mode recolor pinta el texto claro pero la
+        caja queda blanca (no reconoce "white"/SystemWindow) → texto invisible.
+        """
+        return tk.Entry(
+            self._custom_row, width=11, font=FONT_SMALL,
+            bg=BG_CARD, fg=TEXT_PRIMARY, relief="flat", bd=0,
+            highlightbackground=BORDER, highlightthickness=1, highlightcolor=PRIMARY,
+            insertbackground=TEXT_PRIMARY,
+        )
+
     def _build(self) -> None:
         # ── Fila 0: label + radiobuttons ──────────────────────────────────
         top_row = tk.Frame(self, bg=BG_CARD)
@@ -165,13 +181,13 @@ class PeriodSelector(tk.Frame):
         tk.Label(
             self._custom_row, text="Desde:", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL
         ).pack(side="left")
-        self._from_entry = tk.Entry(self._custom_row, width=11, font=FONT_SMALL)
+        self._from_entry = self._make_date_entry()
         self._from_entry.pack(side="left", padx=(SPACE_XS, SPACE_SM))
 
         tk.Label(
             self._custom_row, text="Hasta:", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL
         ).pack(side="left")
-        self._until_entry = tk.Entry(self._custom_row, width=11, font=FONT_SMALL)
+        self._until_entry = self._make_date_entry()
         self._until_entry.pack(side="left", padx=(SPACE_XS, SPACE_SM))
 
         ttk.Button(

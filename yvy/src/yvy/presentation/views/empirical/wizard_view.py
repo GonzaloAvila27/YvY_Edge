@@ -63,6 +63,7 @@ from yvy.presentation.theme import (
     TEXT_PRIMARY,
     TEXT_SECONDARY,
 )
+from yvy.presentation.components.help_button import HelpButton
 from yvy.presentation.views.empirical.event_form_modal import EmpiricalEventFormModal
 
 logger = logging.getLogger(__name__)
@@ -92,12 +93,16 @@ class EmpiricalWizardView(tk.Frame):
         current_user: User,
         on_complete: callable,  # type: ignore[type-arg]
         on_cancel: callable,  # type: ignore[type-arg]
+        help_repository=None,  # type: ignore[no-untyped-def]
+        on_open_help=None,  # type: ignore[no-untyped-def]
     ) -> None:
         super().__init__(parent, bg=COLORS["bg"])
         self._controller = controller
         self._current_user = current_user
         self._on_complete = on_complete
         self._on_cancel = on_cancel
+        self._help_repo = help_repository
+        self._on_open_help = on_open_help
 
         # State acumulado entre steps
         self._current_step = 0
@@ -159,9 +164,42 @@ class EmpiricalWizardView(tk.Frame):
         self._footer.pack(side="bottom", fill="x")
         self._footer.pack_propagate(False)
 
-        # Body (se reconstruye en cada step)
-        self._body = tk.Frame(self, bg=COLORS["bg"])
-        self._body.pack(side="top", fill="both", expand=True)
+        # Body scrollable compartido: en notebooks chicas el contenido de
+        # varios pasos supera el alto disponible. self._body es el frame
+        # interno donde renderizan los steps (sin cambios en sus métodos).
+        body_wrap = tk.Frame(self, bg=COLORS["bg"])
+        body_wrap.pack(side="top", fill="both", expand=True)
+
+        self._body_canvas = tk.Canvas(body_wrap, bg=COLORS["bg"], highlightthickness=0)
+        body_scroll = ttk.Scrollbar(
+            body_wrap, orient="vertical", command=self._body_canvas.yview
+        )
+        self._body_canvas.configure(yscrollcommand=body_scroll.set)
+        body_scroll.pack(side="right", fill="y")
+        self._body_canvas.pack(side="left", fill="both", expand=True)
+
+        self._body = tk.Frame(self._body_canvas, bg=COLORS["bg"])
+        self._body_win = self._body_canvas.create_window(
+            (0, 0), window=self._body, anchor="nw"
+        )
+        self._body_canvas.bind(
+            "<Configure>",
+            lambda e: self._body_canvas.itemconfig(self._body_win, width=e.width),
+        )
+        self._body.bind(
+            "<Configure>",
+            lambda _: self._body_canvas.configure(
+                scrollregion=self._body_canvas.bbox("all")
+            ),
+        )
+        # Rueda del mouse, scoped al área del wizard (bind/unbind por hover)
+        body_wrap.bind(
+            "<Enter>",
+            lambda _: self._body_canvas.bind_all("<MouseWheel>", self._on_mousewheel),
+        )
+        body_wrap.bind(
+            "<Leave>", lambda _: self._body_canvas.unbind_all("<MouseWheel>")
+        )
 
         self._btn_cancel = ttk.Button(
             self._footer, text="Cancelar", style="Secondary.TButton",
@@ -221,6 +259,52 @@ class EmpiricalWizardView(tk.Frame):
         if lp is not None:
             from yvy.presentation.theme_manager import recolor
             recolor(self._body, lp)
+
+        # Cada step arranca desde el tope del scroll
+        self._body_canvas.yview_moveto(0)
+        self.after_idle(
+            lambda: self._body_canvas.configure(
+                scrollregion=self._body_canvas.bbox("all")
+            )
+        )
+
+    def _on_mousewheel(self, event) -> None:  # noqa: ANN001
+        """Scroll del body con la rueda del mouse (Windows: delta múltiplo de 120)."""
+        self._body_canvas.yview_scroll(int(-event.delta / 120), "units")
+
+    # ─── Ayuda contextual ([?] por campo) ─────────────────────────────────
+
+    def _help_btn(self, parent, article_key):  # type: ignore[no-untyped-def]
+        """HelpButton del campo, o None si no hay repo o el artículo no existe."""
+        if self._help_repo is None:
+            return None
+        try:
+            if self._help_repo.get_article(article_key) is None:
+                return None
+        except Exception:
+            return None
+        return HelpButton(
+            parent,
+            help_repository=self._help_repo,
+            article_key=article_key,
+            on_expand=self._on_open_help,
+            bg=COLORS["bg"],
+        )
+
+    def _field_header(
+        self, parent, text, article_key, *,
+        font=FONT_FORM_LABEL, fg=TEXT_PRIMARY, pady=(0, FORM_LABEL_MB),
+    ):  # type: ignore[no-untyped-def]
+        """Fila 'label + [?]' para encabezar un campo. Reemplaza un tk.Label simple."""
+        hdr = tk.Frame(parent, bg=COLORS["bg"])
+        hdr.pack(anchor="w", pady=pady)
+        tk.Label(
+            hdr, text=text, font=font, bg=COLORS["bg"], fg=fg, anchor="w",
+        ).pack(side="left")
+        hb = self._help_btn(hdr, article_key)
+        if hb is not None:
+            hb.pack(side="left", padx=(6, 0))
+        return hdr
 
     # ════════════════════════════════════════════════════════════════════
     # Step 1: Cabecera
@@ -354,6 +438,7 @@ class EmpiricalWizardView(tk.Frame):
             var=self._rain_var,
             hint="Pluviómetro manual",
             padx=(0, half_gap),
+            article_key="glosario_lluvia_uv",
         )
         self._place_numeric_field(
             grid, row=0, col=1,
@@ -361,6 +446,7 @@ class EmpiricalWizardView(tk.Frame):
             var=self._temp_var,
             hint="Termómetro de máx/mín",
             padx=(half_gap, 0),
+            article_key="glosario_temperatura",
         )
 
         # ── Fila 1: Viento Beaufort (span 2, full-width) ─────────────────
@@ -369,10 +455,7 @@ class EmpiricalWizardView(tk.Frame):
             row=1, column=0, columnspan=2,
             sticky="ew", pady=(FORM_ROW_GAP, 0),
         )
-        tk.Label(
-            beau_cell, text="Viento (Beaufort 0-12)",
-            font=FONT_FORM_LABEL, bg=COLORS["bg"], fg=TEXT_PRIMARY, anchor="w",
-        ).pack(anchor="w", pady=(0, FORM_LABEL_MB))
+        self._field_header(beau_cell, "Viento (Beaufort 0-12)", "glosario_beaufort")
         self._beaufort_var = tk.StringVar(
             value=str(self._state["wind_beaufort"] or "")
         )
@@ -389,10 +472,7 @@ class EmpiricalWizardView(tk.Frame):
             row=2, column=0, columnspan=2,
             sticky="ew", pady=(FORM_ROW_GAP, 0),
         )
-        tk.Label(
-            wind_cell, text="Dirección del viento",
-            font=FONT_FORM_LABEL, bg=COLORS["bg"], fg=TEXT_PRIMARY, anchor="w",
-        ).pack(anchor="w", pady=(0, FORM_LABEL_MB))
+        self._field_header(wind_cell, "Dirección del viento", "glosario_viento")
 
         radio_wind = tk.Frame(wind_cell, bg=COLORS["bg"])
         radio_wind.pack(fill="x")
@@ -418,10 +498,7 @@ class EmpiricalWizardView(tk.Frame):
             row=3, column=0, columnspan=2,
             sticky="ew", pady=(FORM_ROW_GAP, 0),
         )
-        tk.Label(
-            hum_cell, text="Humedad percibida",
-            font=FONT_FORM_LABEL, bg=COLORS["bg"], fg=TEXT_PRIMARY, anchor="w",
-        ).pack(anchor="w", pady=(0, FORM_LABEL_MB))
+        self._field_header(hum_cell, "Humedad percibida", "glosario_humedad")
 
         radio_hum = tk.Frame(hum_cell, bg=COLORS["bg"])
         radio_hum.pack(fill="x")
@@ -446,16 +523,20 @@ class EmpiricalWizardView(tk.Frame):
         var: tk.StringVar,
         hint: str,
         padx: tuple[int, int] = (0, 0),
+        article_key: str | None = None,
     ) -> None:
-        """Celda de grid: label arriba, Entry FONT_FORM_INPUT, hint abajo."""
+        """Celda de grid: label (+[?] opcional) arriba, Entry, hint abajo."""
         cell = tk.Frame(parent, bg=COLORS["bg"])
         cell.grid(row=row, column=col, sticky="nsew", padx=padx)
 
-        tk.Label(
-            cell, text=label,
-            font=FONT_FORM_LABEL, bg=COLORS["bg"],
-            fg=TEXT_PRIMARY, anchor="w",
-        ).pack(anchor="w", pady=(0, FORM_LABEL_MB))
+        if article_key is not None:
+            self._field_header(cell, label, article_key)
+        else:
+            tk.Label(
+                cell, text=label,
+                font=FONT_FORM_LABEL, bg=COLORS["bg"],
+                fg=TEXT_PRIMARY, anchor="w",
+            ).pack(anchor="w", pady=(0, FORM_LABEL_MB))
 
         vcmd = (self.register(_validate_numeric_input), "%P")
         tk.Entry(
@@ -486,8 +567,9 @@ class EmpiricalWizardView(tk.Frame):
     def _render_step_qualitative(self) -> None:
         """Step 3 — Observaciones a simple vista.
 
-        Grid de 2 columnas. Canvas con scrollbar solo activo cuando el
-        contenido supera el área visible (poco probable a ≥1280px).
+        Grid de 2 columnas. El scroll lo provee el body compartido
+        (self._body dentro del canvas del wizard); este step solo renderiza
+        su contenido, sin canvas propio.
 
         Fila 0 (span 2): Cobertura del cielo — 5 radios en línea
         Fila 1 col 0:    LabelFrame Tipo de nubes (6 radios verticales)
@@ -496,30 +578,7 @@ class EmpiricalWizardView(tk.Frame):
         Fila 3 col 0:    LabelFrame Estado del ganado (4 radios horiz)
         Fila 3 col 1:    Observaciones del ganado — Text
         """
-        # Canvas con scrollbar — se activa solo si el contenido desborda
-        outer = tk.Frame(self._body, bg=COLORS["bg"])
-        outer.pack(fill="both", expand=True)
-
-        canvas = tk.Canvas(outer, bg=COLORS["bg"], highlightthickness=0)
-        scrollbar = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
-        canvas.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
-        canvas.pack(side="left", fill="both", expand=True)
-
-        content = tk.Frame(canvas, bg=COLORS["bg"])
-        win_id = canvas.create_window((0, 0), window=content, anchor="nw")
-
-        # El contenido sigue el ancho del canvas (sin scroll horizontal)
-        canvas.bind(
-            "<Configure>",
-            lambda e: canvas.itemconfig(win_id, width=e.width),
-        )
-        content.bind(
-            "<Configure>",
-            lambda _: canvas.configure(scrollregion=canvas.bbox("all")),
-        )
-
-        inner = tk.Frame(content, bg=COLORS["bg"])
+        inner = tk.Frame(self._body, bg=COLORS["bg"])
         inner.pack(padx=FORM_PADDING_H, pady=FORM_PADDING_V, fill="both", expand=True)
 
         tk.Label(
@@ -547,10 +606,7 @@ class EmpiricalWizardView(tk.Frame):
         sky_cell.grid(row=0, column=0, columnspan=2, sticky="ew",
                       pady=(0, _rg))
 
-        tk.Label(
-            sky_cell, text="Cobertura del cielo",
-            font=FONT_FORM_LABEL, bg=COLORS["bg"], fg=TEXT_PRIMARY, anchor="w",
-        ).pack(anchor="w", pady=(0, FORM_LABEL_MB))
+        self._field_header(sky_cell, "Cobertura del cielo", "glosario_cobertura_cielo")
 
         sky_radios = tk.Frame(sky_cell, bg=COLORS["bg"])
         sky_radios.pack(anchor="w")
@@ -570,6 +626,10 @@ class EmpiricalWizardView(tk.Frame):
         )
         cloud_lf.grid(row=1, column=0, sticky="nsew",
                       padx=(0, half_gap), pady=(0, _rg))
+        # El título de un LabelFrame no admite widgets → [?] adentro, arriba.
+        _cloud_help = self._help_btn(cloud_lf, "glosario_nubes")
+        if _cloud_help is not None:
+            _cloud_help.pack(anchor="e")
         for ct in CloudType:
             ttk.Radiobutton(
                 cloud_lf, text=CLOUD_TYPE_DESCRIPTIONS[ct],
@@ -699,7 +759,15 @@ class EmpiricalWizardView(tk.Frame):
 
         # Comentarios generales
         tk.Label(container, text="Comentarios generales (opcional):", font=FONTS["body_bold"], bg=COLORS["bg"]).pack(anchor="w")
-        self._general_notes_text = tk.Text(container, height=4, width=80, font=FONTS["body"])
+        # bg/fg explícitos: sin ellos, en dark mode recolor() pinta el fg claro
+        # pero la caja queda blanca (no reconoce "white"/SystemWindow) → texto
+        # invisible. Mismo styling que los Text del step 3.
+        self._general_notes_text = tk.Text(
+            container, height=4, font=FONTS["body"],
+            bg=BG_CARD, fg=TEXT_PRIMARY, relief="flat", bd=0,
+            highlightbackground=BORDER, highlightthickness=1, highlightcolor=PRIMARY,
+            insertbackground=TEXT_PRIMARY,
+        )
         self._general_notes_text.pack(anchor="w", fill="x", pady=(SPACE_SM, SPACE_LG))
         if self._state["general_notes"]:
             self._general_notes_text.insert("1.0", self._state["general_notes"])

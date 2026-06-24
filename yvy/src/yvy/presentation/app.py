@@ -232,8 +232,16 @@ class MainApplication(tk.Tk):
         super().__init__()
 
         self.title("YVY Edge — Sistema meteorológico escolar")
-        self.geometry(f"{WINDOW_DEFAULT_WIDTH}x{WINDOW_DEFAULT_HEIGHT}")
-        self.minsize(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT)
+        # Clampear al área usable: en netbooks escolares chicas (1366x768,
+        # 1024x600) el alto por defecto (768) supera la pantalla y la ventana
+        # queda más alta que el área visible → footer y bordes inferiores
+        # cortados. min() no-opea en pantallas grandes.
+        _sw, _sh = self.winfo_screenwidth(), self.winfo_screenheight()
+        _margin = 72  # barra de tareas + barra de título
+        _w = min(WINDOW_DEFAULT_WIDTH, _sw)
+        _h = min(WINDOW_DEFAULT_HEIGHT, _sh - _margin)
+        self.geometry(f"{_w}x{_h}")
+        self.minsize(min(WINDOW_MIN_WIDTH, _sw), min(WINDOW_MIN_HEIGHT, _sh - _margin))
 
         from yvy.config.paths import RESOURCES_DIR
         _ico = RESOURCES_DIR / "yvy.ico"
@@ -1027,6 +1035,8 @@ class MainApplication(tk.Tk):
             current_user=current_user,
             on_complete=self._on_empirical_wizard_complete,
             on_cancel=lambda: self._navigate("formulario"),
+            help_repository=self._help_repository,
+            on_open_help=self.open_pizarra if self._pizarra is not None else None,
         )
         wizard.pack(fill="both", expand=True)
         self._current_view_key = None
@@ -1196,9 +1206,12 @@ class MainApplication(tk.Tk):
         self.update_idletasks()
         sw = self.winfo_screenwidth()
         sh = self.winfo_screenheight()
-        x = (sw - WINDOW_DEFAULT_WIDTH) // 2
-        y = (sh - WINDOW_DEFAULT_HEIGHT) // 2
-        self.geometry(f"{WINDOW_DEFAULT_WIDTH}x{WINDOW_DEFAULT_HEIGHT}+{x}+{y}")
+        margin = 72  # barra de tareas + barra de título
+        w = min(WINDOW_DEFAULT_WIDTH, sw)
+        h = min(WINDOW_DEFAULT_HEIGHT, sh - margin)
+        x = max(0, (sw - w) // 2)
+        y = max(0, (sh - margin - h) // 2)
+        self.geometry(f"{w}x{h}+{x}+{y}")
 
 
 # ─── Modales auxiliares ─────────────────────────────────────────────────

@@ -43,6 +43,17 @@
   - Falla si `pyproject.toml [tool.poetry].version` ≠ `yvy.__version__`. Evita el
     drift que rompería el chequeo de versión del OTA.
 
+- **Ayuda contextual `[?]` en la carga de observación empírica**
+  - Botón de ayuda en 7 campos del wizard: Lluvia, Temperatura, Viento (Beaufort),
+    Dirección, Humedad percibida, Cobertura del cielo, Tipo de nubes.
+    `HelpRepository` plumbeado al `EmpiricalWizardView`; helper `_field_header`.
+  - Artículos nuevos, orientados a identificar en campo: `glosario_beaufort`
+    (escala 0–12 por observación: humo, hojas, banderas, ramas…), `glosario_nubes`
+    (tipos y qué anticipa cada uno), `glosario_cobertura_cielo` (estimar 0–100% a
+    ojo). `glosario_temperatura` ampliado con lectura empírica de mín/máx.
+  - Archivos: `presentation/views/empirical/wizard_view.py`, `presentation/app.py`,
+    `resources/help/glosario_{beaufort,nubes,cobertura_cielo}.md`, `index.json`
+
 ### Changed
 
 - **Política de administradores reforzada**
@@ -88,10 +99,31 @@
   - El bump previo quedó a medias. Corregido a 1.5.0; el chequeo de versión del
     OTA en `launch_app` ya no marca `version_mismatch`.
 
+- **Responsividad en notebooks escolares chicas**
+  - La ventana usaba alto fijo `768` y `minsize` `600`, mayores al área usable de
+    los netbooks (1366×768, 1024×600) → el footer y los bordes inferiores quedaban
+    cortados ("pisado todo"). Ahora se **clampea al área usable** de la pantalla
+    (`min()` no-opea en pantallas grandes). Archivo: `presentation/app.py`.
+  - **Scroll de página** agregado donde el contenido supera el alto: wizard
+    empírico (los 4 pasos, body scrollable compartido + rueda) y vista Enlace/sync.
+    Archivos: `presentation/views/empirical/wizard_view.py`,
+    `presentation/views/sync_status_view.py`.
+
+- **Dark mode: textos/cajas invisibles en la carga empírica**
+  - "Comentarios generales" (paso 4): el `tk.Text` no seteaba bg/fg → recolor
+    pintaba el texto claro sobre caja blanca. Agregados colores explícitos.
+  - Modal "Agregar evento puntual": se construía con colores estáticos (light) y
+    los labels no tenían `fg` → invisibles en dark. Reconstruido con la paleta
+    viva + Text con colores + body scrollable.
+  - Archivos: `presentation/views/empirical/{wizard_view,event_form_modal}.py`
+
 ### Internal
 
 - `dist/usb/yvy/scripts/`: agregados `YVY_CLI.bat` y `diagnostico_sync_gap.py` que
   faltaban en el snapshot (un USB recién instalado no tenía el CLI).
+- `dist/usb/yvy/docs/`: agregadas las guías de CLI (`CLI_LANZAMIENTO.md`,
+  `yvy_CLI_GUIA.md`) para que el nodo instalado tenga la referencia de debug.
+- `dist/usb/yvy/resources/help/`: re-sincronizado con los artículos nuevos.
 - `docs/CLI_LANZAMIENTO.md`, `docs/yvy_CLI_GUIA.md`: documentado `configure-sync`.
 - `docs/observatorio_decisiones.md`: decisiones D78–D82.
 

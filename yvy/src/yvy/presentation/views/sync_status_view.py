@@ -128,8 +128,31 @@ class SyncStatusView(tk.Frame):
     # ─── Construcción ────────────────────────────────────────────────────
 
     def _build(self) -> None:
-        container = tk.Frame(self, bg=BG_CREAM)
-        container.pack(fill="both", expand=True, padx=SPACE_XL, pady=SPACE_XL)
+        # Scroll de página: en notebooks chicas el contenido (estado, KPIs,
+        # eventos, updates) supera el alto disponible. El Treeview de eventos
+        # conserva su propio scroll interno; el de página se opera con la barra
+        # (no se bindea la rueda para no robársela al Treeview).
+        page_canvas = tk.Canvas(self, bg=BG_CREAM, highlightthickness=0)
+        page_scroll = ttk.Scrollbar(
+            self, orient="vertical", command=page_canvas.yview
+        )
+        page_canvas.configure(yscrollcommand=page_scroll.set)
+        page_scroll.pack(side="right", fill="y")
+        page_canvas.pack(side="left", fill="both", expand=True)
+
+        container = tk.Frame(page_canvas, bg=BG_CREAM)
+        _win = page_canvas.create_window((0, 0), window=container, anchor="nw")
+        page_canvas.bind(
+            "<Configure>", lambda e: page_canvas.itemconfig(_win, width=e.width)
+        )
+        container.bind(
+            "<Configure>",
+            lambda _: page_canvas.configure(scrollregion=page_canvas.bbox("all")),
+        )
+
+        pad = tk.Frame(container, bg=BG_CREAM, padx=SPACE_XL, pady=SPACE_XL)
+        pad.pack(fill="both", expand=True)
+        container = pad
 
         # Header de la view
         header_row = tk.Frame(container, bg=BG_CREAM)
