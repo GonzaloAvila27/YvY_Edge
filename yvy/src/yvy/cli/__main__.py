@@ -30,16 +30,19 @@ from pathlib import Path
 
 
 def _find_repo_root() -> Path:
-    """Localiza la raíz del proyecto.
+    """Localiza el root ESTABLE de datos (donde está ``data/``).
 
-    Estrategia: subir directorios desde ``__file__`` hasta encontrar
-    uno con ``data/`` o ``migrations/``. Si no se encuentra, default a
-    el cwd.
+    Estrategia: desde ``__file__`` sube 3 niveles. Si ese candidato es un slot
+    (``.../releases/<ver>``), resuelve al root estable ``C:\\YVY`` — si no, cada
+    comando del CLI leería la DB vacía del slot tras un OTA. Override por
+    ``YVY_ROOT``. Ver ``yvy.infrastructure.system.paths.resolve_stable_root``.
     """
-    # Si corremos desde src/yvy/cli/__main__.py, raíz está 3 niveles arriba
+    from yvy.infrastructure.system.paths import resolve_stable_root
+
+    # src/yvy/cli/__main__.py → raíz del código 3 niveles arriba
     candidate = Path(__file__).resolve().parents[3]
     if (candidate / "migrations").exists() or (candidate / "data").exists():
-        return candidate
+        return resolve_stable_root(candidate)
     return Path.cwd()
 
 

@@ -77,15 +77,22 @@ def build_core_dependencies(
     root: Path,
     *,
     run_migrations_on_start: bool = True,
+    migrations_dir: Path | None = None,
 ) -> CoreDependencies:
     """Construye el bundle de dependencias.
 
     Args:
-        root: directorio raíz del proyecto (donde está ``data/`` y
-            ``migrations/``).
+        root: root ESTABLE de datos — de aquí cuelga ``data/yvy.sqlite``.
+            En la arquitectura de slots es ``C:\\YVY`` (NO el slot), para que
+            cada update use la misma DB en vez de una vacía. Ver
+            ``yvy.infrastructure.system.paths.resolve_stable_root``.
         run_migrations_on_start: si True, corre migraciones pendientes
             al abrir la DB. El CLI puede pasarlo en False si solo
             necesita leer (más rápido, menos riesgo).
+        migrations_dir: directorio de migraciones (CÓDIGO, viene del slot).
+            Si es None, default a ``root / "migrations"`` (modo flat/dev).
+            Se separa de ``root`` porque las migraciones se versionan con el
+            código (slot) pero corren contra la DB estable.
 
     Returns:
         CoreDependencies con todo wireado.
@@ -101,8 +108,8 @@ def build_core_dependencies(
     conn = factory.get_connection()
 
     if run_migrations_on_start:
-        migrations_dir = root / "migrations"
-        run_migrations(conn, migrations_dir=migrations_dir)
+        _migrations_dir = migrations_dir if migrations_dir is not None else root / "migrations"
+        run_migrations(conn, migrations_dir=_migrations_dir)
 
     user_repo = SQLiteUserRepository(factory)
     audit_repo = SQLiteAuditLogRepository(factory)

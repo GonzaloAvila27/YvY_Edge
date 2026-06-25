@@ -36,10 +36,19 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
+# CODE_ROOT: de dónde sale el código/recursos de ESTA versión. En modo slot es
+# C:\YVY\releases\<ver>; en flat/dev es la raíz del proyecto.
+CODE_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(CODE_ROOT / "src"))
 
-_LOG_DIR = ROOT / "data" / "logs"
+# STABLE_ROOT: dónde viven los DATOS persistentes (data/, releases/, current.txt,
+# credentials, installer). NUNCA debe ser el slot, o cada OTA arrancaría contra una
+# DB vacía (aparente instalación limpia). Ver resolve_stable_root.
+from yvy.infrastructure.system.paths import resolve_stable_root  # noqa: E402
+
+STABLE_ROOT = resolve_stable_root(CODE_ROOT)
+
+_LOG_DIR = STABLE_ROOT / "data" / "logs"
 _LOG_DIR.mkdir(parents=True, exist_ok=True)
 _LOG_FILE = _LOG_DIR / "yvy_app.log"
 
@@ -110,17 +119,19 @@ TZ_AR = ZoneInfo("America/Argentina/Cordoba")
 DEFAULT_USER = "director"
 DEFAULT_PASS = "director2026"
 
-STATION_CREDENTIALS_PATH = ROOT / "data" / "station_credentials.json"
+STATION_CREDENTIALS_PATH = STABLE_ROOT / "data" / "station_credentials.json"
 
 
 def main() -> int:
     # Construir deps core vía bootstrap (compartido con CLI python -m yvy)
-    deps = build_core_dependencies(root=ROOT)
+    deps = build_core_dependencies(
+        root=STABLE_ROOT, migrations_dir=CODE_ROOT / "migrations"
+    )
     factory = deps.factory
 
     # ── C3: Detección post-instalación ────────────────────────────────────
     # Debe ejecutarse DESPUÉS de las migraciones (build_core_dependencies ya las corrió).
-    _post_boot_check(deps.app_config_repo, ROOT)
+    _post_boot_check(deps.app_config_repo, STABLE_ROOT)
     db_path = deps.db_path
     user_repo = deps.user_repo
     audit_repo = deps.audit_repo
@@ -143,7 +154,7 @@ def main() -> int:
         create_user_uc=create_uc,
         audit_repo=audit_repo,
         app_config_repo=app_config_repo,
-        credentials_root=ROOT,
+        credentials_root=STABLE_ROOT,
     )
 
     onboarding_done = app_config_repo.is_onboarding_completed()
@@ -312,7 +323,7 @@ def main() -> int:
         app_config_repo=app_config_repo,
         update_check_trigger=update_check_trigger,
         live_source=_live_source,  # None si el sensor no está disponible
-        root_path=ROOT,
+        root_path=STABLE_ROOT,
     )
 
     # Callable que MainApplication consulta cada 15s para el indicador del
@@ -326,7 +337,7 @@ def main() -> int:
             return "ok", "Sensor: hilo activo · WH1081 detectado"
         return "error", "Sensor: hilo detenido (verificar USB)"
 
-    help_dir = ROOT / "resources" / "help"
+    help_dir = CODE_ROOT / "resources" / "help"
     help_repo = HelpRepository(help_dir=help_dir)
 
     query_sensor_aggregated_uc = QuerySensorAggregatedUseCase(factory)

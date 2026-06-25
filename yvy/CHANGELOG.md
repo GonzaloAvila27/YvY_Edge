@@ -4,6 +4,25 @@
 
 ### Fixed
 
+- **OTA: pérdida de datos al actualizar (la app arrancaba como instalación
+  limpia)** — `launch_app.py` derivaba un único `ROOT` de `__file__`; corriendo
+  desde un slot (`C:\YVY\releases\<ver>`) eso apuntaba `data/`, credentials,
+  `releases/` e installer al **slot** en vez del root estable `C:\YVY` → la DB
+  real quedaba intacta pero ignorada. Separado en `CODE_ROOT` (slot: código/
+  recursos/migraciones) y `STABLE_ROOT` (`C:\YVY`: datos persistentes), vía
+  `yvy.infrastructure.system.paths.resolve_stable_root` (con override `YVY_ROOT`).
+  También en `cli/__main__.py` (`_find_repo_root`) y `bootstrap.py` (nuevo
+  `migrations_dir`). Tests: `tests/unit/infrastructure/system/test_paths.py`.
+  Detalle: `docs/OTA_FIXES_1.5.1.md`.
+
+- **INSTALL_UPDATE.bat no parseaba bajo cmd (instalación caía con fragmentos de
+  comando)** — line endings LF + `chcp 65001` + caracteres de caja no-ASCII en
+  comentarios desincronizaban el parser de cmd. Convertido a CRLF + ASCII puro,
+  removido `chcp 65001`. Además, los 3 bloques `python -c "..."` multilínea
+  (retención/post-install, rollback, migrate-flat) —que cmd no puede pasar como
+  argumento entre líneas— se movieron a `scripts/_install_hooks.py` (subcomandos
+  no-fatales, single-line desde el `.bat`).
+
 - **Observaciones/eventos empíricos encolados que nunca se transmitían
   (payload doble-codificado)**
   - Los use cases empíricos pasaban `payload=json.dumps(payload_dict)` (un

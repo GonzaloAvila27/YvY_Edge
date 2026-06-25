@@ -20,6 +20,6 @@ __version__ = "1.5.1"
 
 # Versión de la capa de instalador/bootstrap (scripts INSTALL_UPDATE.bat, slots).
 # Concepto distinto al de la app: solo cambia si cambia el instalador.
-__installer_version__ = "1.4.0"
+__installer_version__ = "1.4.1"
 __author__ = "Gonzalo Rubens Avila"
 __year__ = "2026"

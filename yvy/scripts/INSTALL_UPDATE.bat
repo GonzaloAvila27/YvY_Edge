@@ -1,9 +1,8 @@
 @echo off
 setlocal enabledelayedexpansion
-chcp 65001 >nul
 
-:: ═════════════════════════════════════════════════════════════════════════════
-:: INSTALL_UPDATE.bat  —  YVY Sistema Meteorologico Escolar
+:: =============================================================================
+:: INSTALL_UPDATE.bat  -  YVY Sistema Meteorologico Escolar
 ::
 :: Orquestador de instalacion de actualizaciones.
 :: Vive en C:\YVY\ (nivel estable, fuera de los slots) para no reemplazarse
@@ -27,7 +26,7 @@ chcp 65001 >nul
 ::
 :: Fallo antes del paso 6: abortar sin tocar current.txt, arrancar version anterior.
 :: Fallo en paso 6+: el watchdog detecta la ausencia de boot_ok y hace rollback.
-:: ═════════════════════════════════════════════════════════════════════════════
+:: =============================================================================
 
 set "YVY_ROOT=C:\YVY"
 set "PARAMS_FILE=%YVY_ROOT%\data\updates\install_params.txt"
@@ -44,7 +43,7 @@ call :log "======================================================"
 call :log "INSTALL_UPDATE.bat iniciado: %DATE% %TIME%"
 call :log "======================================================"
 
-:: ─── PASO 0: Migrar flat -> slots (solo primera vez) ──────────────────────────
+:: --- PASO 0: Migrar flat -> slots (solo primera vez) --------------------------
 if exist "%CURRENT_TXT%" goto :step_read_params
 
 call :log "Primer update: migrando estructura flat -> slots..."
@@ -54,7 +53,7 @@ if %errorlevel% neq 0 (
     call :abort_no_current_change
 )
 
-:: ─── PASO 1: Leer parametros ─────────────────────────────────────────────────
+:: --- PASO 1: Leer parametros -------------------------------------------------
 :step_read_params
 if not exist "%PARAMS_FILE%" (
     call :log "ERROR: install_params.txt no encontrado en %PARAMS_FILE%"
@@ -83,7 +82,7 @@ if not exist "!PACKAGE_PATH!" (
     call :abort_no_current_change
 )
 
-:: ─── PASO 2: Descomprimir ────────────────────────────────────────────────────
+:: --- PASO 2: Descomprimir ----------------------------------------------------
 if exist "%INSTALLING_DIR%" rmdir /s /q "%INSTALLING_DIR%"
 mkdir "%INSTALLING_DIR%\!TO_VERSION!"
 
@@ -100,7 +99,7 @@ if %errorlevel% neq 0 (
 )
 call :log "Descompresion OK"
 
-:: ─── PASO 3: Validar release_manifest.json ────────────────────────────────────
+:: --- PASO 3: Validar release_manifest.json ------------------------------------
 :: Buscar manifest (puede estar en la raiz del tar o en un subdir)
 set "MANIFEST_PATH="
 if exist "%INSTALLING_DIR%\!TO_VERSION!\release_manifest.json" (
@@ -135,7 +134,7 @@ call :log "Manifest OK: version !MANIFEST_VER!"
 set "EXTRACTED_ROOT=%INSTALLING_DIR%\!TO_VERSION!"
 for /f "delims=" %%D in ('powershell -NoProfile -Command "Split-Path '!MANIFEST_PATH!' -Parent"') do set "EXTRACTED_ROOT=%%D"
 
-:: ─── PASO 4: Mover a releases\<version> ───────────────────────────────────────
+:: --- PASO 4: Mover a releases\<version> ---------------------------------------
 if not exist "%RELEASES_DIR%" mkdir "%RELEASES_DIR%"
 
 set "RELEASE_SLOT=%RELEASES_DIR%\!TO_VERSION!"
@@ -150,7 +149,7 @@ if %errorlevel% neq 0 (
 rmdir /s /q "%INSTALLING_DIR%" >nul 2>&1
 call :log "Release movido a !RELEASE_SLOT!"
 
-:: ─── PASO 5: Crear venv del release nuevo ────────────────────────────────────
+:: --- PASO 5: Crear venv del release nuevo ------------------------------------
 :: Buscar python.exe disponible
 set "PY_EXE="
 where py >nul 2>&1
@@ -218,7 +217,7 @@ if exist "!WHEELS_DIR!" (
 )
 call :log "venv OK"
 
-:: ─── PASO 6: Actualizar current.txt (punto de no retorno) ────────────────────
+:: --- PASO 6: Actualizar current.txt (punto de no retorno) --------------------
 call :log "Actualizando current.txt -> releases/!TO_VERSION!"
 echo releases/!TO_VERSION!>"%CURRENT_TXT%"
 if %errorlevel% neq 0 (
@@ -229,49 +228,21 @@ if %errorlevel% neq 0 (
 :: Borrar boot_ok.flag anterior si existe
 if exist "%BOOT_OK_FLAG%" del /f /q "%BOOT_OK_FLAG%"
 
-:: ─── PASO 7: Limpiar pending ──────────────────────────────────────────────────
+:: --- PASO 7: Limpiar pending --------------------------------------------------
 if exist "!PACKAGE_PATH!" del /f /q "!PACKAGE_PATH!" >nul 2>&1
 if exist "%PARAMS_FILE%" del /f /q "%PARAMS_FILE%" >nul 2>&1
 call :log "Archivos temporales limpiados"
 
-:: ─── PASO 8: Aplicar retencion via Python ────────────────────────────────────
+:: --- PASO 8: Aplicar retencion via Python ------------------------------------
 call :log "Aplicando politica de retencion de releases..."
-"!RELEASE_SLOT!\venv\Scripts\python.exe" -c "
-import sys, json
-from pathlib import Path
-root = Path(r'%YVY_ROOT%')
-sys.path.insert(0, str(root / 'releases' / r'!TO_VERSION!' / 'src'))
-try:
-    from yvy.bootstrap import build_core_dependencies
-    from yvy.infrastructure.updates.retention import ReleaseRetention
-    deps = build_core_dependencies(root=root, run_migrations_on_start=False)
-    r = ReleaseRetention(
-        app_config_repo=deps.app_config_repo,
-        audit_repo=deps.audit_repo,
-        releases_dir=root / 'releases',
-    )
-    # Actualizar metadatos de releases en app_config
-    prev = deps.app_config_repo.get_current_release()
-    deps.app_config_repo.set_previous_release(prev)
-    deps.app_config_repo.set_current_release(r'!TO_VERSION!')
-    from datetime import UTC, datetime
-    deps.app_config_repo.set_current_since(datetime.now(UTC).isoformat())
-    installed = deps.app_config_repo.get_releases_installed()
-    if r'!TO_VERSION!' not in installed:
-        installed.append(r'!TO_VERSION!')
-        deps.app_config_repo.set_releases_installed(installed)
-    result = r.cleanup_after_install(r'!TO_VERSION!')
-    print(f'Retencion: removidos={result.removed}, conservados={result.kept}')
-except Exception as e:
-    print(f'AVISO retencion: {e}', file=sys.stderr)
-" >> "%LOG_FILE%" 2>&1
+"!RELEASE_SLOT!\venv\Scripts\python.exe" "!RELEASE_SLOT!\scripts\_install_hooks.py" post-install --root "%YVY_ROOT%" --version "!TO_VERSION!" >> "%LOG_FILE%" 2>&1
 call :log "Retencion completada"
 
-:: ─── PASO 9: Arrancar nueva version ──────────────────────────────────────────
+:: --- PASO 9: Arrancar nueva version ------------------------------------------
 call :log "Arrancando YVY version !TO_VERSION!..."
 call "%YVY_ROOT%\scripts\INICIAR_YVY.bat"
 
-:: ─── PASO 10: Watchdog (90 segundos para boot_ok.flag) ───────────────────────
+:: --- PASO 10: Watchdog (90 segundos para boot_ok.flag) -----------------------
 call :log "Watchdog: esperando boot_ok.flag hasta 90 segundos..."
 set /a WATCHDOG_SECONDS=0
 
@@ -282,7 +253,7 @@ if exist "%BOOT_OK_FLAG%" (
     goto :install_success
 )
 if !WATCHDOG_SECONDS! geq 90 (
-    call :log "TIMEOUT: boot_ok.flag no apareció en 90s. Ejecutando rollback automatico."
+    call :log "TIMEOUT: boot_ok.flag no aparecio en 90s. Ejecutando rollback automatico."
     goto :watchdog_rollback
 )
 timeout /t 2 >nul
@@ -295,7 +266,7 @@ call :log "INSTALACION EXITOSA: !FROM_VERSION! -> !TO_VERSION!"
 call :log "======================================================"
 goto :end
 
-:: ─── ROLLBACK AUTOMATICO (watchdog timeout) ───────────────────────────────────
+:: --- ROLLBACK AUTOMATICO (watchdog timeout) -----------------------------------
 :watchdog_rollback
 call :log "ROLLBACK AUTOMATICO: revirtiendo a !FROM_VERSION!"
 
@@ -324,19 +295,7 @@ if exist "%RELEASES_DIR%\!FROM_VERSION!" (
 
 :: Marcar fallo en app_config via Python del release anterior (si disponible)
 if exist "%RELEASES_DIR%\!FROM_VERSION!\venv\Scripts\python.exe" (
-    "%RELEASES_DIR%\!FROM_VERSION!\venv\Scripts\python.exe" -c "
-import sys
-from pathlib import Path
-root = Path(r'%YVY_ROOT%')
-sys.path.insert(0, str(root / 'releases' / r'!FROM_VERSION!' / 'src'))
-try:
-    from yvy.bootstrap import build_core_dependencies
-    deps = build_core_dependencies(root=root, run_migrations_on_start=False)
-    deps.app_config_repo.set_install_failed('watchdog_timeout: boot_ok no detectado en 90s')
-    deps.app_config_repo.set_show_result('rollback')
-except Exception as e:
-    print(f'No se pudo marcar fallo: {e}', file=sys.stderr)
-" >> "%LOG_FILE%" 2>&1
+    "%RELEASES_DIR%\!FROM_VERSION!\venv\Scripts\python.exe" "%RELEASES_DIR%\!FROM_VERSION!\scripts\_install_hooks.py" mark-rollback --root "%YVY_ROOT%" --version "!FROM_VERSION!" >> "%LOG_FILE%" 2>&1
 )
 
 call :log "Arrancando version anterior !FROM_VERSION!..."
@@ -346,7 +305,7 @@ call :log "ROLLBACK COMPLETADO: sistema en !FROM_VERSION!"
 call :log "======================================================"
 goto :end
 
-:: ─── SUBRUTINAS ───────────────────────────────────────────────────────────────
+:: --- SUBRUTINAS ---------------------------------------------------------------
 
 :abort_no_current_change
 :: Aborta sin haber tocado current.txt: la version anterior sigue activa.
@@ -413,23 +372,7 @@ call :log "current.txt creado -> releases/!FLAT_VERSION!"
 
 :: Registrar en app_config via Python del slot recien creado
 if exist "!FLAT_SLOT!\venv\Scripts\python.exe" (
-    "!FLAT_SLOT!\venv\Scripts\python.exe" -c "
-import sys
-from pathlib import Path
-root = Path(r'%YVY_ROOT%')
-sys.path.insert(0, str(root / 'releases' / r'!FLAT_VERSION!' / 'src'))
-try:
-    from yvy.bootstrap import build_core_dependencies
-    from datetime import UTC, datetime
-    deps = build_core_dependencies(root=root, run_migrations_on_start=False)
-    ver = r'!FLAT_VERSION!'
-    deps.app_config_repo.set_current_release(ver)
-    deps.app_config_repo.set_current_since(datetime.now(UTC).isoformat())
-    deps.app_config_repo.set_releases_installed([ver])
-    print(f'app_config actualizado: current={ver}')
-except Exception as e:
-    print(f'AVISO: {e}', file=sys.stderr)
-" >> "%LOG_FILE%" 2>&1
+    "!FLAT_SLOT!\venv\Scripts\python.exe" "!FLAT_SLOT!\scripts\_install_hooks.py" migrate-flat --root "%YVY_ROOT%" --version "!FLAT_VERSION!" >> "%LOG_FILE%" 2>&1
 )
 
 call :log "Migracion flat->slots completada. Slot: !FLAT_VERSION!"
