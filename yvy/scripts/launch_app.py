@@ -354,6 +354,19 @@ def main() -> int:
         local_tz=TZ_AR,
     )
 
+    # ── Auto-purga de empíricos doble-codificados (1.5.1) ─────────────────
+    # Corre ANTES de arrancar el loop de sync, con la conexión interna del
+    # Edge (las netbooks W10 institucionales no permiten abrir el SQLite a
+    # mano). Idempotente: sin filas afectadas, no hace nada.
+    try:
+        _purged = sync_repo.purge_stale_double_encoded_empirical()
+        if _purged > 0:
+            _logger_main.warning(
+                "startup: purged %d stale double-encoded empirical jobs", _purged
+            )
+    except Exception as _exc:
+        _logger_main.warning("[sync] auto-purga empíricos no corrió: %s", _exc)
+
     # ── Arrancar daemons de sync y update checker ─────────────────────────
     if sync_agent is not None:
         try:

@@ -36,6 +36,7 @@ Todos los comandos:
 | `yvy test db` | Verifica DB accesible y migraciones aplicadas |
 | `yvy test sync` | Verifica credentials + conectividad al server |
 | `yvy configure-sync` | Setea credentials de sync (idempotente; `--force` pisa) |
+| `yvy queue purge-stale-empirical` | Descarta empíricos atascados con payload doble-codificado (bug pre-1.5.1) |
 
 ---
 
@@ -466,6 +467,45 @@ No se modificó nada. Usar --force para sobrescribir.
 ```
 
 Verificá después con `yvy test sync`.
+
+---
+
+### `yvy queue purge-stale-empirical`
+
+Descarta de la cola de sync los empíricos atascados con **payload doble-codificado**
+(bug corregido en 1.5.1). Esas filas nunca se transmiten: el agente crashea al
+reconstruir el payload y el job queda en `enviando` con `intentos:0` para siempre.
+
+Usa la **conexión interna del Edge** — no requiere abrir el SQLite a mano (en las
+netbooks W10 institucionales el acceso directo al archivo suele estar bloqueado).
+
+```bash
+# Dry-run (por defecto): solo cuenta cuántas purgaría, NO borra:
+python -m yvy queue purge-stale-empirical
+
+# Ejecutar el borrado:
+python -m yvy queue purge-stale-empirical --apply
+```
+
+**Qué borra (predicado preciso):**
+
+- `entity_type` ∈ {`empirical_observation`, `empirical_event`}
+- `status` ∈ {`pending`, `sending`}
+- y `json.loads(payload)` devuelve un `str` (no un dict) → doble-codificada.
+
+**Qué NO toca:** filas empíricas bien-codificadas, `sensor_reading`, ni estados
+`sent`/`error`/`duplicate`. Es idempotente: sin filas afectadas, no hace nada.
+
+> **Nota:** el Edge ya corre esta limpieza **automáticamente al arrancar** (una vez,
+> antes de iniciar el sync). Este comando es un respaldo on-demand. Las filas
+> descartadas no se migran: los empíricos afectados se recargan a mano con el fix
+> puesto.
+
+**Cuándo usarlo:**
+
+- Verificación manual tras instalar 1.5.1: `python -m yvy queue purge-stale-empirical`
+  (dry-run) para confirmar que ya no quedan filas atascadas.
+- Si un empírico quedó en `enviando` con `intentos:0` y no drena.
 
 ---
 

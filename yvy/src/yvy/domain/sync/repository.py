@@ -182,6 +182,22 @@ class SyncRepository(Protocol):
         """
         ...
 
+    def purge_stale_double_encoded_empirical(self, *, dry_run: bool = False) -> int:
+        """Descarta filas empíricas con payload doble-codificado (bug pre-1.5.1).
+
+        Predicado: entity_type empírico + status pending/sending +
+        ``json.loads(payload)`` devuelve un ``str`` (no un dict). Filas
+        bien-codificadas (json.loads → dict), sensor_reading y estados
+        sent/error/duplicate NUNCA se tocan. Idempotente.
+
+        Args:
+            dry_run: si True, solo cuenta (read-only).
+
+        Returns:
+            Cantidad de filas afectadas (o que se afectarían en dry_run).
+        """
+        ...
+
     # ─── Retención (Fase 5) ──────────────────────────────────────────────
 
     def delete_sent_older_than(self, threshold_utc: datetime) -> int:

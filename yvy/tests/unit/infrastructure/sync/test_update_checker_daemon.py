@@ -115,6 +115,23 @@ class TestResponse:
         config.set_last_sync_version.assert_called_with(41)
         config.set_pending_update.assert_not_called()
 
+    def test_no_update_clears_pending(self):
+        """ERR-003: sin update, el daemon limpia cualquier pending obsoleto."""
+        trigger = threading.Event()
+        http = MagicMock()
+        http.get_edge_sync.return_value = _make_response(available=False, sync_version=41)
+        config = MagicMock()
+        config.get_last_sync_version.return_value = 40
+
+        daemon = _make_daemon(http_client=http, app_config_repo=config, trigger=trigger)
+        daemon.start()
+        trigger.set()
+        time.sleep(0.3)
+        daemon.stop(timeout_s=2.0)
+
+        config.clear_pending_update.assert_called()
+        config.set_pending_update.assert_not_called()
+
     def test_update_available_persists_metadata(self):
         trigger = threading.Event()
         http = MagicMock()

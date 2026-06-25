@@ -77,9 +77,23 @@ class AppConfigRepository:
         self.set("last_sync_version", str(version))
 
     def get_pending_update(self) -> dict | None:
-        """Retorna la metadata del update pendiente, o None si no hay."""
+        """Retorna la metadata del update pendiente, o None si no hay.
+
+        Guarda de obsolescencia (ERR-003): si la versión pendiente es <= la
+        versión actual del nodo, el pending ya no aplica (se instaló por OTA o
+        manual, o el release fue despublicado en el server). Se auto-limpia y
+        se trata como "sin pending". Esto auto-sana el caso de una instalación
+        manual (que no pasa por el cierre post-boot del flujo OTA) sin depender
+        de que el server avise.
+        """
         if self.get("update_pending.available") != "true":
             return None
+
+        pending_version = self.get("update_pending.edge_version")
+        if pending_version and _pending_is_obsolete(pending_version):
+            self.clear_pending_update()
+            return None
+
         return {
             "edge_version": self.get("update_pending.edge_version"),
             "package_url": self.get("update_pending.package_url"),
@@ -234,3 +248,33 @@ class AppConfigRepository:
 
     def set_current_since(self, ts: str) -> None:
         self.set("releases.current_since", ts)
+
+
+# ─── Helpers libres ──────────────────────────────────────────────────────────
+
+
+def _parse_semver(value: str) -> tuple[int, ...]:
+    """Parsea 'X.Y.Z' a tupla de ints (descarta sufijos -pre/+build).
+
+    Devuelve () si no se puede parsear — el caller decide qué hacer ante eso.
+    """
+    base = value.split("-")[0].split("+")[0]
+    try:
+        return tuple(int(x) for x in base.split(".")[:3])
+    except (ValueError, AttributeError):
+        return ()
+
+
+def _pending_is_obsolete(pending_version: str) -> bool:
+    """True si ``pending_version`` <= la versión actual del nodo (``__version__``).
+
+    Ante versiones no parseables, devuelve False (no limpiar: mejor dejar el
+    pending visible que descartarlo por un parseo dudoso).
+    """
+    from yvy import __version__
+
+    pending = _parse_semver(pending_version)
+    current = _parse_semver(__version__)
+    if not pending or not current:
+        return False
+    return pending <= current

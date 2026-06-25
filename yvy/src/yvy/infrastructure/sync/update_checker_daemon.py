@@ -178,6 +178,10 @@ class UpdateCheckerDaemon:
         )
 
         if not response.update_available:
+            # ERR-003: el server ya no ofrece update → limpiar cualquier pending
+            # que hubiera quedado de un release despublicado/obsoleto. Sin esto,
+            # el nodo seguiría ofreciendo indefinidamente un release que ya no aplica.
+            self._app_config_repo.clear_pending_update()
             logger.info(
                 "update_checker.response.no_changes",
                 extra={"sync_version": response.sync_version},

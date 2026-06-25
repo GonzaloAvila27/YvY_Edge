@@ -228,8 +228,33 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_rollback_parser(subparsers)
     _add_test_parser(subparsers)
     _add_configure_sync_parser(subparsers)
+    _add_queue_parser(subparsers)
 
     return parser
+
+
+def _add_queue_parser(subparsers) -> None:
+    queue_parser = subparsers.add_parser(
+        "queue",
+        help="Operaciones sobre la cola de sincronización.",
+    )
+    queue_subs = queue_parser.add_subparsers(
+        dest="queue_action",
+        metavar="<accion>",
+        required=True,
+    )
+    purge_p = queue_subs.add_parser(
+        "purge-stale-empirical",
+        help=(
+            "Descarta empíricos atascados con payload doble-codificado "
+            "(bug pre-1.5.1). Dry-run por defecto; usar --apply para borrar."
+        ),
+    )
+    purge_p.add_argument(
+        "--apply",
+        action="store_true",
+        help="Ejecuta el borrado. Sin este flag, solo cuenta (dry-run, read-only).",
+    )
 
 
 def _cmd_version() -> int:
@@ -557,6 +582,25 @@ def _cmd_check_updates(root: Path, no_migrate: bool) -> int:
     return 0
 
 
+def _cmd_queue_purge_stale_empirical(root: Path, no_migrate: bool, apply: bool) -> int:
+    from yvy.bootstrap import build_core_dependencies
+
+    deps = build_core_dependencies(root=root, run_migrations_on_start=not no_migrate)
+    count = deps.sync_repo.purge_stale_double_encoded_empirical(dry_run=not apply)
+
+    if count == 0:
+        print("No hay empíricos doble-codificados atascados en la cola. Nada que purgar.")
+        return 0
+
+    if apply:
+        print(f"Purgadas {count} fila(s) empírica(s) doble-codificada(s) de la cola.")
+        print("Recargá los empíricos afectados a mano (se descartan, no se migran).")
+    else:
+        print(f"[dry-run] {count} fila(s) empírica(s) doble-codificada(s) se purgarían.")
+        print("Ejecutá con --apply para borrarlas.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -605,6 +649,11 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_test_db(root, no_migrate)
         if args.test_target == "sync":
             return _cmd_test_sync(root, no_migrate, args.timeout)
+    if args.command == "queue":
+        if args.queue_action == "purge-stale-empirical":
+            return _cmd_queue_purge_stale_empirical(
+                root, no_migrate, apply=getattr(args, "apply", False)
+            )
 
     parser.error(f"comando no soportado: {args.command}")
     return 2  # unreachable, pero satisface el type checker

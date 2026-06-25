@@ -984,6 +984,10 @@ def compute_check_updates(deps: CoreDependencies) -> dict[str, Any]:
     deps.app_config_repo.set_last_sync_version(response.sync_version)
     if response.update_available and response.update_metadata:
         deps.app_config_repo.set_pending_update(response.update_metadata)
+    else:
+        # ERR-003: sin update disponible → limpiar pending obsoleto (release
+        # despublicado en el server). Si no, el nodo lo seguiría ofreciendo.
+        deps.app_config_repo.clear_pending_update()
 
     return {
         "ok": True,

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 from dataclasses import dataclass
@@ -229,8 +228,11 @@ class CreateEmpiricalObservationUseCase:
             job = SyncJob(
                 event_id=observation.observation_id,
                 station_uuid=station_uuid,
+                # payload es un dict: enqueue() lo serializa con json.dumps.
+                # NO pre-serializar acá o queda doble-codificado y el agente
+                # crashea al reconstruirlo (dict() sobre un str). Ver sensor.
                 entity_type=EntityType.EMPIRICAL_OBSERVATION,
-                payload=json.dumps(payload_dict, ensure_ascii=False),  # type: ignore[arg-type]
+                payload=payload_dict,
                 status=SyncStatus.PENDING,
                 attempts=0,
             )

@@ -348,11 +348,12 @@ class HttpClient:
         nonce = secrets.token_hex(16)
         sent_at_utc = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        # Canonical dict para firma — claves en orden alfabético
+        # CONTRATO HMAC: exactamente estos 4 campos en orden alfabético —
+        # debe coincidir con Core edge.py _verify_edge_hmac. edge_version /
+        # last_sync_version viajan como headers (X-Edge-Version,
+        # X-Last-Sync-Version), NO se firman. No agregar campos a este dict.
         canonical = {
-            "edge_version": edge_version,
             "key_version": key_version,
-            "last_sync_version": last_sync_version,
             "nonce": nonce,
             "sent_at_utc": sent_at_utc,
             "station_uuid": str(station_uuid),
@@ -462,10 +463,14 @@ class HttpClient:
         nonce = secrets.token_hex(16)
         sent_at_utc = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+        # CONTRATO HMAC: exactamente estos 4 campos en orden alfabético —
+        # debe coincidir con Core edge.py _verify_edge_hmac. package_url
+        # viaja como path de la URL (no se firma); la integridad del paquete
+        # la garantiza la verificación SHA-256 post-descarga, no la firma del
+        # request. No agregar campos a este dict.
         canonical = {
             "key_version": key_version,
             "nonce": nonce,
-            "package_url": package_url,
             "sent_at_utc": sent_at_utc,
             "station_uuid": str(station_uuid),
         }

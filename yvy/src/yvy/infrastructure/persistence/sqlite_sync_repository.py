@@ -372,6 +372,62 @@ class SQLiteSyncRepository:
         )
         return int(cur.rowcount)
 
+    # ─── 1.5.1: auto-purga de empíricos doble-codificados ────────────────
+
+    def purge_stale_double_encoded_empirical(self, *, dry_run: bool = False) -> int:
+        """Descarta filas empíricas con payload doble-codificado.
+
+        Bug histórico (corregido en 1.5.1): los use cases empíricos encolaban
+        ``payload=json.dumps(dict)`` (str) y ``enqueue`` lo re-serializaba →
+        doble codificación. Al drenar, ``json.loads(payload)`` devuelve un str
+        (no un dict) y el agente crashea en ``build_envelope`` → crash-loop con
+        ``attempts=0``. Esas filas nunca se transmiten; hay que descartarlas.
+
+        Predicado PRECISO (no toca filas sanas):
+          - entity_type IN ('empirical_observation', 'empirical_event')
+          - status IN ('pending', 'sending')
+          - ``json.loads(payload)`` es un ``str`` (no un ``dict``) → doble-codificada.
+            Una fila bien-codificada (``json.loads`` → dict) NUNCA se borra.
+
+        NO toca ``sensor_reading`` ni estados ``sent``/``error``/``duplicate``.
+        Idempotente: sin filas afectadas, no hace nada.
+
+        Args:
+            dry_run: si True, solo cuenta (read-only), no borra.
+
+        Returns:
+            Cantidad de filas doble-codificadas (borradas, o que se borrarían
+            en ``dry_run``).
+        """
+        conn = self._factory.get_connection()
+        cur = conn.execute(
+            """
+            SELECT id, payload FROM sync_queue
+             WHERE entity_type IN ('empirical_observation', 'empirical_event')
+               AND status IN ('pending', 'sending')
+            """
+        )
+        stale_ids: list[int] = []
+        for row in cur.fetchall():
+            try:
+                decoded = json.loads(row["payload"])
+            except (ValueError, TypeError):
+                # Payload no parseable: lo dejamos para no borrar por error de
+                # parseo dudoso (el predicado del bug es json.loads → str).
+                continue
+            if isinstance(decoded, str):
+                stale_ids.append(int(row["id"]))
+
+        if dry_run or not stale_ids:
+            return len(stale_ids)
+
+        placeholders = ",".join("?" for _ in stale_ids)
+        conn.execute(
+            f"DELETE FROM sync_queue WHERE id IN ({placeholders})",
+            stale_ids,
+        )
+        return len(stale_ids)
+
 
 # ─── Helpers ─────────────────────────────────────────────────────────────
 

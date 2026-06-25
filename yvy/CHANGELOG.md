@@ -1,6 +1,93 @@
 # CHANGELOG
 
-## [1.5.0] - 2026-06-22
+## [1.5.1] - 2026-06-24
+
+### Fixed
+
+- **Observaciones/eventos empíricos encolados que nunca se transmitían
+  (payload doble-codificado)**
+  - Los use cases empíricos pasaban `payload=json.dumps(payload_dict)` (un
+    **string**) a `SyncJob`, pero `enqueue()` ya serializa el payload con
+    `json.dumps`. La doble codificación hacía que al drenar la cola el job
+    recuperara un string donde `build_envelope` espera un dict → `dict(str)`
+    lanzaba `ValueError` **antes** del POST. Como el crash ocurría fuera del
+    try/except del envío, el job quedaba en estado `enviando` con `intentos=0`,
+    el zombie-reaper lo devolvía a `pending` cada 120s y volvía a crashear:
+    crash-loop infinito. El empírico **nunca llegaba al Core** (ni a
+    `bronze.empirical_observation_raw` ni a `bronze.ingest_failures`).
+    `sensor_reading` no tenía el bug (pasa un dict).
+  - Corregido pasando el dict directamente (`payload=payload_dict`) en
+    `application/use_cases/empirical/create_empirical_observation.py` y
+    `create_empirical_event.py`, alineándolos con el contrato de `enqueue`.
+  - Test de regresión round-trip (`enqueue → claim → build_envelope` produce un
+    dict, para sensor y empírico):
+    `tests/unit/infrastructure/sync/test_sync_payload_roundtrip.py`.
+
+### Added
+
+- **Auto-purga de empíricos doble-codificados atascados (limpieza del bug
+  anterior, sin tocar el SQLite a mano)**
+  - Las netbooks W10 institucionales no permiten abrir el SQLite del nodo a mano
+    (`unable to open database file` por permisos/lock), así que la limpieza la
+    hace el propio Edge con su conexión interna:
+    1. **Al arranque** (una vez, antes de iniciar el loop de sync, idempotente):
+       detecta y descarta las filas empíricas (`empirical_observation`/
+       `empirical_event`) en `pending`/`sending` cuyo `json.loads(payload)`
+       devuelve un str (doble-codificadas). Filas sanas, `sensor_reading` y
+       estados `sent`/`error`/`duplicate` no se tocan. Log:
+       `startup: purged N stale double-encoded empirical jobs`.
+    2. **Comando CLI de respaldo**: `YVY_CLI.bat queue purge-stale-empirical`
+       (dry-run por defecto, `--apply` para ejecutar). Misma lógica y conexión.
+  - Implementación: `SQLiteSyncRepository.purge_stale_double_encoded_empirical`,
+    invocado en `scripts/launch_app.py` (startup) y en `cli/__main__.py`
+    (`queue purge-stale-empirical`). Reemplaza el SQL manual que no era
+    ejecutable en las netbooks.
+  - Las filas descartadas no se migran: los empíricos afectados (volumen mínimo)
+    se recargan a mano con el fix puesto.
+  - Tests: `tests/unit/infrastructure/persistence/test_purge_stale_empirical.py`.
+
+- **`pending_update` nunca se limpiaba → el nodo seguía ofreciendo un release
+  obsoleto (ERR-003)**
+  - El Edge persiste en su SQLite la metadata del update ofrecido
+    (`update_pending.available="true"`). `clear_pending_update()` solo se
+    invocaba en el cierre post-boot del flujo OTA ([scripts/launch_app.py:515]),
+    que únicamente corre si la instalación pasó por `request_install`
+    (`install_status="requested"`). En consecuencia, un release despublicado en
+    el server, o una instalación **manual** (flat, sin OTA), dejaba el pending
+    pegado: el nodo seguía ofreciendo indefinidamente una versión que ya no aplica.
+  - Corregido en tres puntos:
+    1. Daemon de chequeo: limpia el pending al recibir `no_changes`
+       (`infrastructure/sync/update_checker_daemon.py`).
+    2. Handler manual `check-updates`: limpia el pending cuando
+       `update_available=false` (`cli/handlers.py`).
+    3. **Guarda de obsolescencia** en `get_pending_update`
+       (`infrastructure/persistence/app_config_repository.py`): si la versión
+       pendiente es ≤ la versión actual del nodo, se auto-limpia y se trata como
+       "sin pending". Esto auto-sana la instalación manual sin depender de que el
+       server avise.
+  - Tests: `tests/unit/infrastructure/sync/test_update_checker_daemon.py`
+    (`test_no_update_clears_pending`) y
+    `tests/unit/infrastructure/persistence/test_app_config_pending_update.py`.
+
+- **Canal pull HMAC: 401 sistemático en `GET /api/v1/edge/sync` (y 401 latente
+  en `GET /api/v1/edge/updates/{filename}`)** _(fix incorporado el 2026-06-24)._
+  - El cliente de sync firmaba 6 campos (`edge_version`, `last_sync_version`
+    extra) y el de descarga OTA firmaba 5 (`package_url` extra), divergiendo del
+    contrato canónico de 4 campos que verifica el Core
+    (`key_version, nonce, sent_at_utc, station_uuid`, orden alfabético). El
+    `canonicalize()` byte-idéntico sobre conjuntos de claves distintos producía
+    HMAC distinto → mismatch.
+  - Afectaba a **todas** las estaciones en el canal pull (no era una credential
+    corrupta de un nodo): por eso el ingest —cuyo string-to-sign es el envelope
+    completo menos `signature`— funcionaba y el pull no.
+  - Corregido alineando el Edge al contrato del Core: los campos extra siguen
+    viajando como headers (`X-Edge-Version`, `X-Last-Sync-Version`) o como path
+    de la URL (`package_url`), pero ya **no se firman**. La integridad del
+    paquete la garantiza la verificación SHA-256 post-descarga e instalador, no
+    la firma del request.
+  - Archivos: `infrastructure/sync/http_client.py` (`get_edge_sync`,
+    `download_update_package`); test de regresión
+    `tests/unit/infrastructure/sync/test_http_client_hmac_contract.py`.
 
 ### Added
 
