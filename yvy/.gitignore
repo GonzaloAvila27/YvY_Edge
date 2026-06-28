@@ -122,3 +122,6 @@ weather_data/
 # ──────────────────────────────────────────────────────────────────────────────
 *.log
 .cache/
+
+# Paquete de registro DNDA — contiene datos personales (PII). NO versionar.
+docs/dnda/
