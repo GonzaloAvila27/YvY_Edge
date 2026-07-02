@@ -52,7 +52,7 @@
 | 3 | **Verifica** que el sensor se detecta | `VALIDAR_SENSOR.bat` |
 | 4 | Carga las **credenciales** del sync | `CONFIGURAR_SYNC.bat` |
 | 5 | Deja Windows listo para **24/7** | `CONFIGURAR_WINDOWS.bat` |
-| 6 | **Abre YVY** y verifica | acceso directo del Escritorio |
+| 6 | **Primer arranque**: asistente (institución, credenciales, admins) | acceso directo del Escritorio |
 
 ---
 
@@ -131,15 +131,21 @@
 
 Esto conecta la escuela con el servidor central (para enviar los datos).
 
+> **Hay dos formas de cargar las credenciales — hacé UNA sola:**
+> **(a)** dentro del **asistente** del primer arranque (Paso 6, *recomendado*), o
+> **(b)** con este script `CONFIGURAR_SYNC.bat`. Si las vas a cargar en el
+> asistente, **salteá este paso**.
+
 1. **Volvé al pendrive** (no a `C:\YVY`). Asegurate de que el archivo
    `<IEA>_credentials.json` de **esta escuela** esté junto a `CONFIGURAR_SYNC.bat`.
 2. **Clic derecho** en `CONFIGURAR_SYNC.bat` → **"Ejecutar como administrador"**.
 3. El script **detecta solo** el archivo `*credentials*.json`. Si no lo encuentra,
    te pide la ruta — pegá la ruta completa al archivo.
 4. Te muestra la **URL del servidor** entre corchetes como valor por defecto.
-   - Si es correcta, presioná **Enter**.
-   - Si la coordinación te indicó otra, escribila y Enter.
-   - `[CONFIRMAR con la coordinación cuál es la URL del servidor para tu despliegue]`
+   - **La URL del servidor es `https://edge.yvyedge.com`.** Si el valor por
+     defecto que aparece entre corchetes coincide, presioná **Enter**; si es
+     distinto, escribí `https://edge.yvyedge.com` y Enter.
+   - `[CONFIRMAR con la coordinación si tu despliegue usa otro dominio]`
 5. Confirmá con **S** cuando pregunte "¿Continuar?".
 6. Al final verifica solo con un test. Si todo va bien:
    ```
@@ -174,22 +180,63 @@ Para que la PC no se duerma ni corte el sensor durante las clases.
 
 ---
 
-## PASO 6 — Abrir YVY y verificar
+## PASO 6 — Primer arranque: asistente de configuración
 
-1. En el **Escritorio**, doble clic en **"YVY - Meteorologia"**.
-   - *Alternativas:* `C:\YVY\scripts\INICIAR_YVY.bat`, o
-     `C:\YVY\scripts\LANZAR_YVY.vbs` (abre **sin** ventana negra).
-2. Esperá unos segundos. Abre la pantalla de **login**.
-3. Ingresá con el usuario inicial:
-   - Usuario: **director**
-   - Contraseña: **director2026**
-4. **Verificación final** (opcional pero recomendado). Abrí
-   `C:\YVY\scripts\YVY_CLI.bat status`. Deberías ver:
+La **primera vez** que abrís YVY **no aparece un login**, sino un **asistente de
+configuración** de 5 pantallas. Acá creás las cuentas administrativas y, si querés,
+cargás las credenciales del sync. **Esta configuración se hace una sola vez** y no
+se puede editar después desde la interfaz, así que prestá atención.
+
+1. En el **Escritorio**, doble clic en **"YVY - Meteorologia"**
+   (o `C:\YVY\scripts\INICIAR_YVY.bat`, o `LANZAR_YVY.vbs` para abrir sin consola).
+2. Esperá unos segundos y seguí el asistente:
+
+   **Pantalla 1 — Bienvenida.** Explica el proceso. Clic en **"Comenzar →"**.
+
+   **Pantalla 2 — Datos de la institución.**
+   - **CUE** (Clave Única de Establecimiento) — *obligatorio*.
+   - **Nombre completo de la institución** — *obligatorio*.
+   - **Nombre corto** (para los tableros) — opcional.
+   - La zona horaria viene por defecto en `America/Argentina/Cordoba`.
+   - Clic en **"Siguiente →"**.
+
+   **Pantalla 3 — Conexión con YVY Core (credenciales).** *Este paso es opcional
+   y se puede saltear.*
+   - **URL del servidor:** escribí **`https://edge.yvyedge.com`**
+     (`[CONFIRMAR con la coordinación si tu despliegue usa otro dominio]`).
+   - **Credentials JSON:** abrí el archivo `<IEA>_credentials.json` de la escuela
+     con el **Bloc de notas**, copiá **todo** su contenido y **pegalo** en el
+     recuadro. (Debe tener `station_uuid`, `key_version` y `key_hmac_hex`.)
+   - Si todavía no tenés las credenciales, tildá **"Configurar sincronización más
+     tarde"** y seguí — las cargás después con `CONFIGURAR_SYNC.bat` (ver Paso 4).
+   - Clic en **"Siguiente →"**.
+
+   **Pantalla 4 — Cuentas administrativas.** (Máximo 2 cuentas por institución.)
+   - **Administrador principal (superadmin)** — *obligatorio*:
+     - **Usuario** (mín. 3 caracteres), **Nombre completo**,
+       **Contraseña** (**mín. 8 caracteres**).
+   - **Segundo administrador** — opcional: tildá la casilla y completá usuario
+     (distinto al primero), nombre y contraseña (mín. 8).
+   - **Anotá estos usuarios y contraseñas en un lugar seguro.** Son los que vas a
+     usar para entrar a YVY de ahora en adelante.
+   - Clic en **"Siguiente →"**.
+
+   **Pantalla 5 — Resumen.** Revisá los datos. Clic en **"Comenzar a usar YVY
+   Edge"**. El sistema crea la base de datos local e **inicia sesión solo** con el
+   administrador principal.
+
+> **Sobre "director / director2026":** el instalador muestra esas credenciales como
+> texto genérico, pero en el primer arranque el **asistente te hace crear tu propio
+> usuario administrador**. Usá el que creaste en la Pantalla 4, no "director".
+
+3. **Verificación final** (recomendado). Abrí `C:\YVY\scripts\YVY_CLI.bat status`.
+   Deberías ver:
    - Base de datos: OK
    - Último reading del sensor: hace pocos segundos/minutos
-   - Sync agent: configurado (si hiciste el Paso 4)
+   - Sync agent: configurado (si cargaste las credenciales)
 
-**¡Listo!** Si el sensor da lecturas y el login funciona, la instalación está completa.
+**¡Listo!** Si el sensor da lecturas y entrás con tu usuario admin, la instalación
+está completa.
 
 ---
 
@@ -231,6 +278,9 @@ Para que la PC no se duerma ni corte el sensor durante las clases.
 | Síntoma | Causa | Solución |
 |---|---|---|
 | No abre nada al doble clic | Arranque lento o error | Esperá 10–15 s. Si no abre, abrí `INICIAR_YVY.bat` (muestra mensajes) y revisá `C:\YVY\data\logs\yvy_app.log`. |
+| El asistente (wizard) marca **"Credentials incompletas/inválidas"** | Pegaste el JSON incompleto o mal | Abrí el `*_credentials.json` con el Bloc de notas y copiá **todo** (debe tener `station_uuid`, `key_version`, `key_hmac_hex`). O tildá "configurar más tarde" y usá `CONFIGURAR_SYNC.bat`. |
+| El asistente pide **URL** y no avanza | La URL no empieza con `https://` | Escribí exactamente `https://edge.yvyedge.com`. |
+| Reaparece el asistente en el siguiente arranque | El asistente no se completó (se cerró antes del Paso 5) | Volvé a abrir y completá hasta **"Comenzar a usar YVY Edge"**. |
 | No arranca solo tras reiniciar | La cuenta de Windows tiene contraseña | Configurá **auto-login** (`netplwiz`) — ver Paso 5. |
 | El antivirus bloquea algo | C:\YVY no excluido | Pedí al IT excluir `C:\YVY\` del antivirus. |
 
@@ -257,8 +307,11 @@ Guía completa del CLI: `C:\YVY\docs\yvy_CLI_GUIA.md`.
 
 - **Carpeta de instalación:** `C:\YVY\`
 - **Logs (para soporte):** `C:\YVY\data\logs\yvy_app.log`
-- **Login inicial de la app:** `director` / `director2026` (cambiar luego)
+- **Acceso a la app:** el usuario **administrador que creaste en el asistente**
+  (Paso 6). El instalador menciona `director/director2026` como genérico, pero
+  entrás con el que vos creaste.
+- **Servidor de sync (URL):** `https://edge.yvyedge.com`
 - **Sensor:** WH1081 — **VID 1941 / PID 8021** (driver WinUSB vía Zadig)
-- **Soporte / coordinación del proyecto:** `[COMPLETAR: nombre + contacto]`
+- **Soporte / coordinación del proyecto:** Gonzalo Rubens Avila - 3764 506215
 
-> Versión del manual: para YVY Edge `1.5.x`. `[COMPLETAR: fecha de revisión]`.
+> Versión del manual: para YVY Edge `1.5.x`. `29/06/2026`.

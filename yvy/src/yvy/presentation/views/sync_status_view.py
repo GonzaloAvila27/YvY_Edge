@@ -613,13 +613,9 @@ class SyncStatusView(tk.Frame):
             command=self._on_download_clicked,
         )
         self._upd_download_btn.pack(side="left", padx=(0, SPACE_SM))
-
-        ttk.Button(
-            btn_row,
-            text="Instalar",
-            style="Primary.TButton",
-            state="disabled",
-        ).pack(side="left")
+        # La instalación se dispara desde la notificación (campana): path
+        # certificado en el test OTA 1.5.x. Se retiró aquí un botón "Instalar"
+        # placeholder que nunca se cableó (state=disabled sin command ni refresh).
 
     def _refresh_updates_section(self) -> None:
         """Actualiza los labels de la sección de actualizaciones."""
