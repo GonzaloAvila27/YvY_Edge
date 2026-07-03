@@ -28,13 +28,15 @@ class EntityType(StrEnum):
     Valores deben coincidir con el CHECK de ``sync_queue.entity_type``
     en el schema SQLite v8.
 
-    Determina a qué endpoint del servidor central se envía:
-    - SENSOR_READING → /ingest/sensor
-    - EMPIRICAL_RECORD → /ingest/empirical
-    - COMMENT → /ingest/comment
+    El ruteo a endpoint lo define ``_ENDPOINT_BY_ENTITY_TYPE`` en
+    ``infrastructure/sync/sync_agent.py`` (fuente de verdad):
+    - SENSOR_READING       → /api/v1/ingest/sensor
+    - EMPIRICAL_OBSERVATION → /api/v1/ingest/observation
+    - EMPIRICAL_EVENT       → /api/v1/ingest/event
+    - COMMENT              → /api/v1/ingest/comment
 
-    Los event_narrative no se separan: viajan como COMMENT con
-    ``comment_type='event_narrative'`` en el payload.
+    ``EMPIRICAL_RECORD`` es un valor legacy retenido por el CHECK del
+    schema; el agente no lo declara soportado, así que no se rutea.
     """
 
     SENSOR_READING = "sensor_reading"

@@ -55,7 +55,7 @@ import hashlib
 import logging
 import secrets
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -175,9 +175,6 @@ class DownloadResult:
 
 # Chunk size para streaming (64 KB)
 _DOWNLOAD_CHUNK_SIZE = 65536
-
-# Timeout de descarga: connect corto, read generoso por chunk (no total)
-_DOWNLOAD_TIMEOUT = None  # se construye en el método para poder pasarlo
 
 
 # ─── Client ──────────────────────────────────────────────────────────────
@@ -485,8 +482,7 @@ class HttpClient:
         }
 
         # Timeout: connect y write cortos; read por chunk 60s (redes IEA lentas)
-        import httpx as _httpx
-        dl_timeout = _httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
+        dl_timeout = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
 
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         bytes_downloaded = 0
@@ -537,7 +533,7 @@ class HttpClient:
                             except Exception:
                                 pass
 
-        except _httpx.TimeoutException as exc:
+        except httpx.TimeoutException as exc:
             self._cleanup_partial(dest_path)
             return DownloadResult(
                 success=False,
@@ -546,7 +542,7 @@ class HttpClient:
                 dest_path=dest_path,
                 error=f"network: timeout — {exc}",
             )
-        except _httpx.ConnectError as exc:
+        except httpx.ConnectError as exc:
             self._cleanup_partial(dest_path)
             return DownloadResult(
                 success=False,
@@ -555,7 +551,7 @@ class HttpClient:
                 dest_path=dest_path,
                 error=f"network: connection failed — {exc}",
             )
-        except _httpx.HTTPError as exc:
+        except httpx.HTTPError as exc:
             self._cleanup_partial(dest_path)
             return DownloadResult(
                 success=False,
