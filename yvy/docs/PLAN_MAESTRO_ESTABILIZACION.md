@@ -196,12 +196,24 @@ INI-5 ── espera trigger externo (sin release asignado)
 | 0.1.4 | Verificar botón INSTALAR post-fix; si persiste, ticket con diagnóstico ya escrito (snapshot vs live) | S |
 | 0.1.5 | Acta de certificación + actualizar runbooks con baseline real | S |
 
-## INI-1 · Épica 1.1 — Código muerto y trampas (1 PR combinado)
+## INI-1 · Épica 1.0 — Gate de integración confiable ⚠️ (hallazgo 2026-07)
+> **Descubierto ejecutando 1.1.1:** la suite de integración tiene **15 fallos
+> preexistentes en master** (independientes de todo cambio). Hoy son ruido que
+> enmascara regresiones reales — sin un gate de integración limpio, las épicas
+> siguientes avanzan a ciegas. **Prioridad alta: va antes que el resto de INI-1.**
+
 | # | Tarea | Tamaño |
 |---|---|---|
-| 1.1.1 | H13: `_DOWNLOAD_TIMEOUT`, re-import httpx, docstring `EMPIRICAL_RECORD`, paquetes `domain/comments|help` | S |
-| 1.1.2 | H9: `HttpTimeoutError` en origen + alias de compat + migrar imports internos | S |
-| 1.1.3 | Canon v13 documentado en `domain/sync/models.py` + nota de plan de retiro (H4-prep) | S |
+| 1.0.1 | Triage de los 15 fallos: `test_empirical_use_cases` ×6, `test_update_download_e2e` ×6, `test_update_checker_e2e` ×2, `test_installer_data_isolation` ×1. Clasificar: (a) test obsoleto, (b) falta fixture/entorno, (c) bug real | M |
+| 1.0.2 | Arreglar los reparables; a los que dependan de entorno no disponible → `@pytest.mark.skip(reason=...)` explícito (nunca fallo silencioso) | M |
+| 1.0.3 | Meta: `pytest tests/integration` verde (0 fallos, skips justificados) → recién ahí es gate confiable para el resto del plan | S |
+
+## INI-1 · Épica 1.1 — Código muerto y trampas (1 PR combinado)
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 1.1.1 | H13: `_DOWNLOAD_TIMEOUT`, re-import httpx (+`field` F401), docstring `EMPIRICAL_RECORD`, paquetes `domain/comments|help` | S | ✅ `35658ed` (708 unit; integ 15F/110P == master) |
+| 1.1.2 | H9: `HttpTimeoutError` en origen + alias de compat + migrar imports internos | S | pendiente |
+| 1.1.3 | Canon v13 documentado en `domain/sync/models.py` + nota de plan de retiro (H4-prep) | S | pendiente |
 
 ## INI-1 · Épica 1.2 — Telemetría de campo
 | # | Tarea | Tamaño |
@@ -220,6 +232,18 @@ INI-5 ── espera trigger externo (sin release asignado)
 |---|---|---|
 | 1.4.1 | Confirmar con el autor uso real de `rescue`; redirigir `[tool.poetry.scripts]` al CLI y reducir `main.py` a shim de delegación (no borrar en el mismo PR) | S |
 | 1.4.2 | (Release siguiente) eliminar `main.py` si nada lo reclamó | S |
+
+## INI-1 · Épica 1.5 — Adopción de ruff como gate (hallazgo 2026-07)
+> **Descubierto ejecutando 1.1.1:** `ruff check .` reporta **~400 errores** en el
+> repo Edge → ruff **no gatea en CI** (confirma peer review §3.4 "quality gates
+> invertidos"). Ídem el Core tuvo esta deuda. No urgente (la suite es el gate
+> real hoy), pero mientras no se adopte, el linter no protege nada.
+
+| # | Tarea | Tamaño |
+|---|---|---|
+| 1.5.1 | `ruff check --fix` (247 autofixables) + `ruff format` en 1 PR aislado; revisar diff a ojo (no debe cambiar comportamiento); suite verde | M |
+| 1.5.2 | Restantes no-autofixables: arreglar o agregar a `per-file-ignores`/`ignore` con justificación por regla (baseline explícito, no barrer bajo la alfombra) | M |
+| 1.5.3 | Activar `ruff check .` + `ruff format --check` como job bloqueante en CI (que hoy no existe/no gatea en Edge) | S |
 
 ## INI-2 · Épica 2.1 — Utilidades canónicas
 | # | Tarea | Tamaño |
@@ -400,6 +424,17 @@ el mismo release. Mitigación: la tabla §7 es contrato; un release = un caráct
 5. **Las reglas (§11) valen más que el backlog.** El backlog paga la deuda existente;
    las reglas — y sus gates en CI — impiden contraerla de nuevo. Priorizar 4.2.2
    apenas la limpieza de INI-3 lo permita.
+
+---
+
+# 13. Bitácora de ejecución
+
+> Registro cronológico de lo aplicado. Cada entrada: commit, alcance, gate.
+
+| Fecha | Rama / commit | Épica | Resultado |
+|---|---|---|---|
+| 2026-07-03 | `master` `231c5a0` | Checkpoint pre-plan | Consolidación de la línea estable 1.5.x a master (fast-forward). 708 unit verde. |
+| 2026-07-03 | `stab/ini-1-higiene` `35658ed` | 1.1.1 (código muerto) | `_DOWNLOAD_TIMEOUT`, re-import httpx, `field` F401, docstring `EMPIRICAL_RECORD`, paquetes vacíos `domain/comments|help`. 708 unit; integ 15F/110P == master (0 regresiones). **Hallazgos derivados:** épicas 1.0 (15 tests integ rotos) y 1.5 (~400 ruff sin gate). |
 
 ---
 *Plan de ingeniería — sin código, sin nuevas auditorías. Basado íntegramente en los
