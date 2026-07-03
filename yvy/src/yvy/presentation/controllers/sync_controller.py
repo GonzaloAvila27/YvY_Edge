@@ -337,8 +337,8 @@ class SyncController:
         if self._app_config_repo is not None:
             try:
                 is_downloaded = self._app_config_repo.is_update_downloaded()  # type: ignore[union-attr]
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("No se pudo leer is_update_downloaded, se asume False: %s", exc)
 
         return {
             "current_version": __version__,
@@ -443,8 +443,8 @@ class SyncController:
         finally:
             try:
                 http_client.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Error cerrando http_client (ignorado): %s", exc)
 
     # ─── Canal Core → Edge: instalador (Sprint C) ─────────────────────────
 

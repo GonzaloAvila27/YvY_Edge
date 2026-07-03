@@ -323,8 +323,11 @@ class QuerySensorAggregatedUseCase:
                     ts_str = str(ts_row[0]).replace("Z", "+00:00").replace(" ", "T")
                     dt = datetime.fromisoformat(ts_str)
                     max_gust_at = dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
-                except (ValueError, AttributeError):
-                    pass
+                except (ValueError, AttributeError) as exc:
+                    logger.debug(
+                        "Timestamp de ráfaga máx no parseable (%r), se omite: %s",
+                        ts_row[0], exc,
+                    )
 
         return WindStatsData(
             max_gust_ms=max_gust,
@@ -627,8 +630,11 @@ class QuerySensorAggregatedUseCase:
                     ts_str = str(ts_row[0]).replace("Z", "+00:00").replace(" ", "T")
                     dt = datetime.fromisoformat(ts_str)
                     max_gust_at = dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
-                except (ValueError, AttributeError):
-                    pass
+                except (ValueError, AttributeError) as exc:
+                    logger.debug(
+                        "Timestamp de ráfaga máx no parseable (%r), se omite: %s",
+                        ts_row[0], exc,
+                    )
 
         return WindStatsData(
             max_gust_ms=max_gust,

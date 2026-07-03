@@ -530,8 +530,8 @@ class HttpClient:
                         if progress_callback is not None:
                             try:
                                 progress_callback(bytes_downloaded, total)
-                            except Exception:
-                                pass
+                            except Exception as exc:
+                                log.debug("progress_callback falló (ignorado): %s", exc)
 
         except httpx.TimeoutException as exc:
             self._cleanup_partial(dest_path)
@@ -611,8 +611,8 @@ class HttpClient:
         try:
             if path.exists():
                 path.unlink()
-        except OSError:
-            pass
+        except OSError as exc:
+            log.debug("No se pudo borrar parcial %s (ignorado): %s", path, exc)
 
     def close(self) -> None:
         """Close the underlying ``httpx.Client`` and its connection pool."""

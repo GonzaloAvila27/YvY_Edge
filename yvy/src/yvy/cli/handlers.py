@@ -29,6 +29,7 @@ Convención del report:
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -36,6 +37,8 @@ from typing import Any
 
 from yvy.bootstrap import CoreDependencies
 from yvy.domain.sync.enums import SyncStatus
+
+logger = logging.getLogger(__name__)
 
 
 # ─── update download ─────────────────────────────────────────────────────
@@ -128,8 +131,8 @@ def download_update(
     finally:
         try:
             http_client.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Error cerrando http_client (ignorado): %s", exc)
 
     return {
         "ok": result.success,
@@ -977,8 +980,8 @@ def compute_check_updates(deps: CoreDependencies) -> dict[str, Any]:
     finally:
         try:
             http_client.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Error cerrando http_client (ignorado): %s", exc)
 
     # Persistir resultado
     deps.app_config_repo.set_last_sync_version(response.sync_version)
