@@ -217,11 +217,17 @@ INI-5 ── espera trigger externo (sin release asignado)
 | 1.1.2 | H9: `HttpTimeoutError` en origen + alias de compat + migrar imports internos | S | pendiente |
 | 1.1.3 | Canon v13 documentado en `domain/sync/models.py` + nota de plan de retiro (H4-prep) | S | pendiente |
 
-## INI-1 · Épica 1.2 — Telemetría de campo
-| # | Tarea | Tamaño |
-|---|---|---|
-| 1.2.1 | Pasada 1: los ~15 except-pass en rutas de datos/sync → `logger.warning/exception` | S |
-| 1.2.2 | Pasada 2: los ~16 restantes (UI) → `logger.debug` | S |
+## INI-1 · Épica 1.2 — Telemetría de campo ✅
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 1.2.1 | Pasada 1: 8 except-pass en rutas de datos/sync (cli/handlers, query_sensor, http_client, sync_controller) → debug/warning por severidad | S | ✅ `1137ab9` |
+| 1.2.2 | Pasada 2: ~26 except-pass one-shot de UI → debug. **theme_manager EXCLUIDO por diseño** (14 swallows en loop caliente por-widget: loguear = spam; documentado en su docstring) | S | ✅ `9e26711` |
+
+> **Ajuste sobre el plan original:** el plan estimaba "~16 UI → debug" tratando todos
+> igual. Al ejecutar se detectó que los 14 de `theme_manager` están en el walk
+> por-widget (loop caliente) → loguearlos spamearía el log en cada toggle. Se
+> excluyen a propósito y se documentan; se abordarán al reescribir el theming
+> (INI-1.3/INI-4). Los ~26 discretos (one-shot) sí se loguean.
 
 ## INI-1 · Épica 1.3 — Red de seguridad de theming (experimento)
 | # | Tarea | Tamaño |
@@ -438,6 +444,8 @@ el mismo release. Mitigación: la tabla §7 es contrato; un release = un caráct
 | 2026-07-03 | `master` `231c5a0` | Checkpoint pre-plan | Consolidación de la línea estable 1.5.x a master (fast-forward). 708 unit verde. |
 | 2026-07-03 | `stab/ini-1-higiene` `35658ed` | 1.1.1 (código muerto) | `_DOWNLOAD_TIMEOUT`, re-import httpx, `field` F401, docstring `EMPIRICAL_RECORD`, paquetes vacíos `domain/comments|help`. 708 unit; integ 15F/110P == master (0 regresiones). **Hallazgos derivados:** épicas 1.0 (tests integ rotos) y 1.5 (~400 ruff sin gate). |
 | 2026-07-03 | `stab/ini-1-higiene` `e2bb9ad` | 1.0 (gate integración) | Repara **29 tests obsoletos** (6 payload-dict + 23 versión-obsoleta ERR-003) + invierte `test_no_update_clears_previous_pending`. **CERO bugs de producción.** Integración **361/361 verde** por primera vez; suite total 1063 passed / 7 skipped. |
+| 2026-07-03 | `stab/ini-1-higiene` `1137ab9` | 1.2.1 (telemetría datos/sync) | 8 except-pass → log (debug/warning por severidad); +logger en cli/handlers. 1069 passed. |
+| 2026-07-03 | `stab/ini-1-higiene` `9e26711` | 1.2.2 (telemetría UI) | ~26 except-pass one-shot de UI → debug; theme_manager (14, loop caliente) excluido por diseño + documentado. 1069 passed. |
 
 ---
 *Plan de ingeniería — sin código, sin nuevas auditorías. Basado íntegramente en los
