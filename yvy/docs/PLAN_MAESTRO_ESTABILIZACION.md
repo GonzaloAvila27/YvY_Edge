@@ -196,17 +196,19 @@ INI-5 ── espera trigger externo (sin release asignado)
 | 0.1.4 | Verificar botón INSTALAR post-fix; si persiste, ticket con diagnóstico ya escrito (snapshot vs live) | S |
 | 0.1.5 | Acta de certificación + actualizar runbooks con baseline real | S |
 
-## INI-1 · Épica 1.0 — Gate de integración confiable ⚠️ (hallazgo 2026-07)
-> **Descubierto ejecutando 1.1.1:** la suite de integración tiene **15 fallos
-> preexistentes en master** (independientes de todo cambio). Hoy son ruido que
-> enmascara regresiones reales — sin un gate de integración limpio, las épicas
-> siguientes avanzan a ciegas. **Prioridad alta: va antes que el resto de INI-1.**
+## INI-1 · Épica 1.0 — Gate de integración confiable ✅ (hallazgo 2026-07 · `e2bb9ad`)
+> **Descubierto ejecutando 1.1.1:** la suite de integración tenía **29 fallos
+> preexistentes en master** (el conteo inicial de 15 era solo el subconjunto que
+> matcheaba el filtro `-k`; los tests del instalador no lo matcheaban). Ruido que
+> enmascaraba regresiones reales. **RESUELTO: eran todos tests obsoletos de los
+> fixes 1.5.1 — CERO bugs de producción** (los unit tests ya certificaban el
+> comportamiento correcto; los integración quedaron atrás).
 
-| # | Tarea | Tamaño |
-|---|---|---|
-| 1.0.1 | Triage de los 15 fallos: `test_empirical_use_cases` ×6, `test_update_download_e2e` ×6, `test_update_checker_e2e` ×2, `test_installer_data_isolation` ×1. Clasificar: (a) test obsoleto, (b) falta fixture/entorno, (c) bug real | M |
-| 1.0.2 | Arreglar los reparables; a los que dependan de entorno no disponible → `@pytest.mark.skip(reason=...)` explícito (nunca fallo silencioso) | M |
-| 1.0.3 | Meta: `pytest tests/integration` verde (0 fallos, skips justificados) → recién ahí es gate confiable para el resto del plan | S |
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 1.0.1 | Triage: 2 causas raíz. (A) payload ahora dict → `json.loads(dict)` revienta (6 tests). (B) guard obsolescencia ERR-003 auto-limpia pending con versión sembrada baja (23 tests: download/checker/installer). Ninguno era bug real | M | ✅ |
+| 1.0.2 | Fix: grupo A usa el dict directo; grupo B bumpea versión sembrada a 99.0.0 (futura, no rota). `test_no_update_clears_previous_pending` se **invierte** (ERR-003 hoy SÍ limpia) | M | ✅ |
+| 1.0.3 | Meta: `pytest tests/integration` **361/361 verde** — gate confiable para el resto del plan. Suite total 1063 passed / 7 skipped | S | ✅ |
 
 ## INI-1 · Épica 1.1 — Código muerto y trampas (1 PR combinado)
 | # | Tarea | Tamaño | Estado |
@@ -434,7 +436,8 @@ el mismo release. Mitigación: la tabla §7 es contrato; un release = un caráct
 | Fecha | Rama / commit | Épica | Resultado |
 |---|---|---|---|
 | 2026-07-03 | `master` `231c5a0` | Checkpoint pre-plan | Consolidación de la línea estable 1.5.x a master (fast-forward). 708 unit verde. |
-| 2026-07-03 | `stab/ini-1-higiene` `35658ed` | 1.1.1 (código muerto) | `_DOWNLOAD_TIMEOUT`, re-import httpx, `field` F401, docstring `EMPIRICAL_RECORD`, paquetes vacíos `domain/comments|help`. 708 unit; integ 15F/110P == master (0 regresiones). **Hallazgos derivados:** épicas 1.0 (15 tests integ rotos) y 1.5 (~400 ruff sin gate). |
+| 2026-07-03 | `stab/ini-1-higiene` `35658ed` | 1.1.1 (código muerto) | `_DOWNLOAD_TIMEOUT`, re-import httpx, `field` F401, docstring `EMPIRICAL_RECORD`, paquetes vacíos `domain/comments|help`. 708 unit; integ 15F/110P == master (0 regresiones). **Hallazgos derivados:** épicas 1.0 (tests integ rotos) y 1.5 (~400 ruff sin gate). |
+| 2026-07-03 | `stab/ini-1-higiene` `e2bb9ad` | 1.0 (gate integración) | Repara **29 tests obsoletos** (6 payload-dict + 23 versión-obsoleta ERR-003) + invierte `test_no_update_clears_previous_pending`. **CERO bugs de producción.** Integración **361/361 verde** por primera vez; suite total 1063 passed / 7 skipped. |
 
 ---
 *Plan de ingeniería — sin código, sin nuevas auditorías. Basado íntegramente en los
