@@ -24,6 +24,14 @@ Bidireccionalidad:
     widgets reciben un tag con la clave semántica usada en el primer
     toggle; los toggles posteriores usan ese tag directamente, evitando
     ambigüedades cuando dos colores distintos tienen el mismo hex.
+
+Swallows intencionales en el walk (audit H14 · épica 1.2.2):
+    ``_walk`` / ``_apply_widget`` / ``_lookup`` envuelven cada operación
+    Tkinter por-widget (``.cget()``, ``.configure()``, ``.winfo_class()``)
+    en ``try/except: pass`` SIN loguear, a propósito: el walk toca cientos
+    de widgets por toggle y muchos no soportan un atributo dado (excepción
+    esperada, no un error). Loguear cada fallo spamearía el log en un loop
+    caliente. Se excluyen por diseño de la telemetría de except-pass.
 """
 
 from __future__ import annotations

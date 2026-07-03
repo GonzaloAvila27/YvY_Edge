@@ -214,7 +214,7 @@ class MetricCarousel(tk.Frame):
         if self._after_id is not None:
             try:
                 self.after_cancel(self._after_id)
-            except tk.TclError:
-                pass
+            except tk.TclError as exc:
+                logger.debug("Widget destruido durante callback (ignorado): %s", exc)
             self._after_id = None
         super().destroy()

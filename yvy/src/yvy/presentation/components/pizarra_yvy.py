@@ -329,6 +329,6 @@ class PizarraYvY(tk.Frame):
             for child in children:
                 if child is not self:
                     return child
-        except tk.TclError:
-            pass
+        except tk.TclError as exc:
+            logger.debug("Widget destruido durante callback (ignorado): %s", exc)
         return None

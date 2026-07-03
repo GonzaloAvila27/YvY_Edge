@@ -113,8 +113,8 @@ class HelpButton(tk.Frame):
         if self._dwell_id is not None:
             try:
                 self.after_cancel(self._dwell_id)
-            except tk.TclError:
-                pass
+            except tk.TclError as exc:
+                logger.debug("Widget destruido durante callback (ignorado): %s", exc)
             self._dwell_id = None
 
     def _on_click(self, _event=None) -> None:  # type: ignore[no-untyped-def]
@@ -123,8 +123,8 @@ class HelpButton(tk.Frame):
         if self._dwell_id is not None:
             try:
                 self.after_cancel(self._dwell_id)
-            except tk.TclError:
-                pass
+            except tk.TclError as exc:
+                logger.debug("Widget destruido durante callback (ignorado): %s", exc)
             self._dwell_id = None
         self._open_modal()
 
@@ -172,6 +172,6 @@ class HelpButton(tk.Frame):
         if self._modal_is_open():
             try:
                 self._modal.destroy()  # type: ignore[union-attr]
-            except tk.TclError:
-                pass
+            except tk.TclError as exc:
+                logger.debug("Widget destruido durante callback (ignorado): %s", exc)
             self._modal = None

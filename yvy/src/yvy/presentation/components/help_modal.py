@@ -194,8 +194,8 @@ class HelpModal(tk.Toplevel):
         if self._dismiss_after_id is not None:
             try:
                 self.after_cancel(self._dismiss_after_id)
-            except tk.TclError:
-                pass
+            except tk.TclError as exc:
+                logger.debug("Widget destruido durante callback (ignorado): %s", exc)
             self._dismiss_after_id = None
 
     def _on_mouse_leave(self, event=None) -> None:  # type: ignore[no-untyped-def]
@@ -209,8 +209,8 @@ class HelpModal(tk.Toplevel):
                         if parent is self:
                             return
                         parent = parent.master  # type: ignore[assignment]
-            except tk.TclError:
-                pass
+            except tk.TclError as exc:
+                logger.debug("Widget destruido durante callback (ignorado): %s", exc)
 
         if self._dismiss_after_id is None:
             self._dismiss_after_id = self.after(self._dwell_ms, self._close)
@@ -222,20 +222,20 @@ class HelpModal(tk.Toplevel):
             mw, mh = self.winfo_width(), self.winfo_height()
             if not (mx <= x < mx + mw and my <= y < my + mh):
                 self._close()
-        except tk.TclError:
-            pass
+        except tk.TclError as exc:
+            logger.debug("Widget destruido durante callback (ignorado): %s", exc)
 
     def _close(self) -> None:
         if self._dismiss_after_id is not None:
             try:
                 self.after_cancel(self._dismiss_after_id)
-            except tk.TclError:
-                pass
+            except tk.TclError as exc:
+                logger.debug("Widget destruido durante callback (ignorado): %s", exc)
             self._dismiss_after_id = None
         try:
             self.destroy()
-        except tk.TclError:
-            pass
+        except tk.TclError as exc:
+            logger.debug("Widget destruido durante callback (ignorado): %s", exc)
 
     def _position(
         self,
@@ -286,8 +286,8 @@ class HelpModal(tk.Toplevel):
 
                 self.geometry(f"+{x}+{y}")
                 return
-            except tk.TclError:
-                pass
+            except tk.TclError as exc:
+                logger.debug("Widget destruido durante callback (ignorado): %s", exc)
 
         # Fallback: centrar en la ventana
         x = max(win_left, wx + (ww - mw) // 2)

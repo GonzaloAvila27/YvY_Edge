@@ -9,6 +9,7 @@ Exports públicos:
 
 from __future__ import annotations
 
+import logging
 import tkinter as tk
 from collections.abc import Callable
 from datetime import date, datetime, timedelta
@@ -31,6 +32,8 @@ from yvy.presentation.theme import (
 )
 
 __all__ = ["PeriodRange", "PeriodSelector", "resolve_preset"]
+
+logger = logging.getLogger(__name__)
 
 # ─── Presets disponibles ──────────────────────────────────────────────────────
 
@@ -277,8 +280,8 @@ class PeriodSelector(tk.Frame):
             try:
                 period = self.get_period_range()
                 self._on_change(period)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Callback de cambio de período falló (ignorado): %s", exc)
 
     def _on_apply_clicked(self) -> None:
         try:

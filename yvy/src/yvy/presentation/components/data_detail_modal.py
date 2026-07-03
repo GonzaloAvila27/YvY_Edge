@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import tkinter as tk
 from tkinter import ttk
 from typing import Any
@@ -20,6 +21,8 @@ from yvy.presentation.theme import (
     TEXT_PRIMARY,
     TEXT_SECONDARY,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # Lista completa de campos a mostrar, en orden, con label y unidad.
@@ -129,8 +132,8 @@ class DataDetailModal(tk.Toplevel):
     def _close(self) -> None:
         try:
             self.grab_release()
-        except tk.TclError:
-            pass
+        except tk.TclError as exc:
+            logger.debug("Widget destruido durante callback (ignorado): %s", exc)
         self.destroy()
 
     def _center_on_parent(self, parent: tk.Misc) -> None:
@@ -142,5 +145,5 @@ class DataDetailModal(tk.Toplevel):
             x = max(0, px + (pw - mw) // 2)
             y = max(0, py + (ph - mh) // 2)
             self.geometry(f"+{x}+{y}")
-        except tk.TclError:
-            pass
+        except tk.TclError as exc:
+            logger.debug("Widget destruido durante callback (ignorado): %s", exc)

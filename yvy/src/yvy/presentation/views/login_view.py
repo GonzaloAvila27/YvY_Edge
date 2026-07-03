@@ -298,8 +298,8 @@ def _load_logo(path: Path, width: int, height: int) -> "tk.PhotoImage | None":
         img = Image.open(path).convert("RGBA")
         img = img.resize((width, height), Image.LANCZOS)
         return ImageTk.PhotoImage(img)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Carga de logo con Pillow falló, se intenta fallback nativo: %s", exc)
     try:
         return tk.PhotoImage(file=str(path))
     except Exception:

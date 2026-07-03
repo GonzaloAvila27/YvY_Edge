@@ -222,12 +222,12 @@ class Header(tk.Frame):
         try:
             self._bell_img_normal = tk.PhotoImage(file=str(_ICONS_DIR / "campana_white.png"))
             self._bell_img_hover  = tk.PhotoImage(file=str(_ICONS_DIR / "campana_gold.png"))
-        except tk.TclError:
-            pass
+        except tk.TclError as exc:
+            logger.debug("No se pudo cargar ícono de campana (ignorado): %s", exc)
         try:
             self._bell_img_alert = tk.PhotoImage(file=str(_ICONS_DIR / "campana_red.png"))
-        except tk.TclError:
-            pass
+        except tk.TclError as exc:
+            logger.debug("No se pudo cargar ícono de campana (ignorado): %s", exc)
 
         # Estado de alerta de update
         self._update_alert_active: bool = False
@@ -396,8 +396,8 @@ class Header(tk.Frame):
         if self._blink_after_id is not None:
             try:
                 self.after_cancel(self._blink_after_id)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("after_cancel de blink falló (ignorado): %s", exc)
             self._blink_after_id = None
         if hasattr(self, "_bell") and self._bell.winfo_exists():
             if self._bell_img_normal is not None:
@@ -447,8 +447,8 @@ def _load_logo(path: Path, width: int, height: int) -> "tk.PhotoImage | None":
         img = Image.open(path).convert("RGBA")
         img.thumbnail((width, height), Image.LANCZOS)
         return ImageTk.PhotoImage(img)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Carga de logo con Pillow falló, se intenta fallback nativo: %s", exc)
     try:
         import tkinter as _tk
         return _tk.PhotoImage(file=str(path))

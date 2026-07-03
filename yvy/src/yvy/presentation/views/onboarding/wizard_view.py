@@ -99,8 +99,9 @@ class _WizardState:
         if not self.skip_sync and self.station_credentials_json.strip():
             try:
                 station_credentials = _json.loads(self.station_credentials_json)
-            except Exception:
-                pass  # validación ya pasó en el step; no debería llegar acá corrupto
+            except Exception as exc:
+                # validación ya pasó en el step; no debería llegar acá corrupto
+                logger.debug("station_credentials_json no parseable (inesperado): %s", exc)
 
         return OnboardingData(
             cue=self.cue.strip(),

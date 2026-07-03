@@ -254,8 +254,8 @@ class MainApplication(tk.Tk):
             try:
                 from yvy.config.paths import DATA_DIR
                 theme_manager.load(DATA_DIR)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("No se pudo cargar el tema guardado, se usa default: %s", exc)
 
         apply_theme(self)
         if theme_manager.mode == "dark":
@@ -432,8 +432,8 @@ class MainApplication(tk.Tk):
                     if self._auth_controller and self._auth_controller.current_user
                     else ""
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Pre-fill de username en login falló (ignorado): %s", exc)
 
     def show_main(self, user: User | MockUser) -> None:
         """App autenticada con header + sidebar + content."""
@@ -661,8 +661,8 @@ class MainApplication(tk.Tk):
         if self._header_poll_id is not None:
             try:
                 self.after_cancel(self._header_poll_id)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("after_cancel de header polling falló (ignorado): %s", exc)
             self._header_poll_id = None
 
     def _poll_header(self) -> None:
@@ -712,8 +712,8 @@ class MainApplication(tk.Tk):
                 update_info.get("pending") and update_info.get("is_downloaded")
             )
             self._header.set_update_alert(has_alert)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("No se pudo actualizar la alerta de update en header (ignorado): %s", exc)
 
     def _get_iea_name(self, user: User | MockUser) -> str:
         if isinstance(user, MockUser):
@@ -778,8 +778,8 @@ class MainApplication(tk.Tk):
                 try:
                     from yvy.presentation.theme_manager import recolor
                     recolor(view, palette)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("recolor best-effort falló en vista (ignorado): %s", exc)
         # Propagar a vistas activas no cacheadas (ej. EmpiricalWizardView)
         if self._content is not None:
             from yvy.presentation.theme_manager import recolor
@@ -862,8 +862,8 @@ class MainApplication(tk.Tk):
                 if hasattr(view, "apply_theme"):
                     try:
                         view.apply_theme(palette)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.debug("apply_theme en vista nueva falló (ignorado): %s", exc)
                 else:
                     recolor(view, palette)
 
@@ -1310,8 +1310,8 @@ class CloseInterceptModal(tk.Toplevel):
     def _close(self) -> None:
         try:
             self.grab_release()
-        except tk.TclError:
-            pass
+        except tk.TclError as exc:
+            logger.debug("Operación sobre modal destruido (ignorado): %s", exc)
         self.destroy()
 
     def _center_on_parent(self, parent: tk.Misc) -> None:
@@ -1323,8 +1323,8 @@ class CloseInterceptModal(tk.Toplevel):
             x = max(0, px + (pw - mw) // 2)
             y = max(0, py + (ph - mh) // 2)
             self.geometry(f"+{x}+{y}")
-        except tk.TclError:
-            pass
+        except tk.TclError as exc:
+            logger.debug("Operación sobre modal destruido (ignorado): %s", exc)
 
 
 class UserMenuModal(tk.Toplevel):
@@ -1393,8 +1393,8 @@ class UserMenuModal(tk.Toplevel):
     def _close(self) -> None:
         try:
             self.grab_release()
-        except tk.TclError:
-            pass
+        except tk.TclError as exc:
+            logger.debug("Operación sobre modal destruido (ignorado): %s", exc)
         self.destroy()
 
     def _center_on_parent(self, parent: tk.Misc) -> None:
@@ -1406,8 +1406,8 @@ class UserMenuModal(tk.Toplevel):
             x = max(0, px + (pw - mw) // 2)
             y = max(0, py + (ph - mh) // 2)
             self.geometry(f"+{x}+{y}")
-        except tk.TclError:
-            pass
+        except tk.TclError as exc:
+            logger.debug("Operación sobre modal destruido (ignorado): %s", exc)
 
 
 class _PlaceholderView(tk.Frame):

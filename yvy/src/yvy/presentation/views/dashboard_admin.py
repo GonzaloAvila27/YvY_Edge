@@ -692,8 +692,8 @@ class DashboardAdminView(tk.Frame):
         if self._period_selector is not None:
             try:
                 return self._period_selector.get_period_range().preset_label
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("No se pudo leer período actual, se usa default: %s", exc)
         return _DEFAULT_PERIOD
 
     def _trigger_render(self) -> None:
