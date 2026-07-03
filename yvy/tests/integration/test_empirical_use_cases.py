@@ -6,7 +6,6 @@ para aislar el comportamiento del use case sin acoplar a Fase 9.
 
 from __future__ import annotations
 
-import json
 import sqlite3
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -263,7 +262,7 @@ class TestCreateObservation:
         )
         result = create_obs_uc.execute(input_data)
         sync_call = sync_repo_mock.enqueue.call_args[0][0]
-        payload = json.loads(sync_call.payload)
+        payload = sync_call.payload  # fix 1.5.1: payload es dict, no str codificado
         assert payload["station_uuid"] == str(station_uuid)
         assert payload["record_id"] == str(result.observation.observation_id)
 
@@ -413,7 +412,7 @@ class TestSyncPayloadObserverId:
         sync_repo_mock.reset_mock()
         uc.execute(input_data)
         sync_call = sync_repo_mock.enqueue.call_args[0][0]
-        return json.loads(sync_call.payload)
+        return sync_call.payload  # fix 1.5.1: payload es dict, no str codificado
 
     def test_observer_id_es_string_no_vacio(
         self, create_obs_uc, actor, sync_repo_mock

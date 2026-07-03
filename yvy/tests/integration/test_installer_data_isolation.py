@@ -58,7 +58,8 @@ def installer(cfg: AppConfigRepository, audit: SQLiteAuditLogRepository, yvy_roo
 
 def _register_pending(cfg: AppConfigRepository, pkg: Path, sha: str) -> None:
     cfg.set_pending_update({
-        "edge_version": "1.3.0",
+        # Versión futura: el guard ERR-003 auto-limpia pending <= __version__ (1.5.1).
+        "edge_version": "99.0.0",
         "package_url": "https://example.com/pkg.tar.gz",
         "package_sha256": sha,
         "package_size_bytes": pkg.stat().st_size,

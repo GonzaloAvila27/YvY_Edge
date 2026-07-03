@@ -41,14 +41,14 @@ def installer(cfg: AppConfigRepository, audit: SQLiteAuditLogRepository, yvy_roo
 
 
 def _make_pkg(root: Path, content: bytes = b"data" * 100) -> tuple[Path, str]:
-    pkg = root / "data" / "updates" / "pending" / "yvy_1.3.0.tar.gz"
+    pkg = root / "data" / "updates" / "pending" / "yvy_99.0.0.tar.gz"
     pkg.write_bytes(content)
     return pkg, hashlib.sha256(content).hexdigest()
 
 
 def _register_pending(cfg: AppConfigRepository, pkg: Path, sha: str) -> None:
     cfg.set_pending_update({
-        "edge_version": "1.3.0",
+        "edge_version": "99.0.0",
         "package_url": "https://example.com/pkg.tar.gz",
         "package_sha256": sha,
         "package_size_bytes": pkg.stat().st_size,
@@ -75,7 +75,7 @@ def test_prevalidate_fails_not_downloaded(
 ) -> None:
     pkg, sha = _make_pkg(yvy_root)
     cfg.set_pending_update({
-        "edge_version": "1.3.0",
+        "edge_version": "99.0.0",
         "package_url": "https://example.com/pkg.tar.gz",
         "package_sha256": sha,
         "package_size_bytes": pkg.stat().st_size,
@@ -144,7 +144,7 @@ def test_prevalidate_fails_min_version_not_met(
 ) -> None:
     pkg, sha = _make_pkg(yvy_root)
     cfg.set_pending_update({
-        "edge_version": "1.3.0",
+        "edge_version": "99.0.0",
         "package_url": "https://example.com/pkg.tar.gz",
         "package_sha256": sha,
         "package_size_bytes": pkg.stat().st_size,
@@ -188,7 +188,7 @@ def test_request_install_raises_not_downloaded(
     pkg, sha = _make_pkg(yvy_root)
     # Register but don't mark as downloaded
     cfg.set_pending_update({
-        "edge_version": "1.3.0",
+        "edge_version": "99.0.0",
         "package_url": "https://example.com/pkg.tar.gz",
         "package_sha256": sha,
         "package_size_bytes": pkg.stat().st_size,

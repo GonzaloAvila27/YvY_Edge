@@ -53,7 +53,9 @@ def installer(cfg: AppConfigRepository, audit: SQLiteAuditLogRepository, yvy_roo
     return UpdateInstaller(app_config_repo=cfg, audit_repo=audit, root_path=yvy_root)
 
 
-def _register_pending(cfg: AppConfigRepository, pkg: Path, sha: str, version: str = "1.3.0") -> None:
+def _register_pending(cfg: AppConfigRepository, pkg: Path, sha: str, version: str = "99.0.0") -> None:
+    # Versión futura: el guard ERR-003 (get_pending_update) auto-limpia pending
+    # con edge_version <= __version__ (1.5.1) → sin esto el installer ve "sin paquete".
     cfg.set_pending_update({
         "edge_version": version,
         "package_url": "https://example.com/pkg.tar.gz",
@@ -112,12 +114,12 @@ def test_request_install_stores_metadata(
     installer: UpdateInstaller, cfg: AppConfigRepository, fake_pkg: tuple
 ) -> None:
     pkg, sha = fake_pkg
-    _register_pending(cfg, pkg, sha, version="1.3.0")
+    _register_pending(cfg, pkg, sha, version="99.0.0")
 
     with patch("yvy.infrastructure.updates.installer.subprocess.Popen"):
         installer.request_install(requested_by_user_id=None)
 
-    assert cfg.get_install_to_version() == "1.3.0"
+    assert cfg.get_install_to_version() == "99.0.0"
     assert cfg.get_install_from_version() is not None
 
 
@@ -126,7 +128,7 @@ def test_request_install_writes_params_json(
     installer: UpdateInstaller, cfg: AppConfigRepository, yvy_root: Path, fake_pkg: tuple
 ) -> None:
     pkg, sha = fake_pkg
-    _register_pending(cfg, pkg, sha, version="1.3.0")
+    _register_pending(cfg, pkg, sha, version="99.0.0")
 
     with patch("yvy.infrastructure.updates.installer.subprocess.Popen"):
         installer.request_install(requested_by_user_id=None)
@@ -134,7 +136,7 @@ def test_request_install_writes_params_json(
     params_path = yvy_root / "data" / "updates" / "install_params.txt"
     assert params_path.exists()
     params = json.loads(params_path.read_text(encoding="utf-8"))
-    assert params["to_version"] == "1.3.0"
+    assert params["to_version"] == "99.0.0"
     assert params["package_path"] == str(pkg)
     assert "backup_path" in params
     assert "requested_at" in params

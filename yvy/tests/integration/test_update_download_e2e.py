@@ -22,9 +22,12 @@ from yvy.infrastructure.sync.update_downloader import UpdateDownloader
 _UUID = UUID("dddddddd-dddd-4ddd-8ddd-dddddddddddd")
 _KEY = bytes.fromhex("c" * 64)
 _SERVER_URL = "https://yvy-core.test"
-_PACKAGE_PATH = "/packages/yvy-edge-0.9.6.tar.gz"
+# Versión futura a propósito: el guard ERR-003 (get_pending_update) auto-limpia
+# cualquier pending con edge_version <= __version__ actual. Con una versión real
+# baja (p.ej. 0.9.6 <= 1.5.1) el pending se borra y el test ve "sin descarga".
+_VERSION = "99.0.0"
+_PACKAGE_PATH = f"/packages/yvy-edge-{_VERSION}.tar.gz"
 _PACKAGE_URL = _SERVER_URL + _PACKAGE_PATH
-_VERSION = "0.9.6"
 _MIGRATIONS = Path(__file__).resolve().parents[2] / "migrations"
 
 
