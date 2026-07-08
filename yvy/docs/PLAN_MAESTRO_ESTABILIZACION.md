@@ -214,8 +214,8 @@ INI-5 ── espera trigger externo (sin release asignado)
 | # | Tarea | Tamaño | Estado |
 |---|---|---|---|
 | 1.1.1 | H13: `_DOWNLOAD_TIMEOUT`, re-import httpx (+`field` F401), docstring `EMPIRICAL_RECORD`, paquetes `domain/comments|help` | S | ✅ `35658ed` (708 unit; integ 15F/110P == master) |
-| 1.1.2 | H9: `HttpTimeoutError` en origen + alias de compat + migrar imports internos | S | pendiente |
-| 1.1.3 | Canon v13 documentado en `domain/sync/models.py` + nota de plan de retiro (H4-prep) | S | pendiente |
+| 1.1.2 | H9: `HttpTimeoutError` en origen + alias de compat + migrar imports internos | S | ✅ `e037fb8` |
+| 1.1.3 | Canon v13 documentado en `domain/sync/models.py` + nota de plan de retiro (H4-prep) | S | ✅ `676762b` |
 
 ## INI-1 · Épica 1.2 — Telemetría de campo ✅
 | # | Tarea | Tamaño | Estado |
@@ -446,6 +446,8 @@ el mismo release. Mitigación: la tabla §7 es contrato; un release = un caráct
 | 2026-07-03 | `stab/ini-1-higiene` `e2bb9ad` | 1.0 (gate integración) | Repara **29 tests obsoletos** (6 payload-dict + 23 versión-obsoleta ERR-003) + invierte `test_no_update_clears_previous_pending`. **CERO bugs de producción.** Integración **361/361 verde** por primera vez; suite total 1063 passed / 7 skipped. |
 | 2026-07-03 | `stab/ini-1-higiene` `1137ab9` | 1.2.1 (telemetría datos/sync) | 8 except-pass → log (debug/warning por severidad); +logger en cli/handlers. 1069 passed. |
 | 2026-07-03 | `stab/ini-1-higiene` `9e26711` | 1.2.2 (telemetría UI) | ~26 except-pass one-shot de UI → debug; theme_manager (14, loop caliente) excluido por diseño + documentado. 1069 passed. |
+| 2026-07-03 | `stab/ini-1-higiene` `e037fb8` | 1.1.2 (H9 TimeoutError) | `class TimeoutError`→`HttpTimeoutError` + alias de compat; migrados src+tests; builtin de test_sync_controller intacto. 1069 passed. |
+| 2026-07-03 | `stab/ini-1-higiene` `676762b` | 1.1.3 (canon v13 · H4-prep) | Documenta v13 como fuente de verdad en `SyncJob` + tabla legacy→v13 + plan de retiro. Solo doc. |
 
 ---
 *Plan de ingeniería — sin código, sin nuevas auditorías. Basado íntegramente en los
