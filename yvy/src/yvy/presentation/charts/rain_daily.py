@@ -39,7 +39,9 @@ class RainDailyChart(BaseChart):
         tz: ZoneInfo | None = None,
     ) -> None:
         if period_range is not None:
-            rain = query_uc.execute_rain_daily_range(station_uuid, period_range.start, period_range.end)
+            rain = query_uc.execute_rain_daily_range(
+                station_uuid, period_range.start, period_range.end
+            )
         else:
             rain = query_uc.execute_rain_daily(station_uuid, period)
 

@@ -39,6 +39,7 @@ If an event has no defined transition from the current state, the state
 does NOT change (no-op). This makes spurious events safe — e.g.
 JOB_SUCCESS while already HEALTHY is a no-op.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -107,22 +108,18 @@ _TRANSITIONS: dict[tuple[AgentState, AgentEvent], AgentState] = {
     (AgentState.HEALTHY, AgentEvent.CLOCK_ERROR_PERSISTENT): AgentState.CLOCK_ERROR_LATCHED,
     (AgentState.HEALTHY, AgentEvent.CONSECUTIVE_ERRORS_THRESHOLD): AgentState.DEGRADED,
     (AgentState.HEALTHY, AgentEvent.OPERATOR_PAUSE): AgentState.PAUSED,
-
     # From DEGRADED
     (AgentState.DEGRADED, AgentEvent.JOB_SUCCESS): AgentState.HEALTHY,
     (AgentState.DEGRADED, AgentEvent.NETWORK_ERROR): AgentState.DISCONNECTED,
     (AgentState.DEGRADED, AgentEvent.AUTH_ERROR): AgentState.AUTH_ERROR_LATCHED,
     (AgentState.DEGRADED, AgentEvent.CLOCK_ERROR_PERSISTENT): AgentState.CLOCK_ERROR_LATCHED,
     (AgentState.DEGRADED, AgentEvent.OPERATOR_PAUSE): AgentState.PAUSED,
-
     # From DISCONNECTED
     (AgentState.DISCONNECTED, AgentEvent.JOB_SUCCESS): AgentState.HEALTHY,
     (AgentState.DISCONNECTED, AgentEvent.AUTH_ERROR): AgentState.AUTH_ERROR_LATCHED,
     (AgentState.DISCONNECTED, AgentEvent.OPERATOR_PAUSE): AgentState.PAUSED,
-
     # From PAUSED
     (AgentState.PAUSED, AgentEvent.OPERATOR_RESUME): AgentState.HEALTHY,
-
     # AUTH_ERROR_LATCHED and CLOCK_ERROR_LATCHED have NO outgoing
     # transitions. Only process restart re-enters HEALTHY (via the seed).
 }

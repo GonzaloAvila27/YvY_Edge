@@ -73,9 +73,7 @@ class CreateUserUseCase:
 
         # Username único
         if self.user_repo.find_by_username(username) is not None:
-            raise UsernameAlreadyExistsError(
-                f"Ya existe un usuario con username '{username}'"
-            )
+            raise UsernameAlreadyExistsError(f"Ya existe un usuario con username '{username}'")
 
         # Límite de admins comunes (rol ADMIN): máximo MAX_COMMON_ADMINS.
         if role == Role.ADMIN:

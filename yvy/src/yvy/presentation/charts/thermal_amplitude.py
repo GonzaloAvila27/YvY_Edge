@@ -20,8 +20,8 @@ if TYPE_CHECKING:
     from yvy.domain.observatorio.period_range import PeriodRange
 
 # Umbrales de intensidad (°C)
-_AMP_MODERATE = 10.0   # < 10°C → moderada (oliva)
-_AMP_NOTABLE  = 15.0   # 10–15°C → notable (dorado)
+_AMP_MODERATE = 10.0  # < 10°C → moderada (oliva)
+_AMP_NOTABLE = 15.0  # 10–15°C → notable (dorado)
 # > 15°C → extrema (rojo)
 
 
@@ -63,7 +63,9 @@ class ThermalAmplitudeChart(BaseChart):
     ) -> None:
         # ── 1. Obtener serie de temperatura ───────────────────────────
         if period_range is not None:
-            temp_series = query_uc.execute_range("temp_out", period_range.start, period_range.end, station_uuid)
+            temp_series = query_uc.execute_range(
+                "temp_out", period_range.start, period_range.end, station_uuid
+            )
         else:
             temp_series = query_uc.execute("temp_out", period, station_uuid)
 
@@ -75,9 +77,7 @@ class ThermalAmplitudeChart(BaseChart):
             raise NoDataError()
 
         # ── 2. Calcular amplitud diaria ───────────────────────────────
-        dates, amplitudes = daily_thermal_amplitude(
-            temp_series.timestamps, temp_series.values
-        )
+        dates, amplitudes = daily_thermal_amplitude(temp_series.timestamps, temp_series.values)
 
         if not dates:
             raise NoDataError()
@@ -107,9 +107,7 @@ class ThermalAmplitudeChart(BaseChart):
         # ── 6. Eje X: fechas "dd/MM" ──────────────────────────────────
         labels = [d.strftime("%d/%m") for d in dates]
         ax.set_xticks(x)
-        ax.set_xticklabels(
-            labels, rotation=30, ha="right", fontsize=10, color=TEXT_SECONDARY
-        )
+        ax.set_xticklabels(labels, rotation=30, ha="right", fontsize=10, color=TEXT_SECONDARY)
 
         # ── 7. Etiquetas y límites ────────────────────────────────────
         ax.set_title(self.label)

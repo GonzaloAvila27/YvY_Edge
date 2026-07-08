@@ -7,7 +7,7 @@ Uso manual: python scripts/validar_sensor.py
 import sys
 
 SEP = "=" * 55
-VENDOR_ID  = 0x1941
+VENDOR_ID = 0x1941
 PRODUCT_ID = 0x8021
 
 
@@ -28,6 +28,7 @@ titulo(1, 5, "Verificando pywws...")
 pywws_ok = False
 try:
     import pywws
+
     print(f"  [OK] pywws {pywws.__version__}")
     pywws_ok = True
 except ImportError as e:
@@ -41,6 +42,7 @@ titulo(2, 5, "Verificando pyusb...")
 pyusb_ok = False
 try:
     import usb.core
+
     print("  [OK] pyusb importado")
     pyusb_ok = True
 except ImportError as e:
@@ -58,6 +60,7 @@ backend_ok = False
 usb1_ok = False
 try:
     import usb1
+
     with usb1.USBContext() as ctx:
         # Si llega acá, usb1 cargó libusb-1.0.dll correctamente.
         print("  [OK] usb1 (python-libusb1) disponible — DLL libusb-1.0 cargada")
@@ -73,15 +76,17 @@ except Exception as e:
 # Información adicional sobre pyusb (solo informativa, pywws no lo usa)
 if pyusb_ok:
     import importlib
+
     _candidatos = [
         ("libusb1/WinUSB", "usb.backend.libusb1"),
         ("libusb0/libusb-win32", "usb.backend.libusb0"),
     ]
-    _backends_pyusb = [n for n, m in _candidatos
-                       if __import__("importlib").import_module(m).get_backend()
-                       is not None
-                       if not (lambda: False)()
-                       ]
+    _backends_pyusb = [
+        n
+        for n, m in _candidatos
+        if __import__("importlib").import_module(m).get_backend() is not None
+        if not (lambda: False)()
+    ]
     _backends_pyusb = []
     for _n, _m in _candidatos:
         try:
@@ -152,6 +157,7 @@ titulo(5, 5, "Intentando lectura con pywws...")
 if pywws_ok and device_ok:
     try:
         from pywws.weatherstation import WeatherStation
+
         ws = WeatherStation()
         pos = ws.current_pos()
         print(f"  [OK] WeatherStation abierta.  Posicion actual: {pos:#06x}")

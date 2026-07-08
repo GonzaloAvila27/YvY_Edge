@@ -29,9 +29,7 @@ class BcryptPasswordHasher:
 
     def __init__(self, rounds: int = BCRYPT_ROUNDS) -> None:
         if rounds < 4 or rounds > 20:
-            raise ValueError(
-                f"rounds debe estar en [4, 20], recibido {rounds}"
-            )
+            raise ValueError(f"rounds debe estar en [4, 20], recibido {rounds}")
         self._rounds = rounds
 
     def hash(self, plaintext: str) -> str:

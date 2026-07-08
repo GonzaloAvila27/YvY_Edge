@@ -20,20 +20,26 @@ def use_case(audit_log_repo: SQLiteAuditLogRepository) -> ListAuditLogsUseCase:
 def _seed(repo: SQLiteAuditLogRepository, count_per_type: int = 3) -> None:
     """Seedea variedad de eventos."""
     for _ in range(count_per_type):
-        repo.append(AuditLogEntry(
-            event_type=AuditEventType.LOGIN_SUCCESS,
-            source=AuditSource.UI,
-        ))
-        repo.append(AuditLogEntry(
-            event_type=AuditEventType.LOGIN_FAILED,
-            source=AuditSource.UI,
-            metadata={"reason": "bad_password"},
-        ))
-        repo.append(AuditLogEntry(
-            event_type=AuditEventType.USER_CREATED,
-            source=AuditSource.UI,
-            metadata={"created_username": "newuser"},
-        ))
+        repo.append(
+            AuditLogEntry(
+                event_type=AuditEventType.LOGIN_SUCCESS,
+                source=AuditSource.UI,
+            )
+        )
+        repo.append(
+            AuditLogEntry(
+                event_type=AuditEventType.LOGIN_FAILED,
+                source=AuditSource.UI,
+                metadata={"reason": "bad_password"},
+            )
+        )
+        repo.append(
+            AuditLogEntry(
+                event_type=AuditEventType.USER_CREATED,
+                source=AuditSource.UI,
+                metadata={"created_username": "newuser"},
+            )
+        )
 
 
 @pytest.mark.integration
@@ -66,9 +72,7 @@ class TestListAuditLogs:
         result = use_case.execute(limit=5)
         assert len(result) == 5
 
-    def test_empty_when_no_logs(
-        self, use_case: ListAuditLogsUseCase
-    ) -> None:
+    def test_empty_when_no_logs(self, use_case: ListAuditLogsUseCase) -> None:
         assert use_case.execute() == []
 
     def test_filter_no_matches_returns_empty(

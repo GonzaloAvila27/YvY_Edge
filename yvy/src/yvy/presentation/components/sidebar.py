@@ -57,7 +57,7 @@ class SidebarItem:
 
     key: str
     label: str
-    icon_name: str = ""   # base name en resources/ICONS/ (e.g. "inicio")
+    icon_name: str = ""  # base name en resources/ICONS/ (e.g. "inicio")
     icon_char: str = "?"  # fallback unicode si el PNG no se encuentra
     admin_only: bool = False
     alumno_hidden: bool = False  # True → no visible para rol alumno
@@ -144,6 +144,7 @@ class Sidebar(tk.Frame):
     def apply_theme(self, palette: dict) -> None:
         """Sidebar siempre en paleta clara, independiente del tema global."""
         from yvy.presentation.theme_manager import LIGHT, recolor
+
         recolor(self, LIGHT)
         for key, widget in self._item_widgets.items():
             widget.apply_theme(LIGHT, is_active=(key == self._active_key))
@@ -152,9 +153,7 @@ class Sidebar(tk.Frame):
     def toggle(self) -> None:
         """Alterna entre expandido y colapsado. Sin animación."""
         self._collapsed = not self._collapsed
-        new_width = (
-            SIDEBAR_WIDTH_COLLAPSED if self._collapsed else SIDEBAR_WIDTH_EXPANDED
-        )
+        new_width = SIDEBAR_WIDTH_COLLAPSED if self._collapsed else SIDEBAR_WIDTH_EXPANDED
         self.configure(width=new_width)
 
         for w in self._item_widgets.values():
@@ -298,9 +297,7 @@ class _SidebarItemWidget(tk.Frame):
                 self._img_normal = tk.PhotoImage(
                     file=str(_ICONS_DIR / f"{item.icon_name}_blue.png")
                 )
-                self._img_hover = tk.PhotoImage(
-                    file=str(_ICONS_DIR / f"{item.icon_name}_gold.png")
-                )
+                self._img_hover = tk.PhotoImage(file=str(_ICONS_DIR / f"{item.icon_name}_gold.png"))
             except tk.TclError:
                 logger.warning("No se pudo cargar ícono PNG para '%s'", item.icon_name)
 

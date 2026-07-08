@@ -93,9 +93,13 @@ def main() -> int:
 
     repo = SQLiteEmpiricalRepository(conn)
     actor = User(
-        id=1, user_uuid=uuid.uuid4(), username="smoketester",
-        full_name="Smoke Tester", role=Role.ALUMNO,
-        is_active=True, can_export_raw=False,
+        id=1,
+        user_uuid=uuid.uuid4(),
+        username="smoketester",
+        full_name="Smoke Tester",
+        role=Role.ALUMNO,
+        is_active=True,
+        can_export_raw=False,
     )
 
     # Mocks
@@ -108,12 +112,18 @@ def main() -> int:
     time_provider.now_local.return_value = datetime(2026, 5, 12, 11, 30, tzinfo=UTC)
 
     create_obs_uc = CreateEmpiricalObservationUseCase(
-        empirical_repo=repo, sync_repo=sync_repo, audit_repo=audit_repo,
-        app_config=app_config, time_provider=time_provider,
+        empirical_repo=repo,
+        sync_repo=sync_repo,
+        audit_repo=audit_repo,
+        app_config=app_config,
+        time_provider=time_provider,
     )
     create_event_uc = CreateEmpiricalEventUseCase(
-        empirical_repo=repo, sync_repo=sync_repo, audit_repo=audit_repo,
-        app_config=app_config, time_provider=time_provider,
+        empirical_repo=repo,
+        sync_repo=sync_repo,
+        audit_repo=audit_repo,
+        app_config=app_config,
+        time_provider=time_provider,
     )
 
     # ── 2. Observación completa ───────────────────────────────────────────
@@ -122,10 +132,15 @@ def main() -> int:
         observed_at_utc=datetime(2026, 5, 12, 14, 30, tzinfo=UTC),
         observed_at_local=datetime(2026, 5, 12, 11, 30, tzinfo=UTC),
         actor=actor,
-        rain_mm=8.5, temp_c=19.3, wind_beaufort=4,
-        wind_direction=WindDirection.SE, humidity_percept=HumidityPercept.ALTA,
-        sky_coverage_pct=75, cloud_type=CloudType.CUMULOS,
-        soil_state=SoilState.HUMEDO, visibility=Visibility.BUENA,
+        rain_mm=8.5,
+        temp_c=19.3,
+        wind_beaufort=4,
+        wind_direction=WindDirection.SE,
+        humidity_percept=HumidityPercept.ALTA,
+        sky_coverage_pct=75,
+        cloud_type=CloudType.CUMULOS,
+        soil_state=SoilState.HUMEDO,
+        visibility=Visibility.BUENA,
         precipitation_now=PrecipitationNow.LLOVIZNA,
         phenology_notes="Maíz en floración. Soja V4.",
         livestock_state=LivestockState.NORMAL,
@@ -173,7 +188,8 @@ def main() -> int:
         observation_date="2026-05-12",
         event_type=EventType.GRANIZO,
         hail_size=HailSize.POROTO,
-        started_at_local="14:35", ended_at_local="14:50",
+        started_at_local="14:35",
+        ended_at_local="14:50",
         description="Granizo intenso pero corto.",
         actor=actor,
         observation_id=obs_result.observation.observation_id,
@@ -211,8 +227,11 @@ def main() -> int:
     logger.info("[9/9] Verificar audit y sync calls")
     assert audit_repo.append.call_count == 3  # 2 obs + 1 evento
     assert sync_repo.enqueue.call_count == 3  # mismo
-    logger.info("       OK · audits=%d, syncs=%d",
-                audit_repo.append.call_count, sync_repo.enqueue.call_count)
+    logger.info(
+        "       OK · audits=%d, syncs=%d",
+        audit_repo.append.call_count,
+        sync_repo.enqueue.call_count,
+    )
 
     # Verificar shape del payload de sync
     last_sync_call = sync_repo.enqueue.call_args_list[0][0][0]

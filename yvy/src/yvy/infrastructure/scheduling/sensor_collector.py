@@ -67,7 +67,9 @@ class SensorCollectorDaemon(threading.Thread):
         super().__init__(daemon=True, name="sensor-collector")
         self._factory = factory
         self._use_case = use_case
-        self._shutdown = stop_event  # threading.Event — no usar "self._stop" (colisiona con Thread._stop())
+        self._shutdown = (
+            stop_event  # threading.Event — no usar "self._stop" (colisiona con Thread._stop())
+        )
         self._read_timeout = read_timeout
 
     def run(self) -> None:
@@ -111,13 +113,15 @@ class SensorCollectorDaemon(threading.Thread):
                 if n <= 3:
                     logger.error(
                         "sensor.capture.failure | consecutive=%d error=%s",
-                        n, exc,
+                        n,
+                        exc,
                         exc_info=exc,
                     )
                 elif n % 30 == 0:
                     logger.warning(
                         "sensor.capture.failure | %d errores consecutivos (muestra c/30): %s",
-                        n, exc,
+                        n,
+                        exc,
                     )
                 if self._shutdown.wait(timeout=_BACKOFF_FAILURE_S):
                     break
@@ -136,16 +140,12 @@ class SensorCollectorDaemon(threading.Thread):
                 continue
 
             if not capture_result.captured:
-                logger.debug(
-                    "sensor.capture.skip | reason=%s", capture_result.skip_reason
-                )
+                logger.debug("sensor.capture.skip | reason=%s", capture_result.skip_reason)
                 # read_live() ya bloqueó ~48s; no hace falta sleep adicional.
                 continue
 
             if consecutive_failures > 0:
-                logger.info(
-                    "sensor.capture.recovered | after=%d failures", consecutive_failures
-                )
+                logger.info("sensor.capture.recovered | after=%d failures", consecutive_failures)
                 consecutive_failures = 0
 
             if capture_result.was_new:

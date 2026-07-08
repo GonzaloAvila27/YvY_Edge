@@ -15,9 +15,7 @@ class TestCliMigrate:
         self, tmp_path: Path, migrations_dir: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         db_path = tmp_path / "yvy.sqlite"
-        exit_code = main(
-            ["migrate", "--db", str(db_path), "--migrations", str(migrations_dir)]
-        )
+        exit_code = main(["migrate", "--db", str(db_path), "--migrations", str(migrations_dir)])
 
         assert exit_code == 0
         assert db_path.exists()
@@ -33,9 +31,7 @@ class TestCliMigrate:
         main(["migrate", "--db", str(db_path), "--migrations", str(migrations_dir)])
         capsys.readouterr()  # descartar primera salida
 
-        exit_code = main(
-            ["migrate", "--db", str(db_path), "--migrations", str(migrations_dir)]
-        )
+        exit_code = main(["migrate", "--db", str(db_path), "--migrations", str(migrations_dir)])
         assert exit_code == 0
 
         captured = capsys.readouterr()

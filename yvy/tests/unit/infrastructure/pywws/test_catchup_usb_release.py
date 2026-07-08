@@ -25,7 +25,7 @@ import pytest
 from yvy.infrastructure.pywws.catchup_source import PywwsCatchupSource
 
 _SINCE = datetime(2026, 4, 25, 0, 0, 0, tzinfo=UTC)
-_NOW   = datetime(2026, 4, 26, 18, 0, 0, tzinfo=UTC)
+_NOW = datetime(2026, 4, 26, 18, 0, 0, tzinfo=UTC)
 
 
 def _make_source(mock_ws: MagicMock) -> PywwsCatchupSource:

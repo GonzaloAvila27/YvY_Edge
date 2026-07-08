@@ -148,7 +148,9 @@ class CreateEmpiricalObservationUseCase:
         self._empirical_repo.save_observation(observation)
         logger.info(
             "EmpiricalObservation creada: id=%s by_user=%s is_valid=%s",
-            observation.observation_id, observation.created_by_user_id, observation.is_valid,
+            observation.observation_id,
+            observation.created_by_user_id,
+            observation.is_valid,
         )
 
         sync_enqueued = self._enqueue_sync(observation, input_data.actor)
@@ -222,9 +224,12 @@ class CreateEmpiricalObservationUseCase:
         try:
             station_uuid = self._app_config.get_station_uuid()
             observer_display = (actor.full_name or "").strip() or actor.username.strip()
-            payload_dict = self._observation_to_sync_payload(observation, station_uuid, observer_display)
-            assert isinstance(payload_dict["observer_id"], str) and payload_dict["observer_id"].strip(), \
-                f"observer_id debe ser str no vacío, got {payload_dict['observer_id']!r}"
+            payload_dict = self._observation_to_sync_payload(
+                observation, station_uuid, observer_display
+            )
+            assert (
+                isinstance(payload_dict["observer_id"], str) and payload_dict["observer_id"].strip()
+            ), f"observer_id debe ser str no vacío, got {payload_dict['observer_id']!r}"
             job = SyncJob(
                 event_id=observation.observation_id,
                 station_uuid=station_uuid,
@@ -241,7 +246,8 @@ class CreateEmpiricalObservationUseCase:
         except Exception as exc:
             logger.exception(
                 "Fallo encolando observación %s al sync: %s",
-                observation.observation_id, exc,
+                observation.observation_id,
+                exc,
             )
             return False
 

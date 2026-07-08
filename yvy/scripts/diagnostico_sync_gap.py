@@ -22,12 +22,12 @@ def run(db_path: Path) -> None:
     # ── Totales básicos ──────────────────────────────────────────
     print("\n[ Totales ]")
     for label, sql in [
-        ("sensor_data (total)",          "SELECT COUNT(*) FROM sensor_data"),
-        ("sync_queue (total)",            "SELECT COUNT(*) FROM sync_queue"),
-        ("sync_queue pending",            "SELECT COUNT(*) FROM sync_queue WHERE status='pending'"),
-        ("sync_queue sent",               "SELECT COUNT(*) FROM sync_queue WHERE status='sent'"),
-        ("sync_queue error",              "SELECT COUNT(*) FROM sync_queue WHERE status='error'"),
-        ("sync_queue sending",            "SELECT COUNT(*) FROM sync_queue WHERE status='sending'"),
+        ("sensor_data (total)", "SELECT COUNT(*) FROM sensor_data"),
+        ("sync_queue (total)", "SELECT COUNT(*) FROM sync_queue"),
+        ("sync_queue pending", "SELECT COUNT(*) FROM sync_queue WHERE status='pending'"),
+        ("sync_queue sent", "SELECT COUNT(*) FROM sync_queue WHERE status='sent'"),
+        ("sync_queue error", "SELECT COUNT(*) FROM sync_queue WHERE status='error'"),
+        ("sync_queue sending", "SELECT COUNT(*) FROM sync_queue WHERE status='sending'"),
     ]:
         n = conn.execute(sql).fetchone()[0]
         print(f"  {label:<35} {n:>7}")

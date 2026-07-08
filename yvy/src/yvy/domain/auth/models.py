@@ -45,9 +45,7 @@ class User:
 
     def __post_init__(self) -> None:
         if len(self.username) < MIN_USERNAME_LENGTH:
-            raise ValueError(
-                f"username debe tener al menos {MIN_USERNAME_LENGTH} caracteres"
-            )
+            raise ValueError(f"username debe tener al menos {MIN_USERNAME_LENGTH} caracteres")
         if not self.full_name.strip():
             raise ValueError("full_name no puede estar vacío")
 
@@ -102,6 +100,4 @@ def validate_password_strength(password: str) -> None:
     if not password:
         raise WeakPasswordError("Password no puede estar vacío")
     if len(password) < MIN_PASSWORD_LENGTH:
-        raise WeakPasswordError(
-            f"Password debe tener al menos {MIN_PASSWORD_LENGTH} caracteres"
-        )
+        raise WeakPasswordError(f"Password debe tener al menos {MIN_PASSWORD_LENGTH} caracteres")

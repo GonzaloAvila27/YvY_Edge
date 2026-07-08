@@ -123,5 +123,6 @@ def draw_night_bands(ax: Axes, start_dt: datetime, end_dt: datetime, tz: ZoneInf
     sobre gráficos de una sola serie de color.
     """
     from yvy.domain.observatorio.night_periods import night_bands
+
     for band_start, band_end in night_bands(start_dt, end_dt, tz):
         ax.axvspan(band_start, band_end, color=_COLOR_NIGHT, alpha=_ALPHA_NIGHT, zorder=0)

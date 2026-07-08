@@ -3,6 +3,7 @@
 Regresión del bug de pérdida de datos: post-OTA la app corría desde el slot y
 derivaba ``data/`` del slot (DB vacía). El root estable debe ser ``C:\\YVY``.
 """
+
 from __future__ import annotations
 
 from pathlib import PurePosixPath, PureWindowsPath

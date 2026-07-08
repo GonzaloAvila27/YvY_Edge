@@ -152,9 +152,7 @@ class TestCanonicalTimestampValueObject:
         assert hash(a) == hash(b)
 
     def test_immutability_frozen(self) -> None:
-        ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
-        )
+        ts = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC))
         with pytest.raises((AttributeError, TypeError)):
             ts.value = datetime.now(tz=UTC)  # type: ignore[misc]
 

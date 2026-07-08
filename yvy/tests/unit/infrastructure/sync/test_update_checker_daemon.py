@@ -2,6 +2,7 @@
 
 Usa mocks de HttpClient y AppConfigRepository — sin red, sin DB.
 """
+
 from __future__ import annotations
 
 import threading

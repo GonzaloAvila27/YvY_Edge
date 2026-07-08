@@ -49,8 +49,7 @@ class SQLiteSyncAgentStateRepository:
         row = cur.fetchone()
         if row is None:
             raise RuntimeError(
-                "sync_agent_state singleton (id=1) no existe. "
-                "¿Se aplicó la migración v13?"
+                "sync_agent_state singleton (id=1) no existe. " "¿Se aplicó la migración v13?"
             )
         return SyncAgentState(
             state=AgentState(row["state"]),

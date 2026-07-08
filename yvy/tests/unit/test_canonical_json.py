@@ -18,6 +18,7 @@ If a test fails on BOTH sides simultaneously, the test itself is wrong
 These tests have no dependencies beyond stdlib + pytest + the module
 under test, so they run anywhere without database or network.
 """
+
 from __future__ import annotations
 
 import pytest

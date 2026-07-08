@@ -62,14 +62,20 @@ def main() -> int:
     hasher = BcryptPasswordHasher(rounds=4)
 
     create_user_uc = CreateUserUseCase(
-        user_repo=user_repo, audit_repo=audit_repo, hasher=hasher,
+        user_repo=user_repo,
+        audit_repo=audit_repo,
+        hasher=hasher,
     )
     login_uc = LoginUseCase(
-        user_repo=user_repo, audit_repo=audit_repo, hasher=hasher,
+        user_repo=user_repo,
+        audit_repo=audit_repo,
+        hasher=hasher,
         time_provider=SystemClock(),
     )
     change_pwd_uc = ChangePasswordUseCase(
-        user_repo=user_repo, audit_repo=audit_repo, hasher=hasher,
+        user_repo=user_repo,
+        audit_repo=audit_repo,
+        hasher=hasher,
     )
 
     onboarding_uc = CompleteOnboardingUseCase(

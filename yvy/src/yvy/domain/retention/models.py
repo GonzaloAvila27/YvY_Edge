@@ -65,9 +65,7 @@ class RetentionPolicy:
                 f"Para purgar todo, usar un método dedicado."
             )
         if self.sync_sent_days <= 0:
-            raise ValueError(
-                f"sync_sent_days debe ser > 0, recibido {self.sync_sent_days}."
-            )
+            raise ValueError(f"sync_sent_days debe ser > 0, recibido {self.sync_sent_days}.")
 
     @classmethod
     def default(cls) -> RetentionPolicy:

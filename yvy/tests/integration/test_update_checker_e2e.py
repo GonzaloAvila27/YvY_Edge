@@ -3,6 +3,7 @@
 Usa respx para mockear las respuestas HTTP.
 DB real en memoria (SQLite) para app_config_repo.
 """
+
 from __future__ import annotations
 
 import threading
@@ -131,9 +132,7 @@ class TestEdgeSyncEndpointNoUpdate:
 
 class TestEdgeSyncEndpointWithUpdate:
     @respx.mock
-    def test_update_available_persists_full_metadata(
-        self, app_config_repo, http_client
-    ):
+    def test_update_available_persists_full_metadata(self, app_config_repo, http_client):
         respx.get(f"{_SERVER_URL}/api/v1/edge/sync").mock(
             return_value=Response(
                 200,
@@ -203,6 +202,7 @@ class TestEdgeSyncEndpointErrors:
     @respx.mock
     def test_network_error_no_crash_no_persist(self, app_config_repo, http_client):
         import httpx
+
         respx.get(f"{_SERVER_URL}/api/v1/edge/sync").mock(
             side_effect=httpx.ConnectError("connection refused")
         )

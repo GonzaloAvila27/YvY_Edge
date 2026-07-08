@@ -47,22 +47,28 @@ def audit(db_factory: SQLiteConnectionFactory) -> SQLiteAuditLogRepository:
 
 
 @pytest.fixture
-def installer(cfg: AppConfigRepository, audit: SQLiteAuditLogRepository, yvy_root: Path) -> UpdateInstaller:
+def installer(
+    cfg: AppConfigRepository, audit: SQLiteAuditLogRepository, yvy_root: Path
+) -> UpdateInstaller:
     return UpdateInstaller(app_config_repo=cfg, audit_repo=audit, root_path=yvy_root)
 
 
-def _register_pending(cfg: AppConfigRepository, pkg: Path, sha: str, version: str = "99.0.0") -> None:
+def _register_pending(
+    cfg: AppConfigRepository, pkg: Path, sha: str, version: str = "99.0.0"
+) -> None:
     # Versión futura: el guard ERR-003 (get_pending_update) auto-limpia pending
     # con edge_version <= __version__ (1.5.1) → sin esto el installer ve "sin paquete".
-    cfg.set_pending_update({
-        "edge_version": version,
-        "package_url": "https://example.com/pkg.tar.gz",
-        "package_sha256": sha,
-        "package_size_bytes": pkg.stat().st_size,
-        "released_at": "2026-06-01T00:00:00Z",
-        "min_edge_version": "",
-        "notes": "",
-    })
+    cfg.set_pending_update(
+        {
+            "edge_version": version,
+            "package_url": "https://example.com/pkg.tar.gz",
+            "package_sha256": sha,
+            "package_size_bytes": pkg.stat().st_size,
+            "released_at": "2026-06-01T00:00:00Z",
+            "min_edge_version": "",
+            "notes": "",
+        }
+    )
     cfg.mark_update_downloaded(str(pkg))
 
 
@@ -70,7 +76,9 @@ def _register_pending(cfg: AppConfigRepository, pkg: Path, sha: str, version: st
 
 
 @pytest.mark.integration
-def test_prevalidate_ok(installer: UpdateInstaller, cfg: AppConfigRepository, fake_pkg: tuple) -> None:
+def test_prevalidate_ok(
+    installer: UpdateInstaller, cfg: AppConfigRepository, fake_pkg: tuple
+) -> None:
     pkg, sha = fake_pkg
     _register_pending(cfg, pkg, sha)
 
@@ -82,7 +90,9 @@ def test_prevalidate_ok(installer: UpdateInstaller, cfg: AppConfigRepository, fa
 
 
 @pytest.mark.integration
-def test_prevalidate_no_sha_check_when_empty(installer: UpdateInstaller, cfg: AppConfigRepository, fake_pkg: tuple) -> None:
+def test_prevalidate_no_sha_check_when_empty(
+    installer: UpdateInstaller, cfg: AppConfigRepository, fake_pkg: tuple
+) -> None:
     pkg, _ = fake_pkg
     _register_pending(cfg, pkg, sha="")  # sin hash → no check
 
@@ -245,9 +255,7 @@ def test_get_releases_annotates_anchors(
 
 
 @pytest.mark.integration
-def test_get_releases_no_states_for_untracked(
-    installer: UpdateInstaller, yvy_root: Path
-) -> None:
+def test_get_releases_no_states_for_untracked(installer: UpdateInstaller, yvy_root: Path) -> None:
     (yvy_root / "releases" / "1.0.0").mkdir(parents=True)
 
     on_disk = installer.get_releases_on_disk()

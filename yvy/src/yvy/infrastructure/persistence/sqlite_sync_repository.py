@@ -146,9 +146,7 @@ class SQLiteSyncRepository:
 
     def count_by_status(self) -> dict[SyncStatus, int]:
         conn = self._factory.get_connection()
-        cur = conn.execute(
-            "SELECT status, COUNT(*) FROM sync_queue GROUP BY status"
-        )
+        cur = conn.execute("SELECT status, COUNT(*) FROM sync_queue GROUP BY status")
         result: dict[SyncStatus, int] = dict.fromkeys(SyncStatus, 0)
         for row in cur.fetchall():
             try:
@@ -160,10 +158,9 @@ class SQLiteSyncRepository:
 
     def count_sent_today(self, tz: tzinfo) -> int:
         from datetime import timedelta
+
         now_local = datetime.now(tz=tz)
-        local_midnight = now_local.replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        local_midnight = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
         local_tomorrow = local_midnight + timedelta(days=1)
         lower_utc = local_midnight.astimezone(UTC)
         upper_utc = local_tomorrow.astimezone(UTC)
@@ -304,9 +301,7 @@ class SQLiteSyncRepository:
         """Marca fallo transient o permanent. Libera el lease."""
         now_iso = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
         next_retry_iso = (
-            next_retry_at.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-            if next_retry_at
-            else None
+            next_retry_at.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z" if next_retry_at else None
         )
         new_status = SyncStatus.ERROR if permanent else SyncStatus.PENDING
 
@@ -354,6 +349,7 @@ class SQLiteSyncRepository:
         NO incrementa attempt_count. NO toca last_error.
         """
         from datetime import timedelta
+
         threshold_dt = now_utc - timedelta(seconds=lease_timeout_seconds)
         threshold_iso = threshold_dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 

@@ -20,6 +20,7 @@ def root():
 
 def _make_article(summary: str | None = None):
     from yvy.infrastructure.help.help_repository import HelpArticle
+
     return HelpArticle(
         key="vpd",
         title="VPD",
@@ -32,6 +33,7 @@ def _make_article(summary: str | None = None):
 class TestHelpModalSummary:
     def test_shows_summary_when_available(self, root) -> None:
         from yvy.presentation.components.help_modal import HelpModal
+
         article = _make_article(summary="Este es el summary corto.")
         modal = HelpModal(root, article=article, dwell_ms=10)
         display = modal._get_display_text()
@@ -40,6 +42,7 @@ class TestHelpModalSummary:
 
     def test_fallback_to_first_paragraph_when_no_summary(self, root) -> None:
         from yvy.presentation.components.help_modal import HelpModal
+
         article = _make_article(summary=None)
         modal = HelpModal(root, article=article, dwell_ms=10)
         display = modal._get_display_text()
@@ -49,6 +52,7 @@ class TestHelpModalSummary:
     def test_fallback_skips_headers(self, root) -> None:
         from yvy.infrastructure.help.help_repository import HelpArticle
         from yvy.presentation.components.help_modal import HelpModal
+
         article = HelpArticle(
             key="x",
             title="X",
@@ -74,6 +78,7 @@ class TestHelpModalExpandButton:
 
     def test_no_on_expand_means_none(self, root) -> None:
         from yvy.presentation.components.help_modal import HelpModal
+
         article = _make_article(summary="Summary.")
         modal = HelpModal(root, article=article, dwell_ms=10, on_expand=None)
         assert modal._on_expand is None

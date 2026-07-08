@@ -61,6 +61,7 @@ observations. Rejected because:
 The single observation always wins. The threshold only decides whether
 to *write* it down.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

@@ -44,6 +44,7 @@ pipeline, hence ``infrastructure/sync/``. This differs from the
 server, where ``domain/auth/`` holds the same file — the server has
 no user-auth subsystem, so the name doesn't collide there.
 """
+
 from __future__ import annotations
 
 import json

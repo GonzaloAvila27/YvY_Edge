@@ -124,9 +124,7 @@ class UpdateInstaller:
 
         local_path_str = self._cfg.get("update_pending.local_path")
         if not local_path_str:
-            return PrevalidationResult(
-                ok=False, reason="Ruta local del paquete no registrada."
-            )
+            return PrevalidationResult(ok=False, reason="Ruta local del paquete no registrada.")
 
         pkg = Path(local_path_str)
         if not pkg.exists():
@@ -221,17 +219,19 @@ class UpdateInstaller:
         backup_path = self._backup_db(from_version, to_version, now_iso)
 
         # 3. Registrar en audit
-        self._audit.append(AuditLogEntry(
-            event_type=AuditEventType.UPDATE_REQUESTED,
-            user_id=requested_by_user_id,
-            source=AuditSource.UI,
-            metadata={
-                "from_version": from_version,
-                "to_version": to_version,
-                "package_sha256": meta.get("package_sha256", ""),
-                "backup_path": str(backup_path),
-            },
-        ))
+        self._audit.append(
+            AuditLogEntry(
+                event_type=AuditEventType.UPDATE_REQUESTED,
+                user_id=requested_by_user_id,
+                source=AuditSource.UI,
+                metadata={
+                    "from_version": from_version,
+                    "to_version": to_version,
+                    "package_sha256": meta.get("package_sha256", ""),
+                    "backup_path": str(backup_path),
+                },
+            )
+        )
         logger.info(
             "update.install.requested",
             extra={
@@ -308,17 +308,19 @@ class UpdateInstaller:
         self._cfg.set_current_release(to_version)
 
         # Audit
-        self._audit.append(AuditLogEntry(
-            event_type=AuditEventType.ROLLBACK_MANUAL,
-            user_id=performed_by,
-            source=AuditSource.UI,
-            metadata={
-                "from_version": from_version,
-                "to_version": to_version,
-                "reason": reason,
-                "backup_path": str(backup_path),
-            },
-        ))
+        self._audit.append(
+            AuditLogEntry(
+                event_type=AuditEventType.ROLLBACK_MANUAL,
+                user_id=performed_by,
+                source=AuditSource.UI,
+                metadata={
+                    "from_version": from_version,
+                    "to_version": to_version,
+                    "reason": reason,
+                    "backup_path": str(backup_path),
+                },
+            )
+        )
         logger.info(
             "update.rollback.executed",
             extra={
@@ -352,7 +354,10 @@ class UpdateInstaller:
             shutil.copy2(self._db_path, backup_path)
             logger.info(
                 "update.install.backup_created",
-                extra={"backup_path": str(backup_path), "db_size_bytes": self._db_path.stat().st_size},
+                extra={
+                    "backup_path": str(backup_path),
+                    "db_size_bytes": self._db_path.stat().st_size,
+                },
             )
         return backup_path
 
@@ -412,8 +417,10 @@ def _verify_sha256(path: Path, expected: str) -> bool:
 def _version_gte(v: str, minimum: str) -> bool:
     """Comparación semántica simple: '1.2.3' >= '1.2.0'."""
     try:
+
         def _parts(s: str) -> tuple[int, ...]:
             return tuple(int(x) for x in s.split(".")[:3])
+
         return _parts(v) >= _parts(minimum)
     except (ValueError, AttributeError):
         return True  # ante la duda, no bloquear

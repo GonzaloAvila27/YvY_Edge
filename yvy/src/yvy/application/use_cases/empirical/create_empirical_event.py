@@ -77,7 +77,9 @@ class CreateEmpiricalEventUseCase:
         self._empirical_repo.save_event(event)
         logger.info(
             "EmpiricalEvent creado: id=%s tipo=%s date=%s",
-            event.event_record_id, event.event_type.value, event.observation_date,
+            event.event_record_id,
+            event.event_type.value,
+            event.observation_date,
         )
 
         sync_enqueued = self._enqueue_sync(event)
@@ -115,7 +117,9 @@ class CreateEmpiricalEventUseCase:
                 "description": event.description,
                 "is_valid": event.is_valid,
                 "created_by_user_id": event.created_by_user_id,
-                "created_at_utc": event.created_at_utc.isoformat() if event.created_at_utc else None,
+                "created_at_utc": event.created_at_utc.isoformat()
+                if event.created_at_utc
+                else None,
             }
             job = SyncJob(
                 event_id=event.event_record_id,
@@ -133,6 +137,7 @@ class CreateEmpiricalEventUseCase:
         except Exception as exc:
             logger.exception(
                 "Fallo encolando evento %s al sync: %s",
-                event.event_record_id, exc,
+                event.event_record_id,
+                exc,
             )
             return False

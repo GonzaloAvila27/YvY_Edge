@@ -15,6 +15,7 @@ Uso (interno del .bat):
     python _install_hooks.py migrate-flat  --root C:\\YVY --version 1.5.1
     python _install_hooks.py mark-rollback --root C:\\YVY --version 1.5.1
 """
+
 from __future__ import annotations
 
 import argparse
@@ -76,9 +77,7 @@ def _migrate_flat(root: Path, version: str) -> None:
 def _mark_rollback(root: Path, version: str) -> None:
     """Watchdog rollback: marca el fallo de instalacion en app_config."""
     deps = _build_deps(root)
-    deps.app_config_repo.set_install_failed(
-        "watchdog_timeout: boot_ok no detectado en 90s"
-    )
+    deps.app_config_repo.set_install_failed("watchdog_timeout: boot_ok no detectado en 90s")
     deps.app_config_repo.set_show_result("rollback")
     print(f"Rollback marcado en app_config (from={version})")
 
@@ -96,11 +95,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("hook", choices=sorted(_HOOKS))
     parser.add_argument(
-        "--root", required=True, type=Path,
+        "--root",
+        required=True,
+        type=Path,
         help="Root ESTABLE de datos (C:\\YVY).",
     )
     parser.add_argument(
-        "--version", required=True,
+        "--version",
+        required=True,
         help="Version objetivo / relevante del hook.",
     )
     args = parser.parse_args(argv)

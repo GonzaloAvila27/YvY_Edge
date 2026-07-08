@@ -94,10 +94,10 @@ class UpdateDownloader:
                 error="no_pending: no hay update pendiente en app_config",
             )
 
-        package_url    = pending.get("package_url") or ""
-        expected_sha   = pending.get("package_sha256") or ""
-        expected_size  = int(pending.get("package_size_bytes") or 0)
-        version        = pending.get("edge_version") or "unknown"
+        package_url = pending.get("package_url") or ""
+        expected_sha = pending.get("package_sha256") or ""
+        expected_size = int(pending.get("package_size_bytes") or 0)
+        version = pending.get("edge_version") or "unknown"
 
         if not package_url:
             return DownloadResult(

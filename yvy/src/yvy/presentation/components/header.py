@@ -48,10 +48,11 @@ from yvy.presentation.theme import (
 
 logger = logging.getLogger(__name__)
 
-_LOGO_PATH  = Path(__file__).resolve().parents[4] / "resources" / "logo.png"
-_ICONS_DIR  = Path(__file__).resolve().parents[4] / "resources" / "ICONS"
+_LOGO_PATH = Path(__file__).resolve().parents[4] / "resources" / "logo.png"
+_ICONS_DIR = Path(__file__).resolve().parents[4] / "resources" / "ICONS"
 # Tamaño del logo en el header (cabe en 60px de alto con padding 10px vertical)
 _LOGO_W, _LOGO_H = 200, 50
+
 
 class Header(tk.Frame):
     """Barra superior de la app autenticada.
@@ -118,11 +119,20 @@ class Header(tk.Frame):
         else:
             # Fallback texto (mientras no haya PNG)
             tk.Label(
-                inner, text="YVY", bg=PRIMARY, fg=SUCCESS, font=FONT_LOGO, anchor="w",
+                inner,
+                text="YVY",
+                bg=PRIMARY,
+                fg=SUCCESS,
+                font=FONT_LOGO,
+                anchor="w",
             ).pack(anchor="w")
             tk.Label(
-                inner, text="Edge", bg=PRIMARY, fg="#7A9E1F",
-                font=("DejaVu Sans", 10, "bold"), anchor="w",
+                inner,
+                text="Edge",
+                bg=PRIMARY,
+                fg="#7A9E1F",
+                font=("DejaVu Sans", 10, "bold"),
+                anchor="w",
             ).pack(anchor="w")
 
     def _build_identity(self, iea_name: str, iea_cue: str) -> None:
@@ -221,7 +231,7 @@ class Header(tk.Frame):
         self._bell_img_alert: tk.PhotoImage | None = None
         try:
             self._bell_img_normal = tk.PhotoImage(file=str(_ICONS_DIR / "campana_white.png"))
-            self._bell_img_hover  = tk.PhotoImage(file=str(_ICONS_DIR / "campana_gold.png"))
+            self._bell_img_hover = tk.PhotoImage(file=str(_ICONS_DIR / "campana_gold.png"))
         except tk.TclError as exc:
             logger.debug("No se pudo cargar ícono de campana (ignorado): %s", exc)
         try:
@@ -240,8 +250,12 @@ class Header(tk.Frame):
             self._bell.bind("<Leave>", lambda _e: self._bell.configure(image=self._bell_img_normal))
         else:
             self._bell = tk.Label(
-                inner, text="🔔", bg=PRIMARY, fg=TEXT_ON_DARK,
-                font=("DejaVu Sans", 16), cursor="hand2",
+                inner,
+                text="🔔",
+                bg=PRIMARY,
+                fg=TEXT_ON_DARK,
+                font=("DejaVu Sans", 16),
+                cursor="hand2",
             )
             self._bell.bind("<Enter>", lambda _e: self._bell.configure(fg=ACCENT_GOLD))
             self._bell.bind("<Leave>", lambda _e: self._bell.configure(fg=TEXT_ON_DARK))
@@ -277,8 +291,12 @@ class Header(tk.Frame):
         initials = self._compute_initials(user_name)
 
         canvas = tk.Canvas(
-            inner, width=34, height=34,
-            bg=PRIMARY, highlightthickness=0, cursor="hand2",
+            inner,
+            width=34,
+            height=34,
+            bg=PRIMARY,
+            highlightthickness=0,
+            cursor="hand2",
         )
         canvas.pack()
         # Hexágono flat-top centrado en 17,17 con radio 16
@@ -289,7 +307,10 @@ class Header(tk.Frame):
             pts.extend([cx + r * math.cos(a), cy + r * math.sin(a)])
         canvas.create_polygon(pts, fill=avatar_color, outline="")
         canvas.create_text(
-            17, 17, text=initials, fill=TEXT_ON_DARK,
+            17,
+            17,
+            text=initials,
+            fill=TEXT_ON_DARK,
             font=("DejaVu Sans", 11, "bold"),
         )
 
@@ -302,6 +323,7 @@ class Header(tk.Frame):
     def _build_theme_toggle(self) -> None:
         """Botón flat para cambiar entre light/dark mode."""
         from yvy.presentation.theme_manager import theme_manager
+
         frame = tk.Frame(self, bg=PRIMARY, width=90)
         frame.pack(side="right", fill="y", padx=(0, SPACE_SM))
         frame.pack_propagate(False)
@@ -346,9 +368,7 @@ class Header(tk.Frame):
     def set_ntp_status(self, state: State, tooltip: str | None = None) -> None:
         self._ntp_ind.set_state(state, tooltip)
 
-    def set_connectivity_status(
-        self, state: State, tooltip: str | None = None
-    ) -> None:
+    def set_connectivity_status(self, state: State, tooltip: str | None = None) -> None:
         self._conn_ind.set_state(state, tooltip)
         # Cambiar icono según online/offline
         if state == "error":
@@ -418,16 +438,20 @@ class Header(tk.Frame):
         h = palette["header"]
         # Recorrer TODO el árbol del header
         from yvy.presentation.theme_manager import recolor
+
         recolor(self, palette)
         # El canvas del header siempre tiene bg=header (el recolor lo maneja)
         # Actualizar texto del toggle button
         if self._theme_btn is not None:
             from yvy.presentation.theme_manager import theme_manager
+
             lbl = "Light Mode" if theme_manager.mode == "dark" else "Dark Mode"
             self._theme_btn.configure(
                 text=lbl,
-                bg=h, fg=palette["text_on_dark_muted"],
-                activebackground=h, activeforeground=palette["text_on_dark"],
+                bg=h,
+                fg=palette["text_on_dark_muted"],
+                activebackground=h,
+                activeforeground=palette["text_on_dark"],
             )
 
 
@@ -444,6 +468,7 @@ def _load_logo(path: Path, width: int, height: int) -> tk.PhotoImage | None:
         return None
     try:
         from PIL import Image, ImageTk
+
         img = Image.open(path).convert("RGBA")
         img.thumbnail((width, height), Image.LANCZOS)
         return ImageTk.PhotoImage(img)
@@ -451,6 +476,7 @@ def _load_logo(path: Path, width: int, height: int) -> tk.PhotoImage | None:
         logger.debug("Carga de logo con Pillow falló, se intenta fallback nativo: %s", exc)
     try:
         import tkinter as _tk
+
         return _tk.PhotoImage(file=str(path))
     except Exception:
         logger.warning("logo.load.failed", extra={"path": str(path)})

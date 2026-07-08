@@ -33,22 +33,14 @@ class ListAuditLogsUseCase:
     ) -> list[AuditLogEntry]:
         # Pedimos un buffer mayor al limit para tener margen tras filtrar
         fetch_limit = limit * 3 if event_type or date_from or date_to else limit
-        entries = self.audit_repo.list_recent(
-            limit=fetch_limit, before_id=before_id
-        )
+        entries = self.audit_repo.list_recent(limit=fetch_limit, before_id=before_id)
 
         # Filtrado en memoria
         if event_type is not None:
             entries = [e for e in entries if e.event_type == event_type]
         if date_from is not None:
-            entries = [
-                e for e in entries
-                if e.ts is not None and e.ts >= date_from
-            ]
+            entries = [e for e in entries if e.ts is not None and e.ts >= date_from]
         if date_to is not None:
-            entries = [
-                e for e in entries
-                if e.ts is not None and e.ts <= date_to
-            ]
+            entries = [e for e in entries if e.ts is not None and e.ts <= date_to]
 
         return entries[:limit]

@@ -57,7 +57,7 @@ class ChangePasswordUseCase:
         if target is None:
             raise UserNotFoundError(f"User id={target_user_id} no existe")
 
-        is_self_service = (actor_user_id == target_user_id)
+        is_self_service = actor_user_id == target_user_id
 
         # El superadmin solo puede cambiar su propia password (self-service).
         # Un admin NO puede resetear la password del superadmin desde la UI;
@@ -71,13 +71,9 @@ class ChangePasswordUseCase:
         # Si self-service, verificar old_password
         if is_self_service:
             if old_password is None:
-                raise InvalidCredentialsError(
-                    "Cambio de propia password requiere la actual"
-                )
+                raise InvalidCredentialsError("Cambio de propia password requiere la actual")
             current_hash = self.user_repo.get_password_hash(target_user_id)
-            if current_hash is None or not self.hasher.verify(
-                old_password, current_hash
-            ):
+            if current_hash is None or not self.hasher.verify(old_password, current_hash):
                 raise InvalidCredentialsError("Contraseña actual incorrecta")
 
         validate_password_strength(new_password)

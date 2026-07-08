@@ -85,6 +85,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # Aceptar URL también por variable de entorno (evita problemas con :// en shells)
     import os
+
     server_url = args.server_url or os.environ.get("YVY_SYNC_URL", "").strip()
     if not server_url:
         print("ERROR: falta la URL del servidor.")

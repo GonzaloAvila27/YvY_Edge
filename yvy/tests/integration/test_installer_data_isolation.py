@@ -51,21 +51,25 @@ def audit(db_factory: SQLiteConnectionFactory) -> SQLiteAuditLogRepository:
 
 
 @pytest.fixture
-def installer(cfg: AppConfigRepository, audit: SQLiteAuditLogRepository, yvy_root: Path) -> UpdateInstaller:
+def installer(
+    cfg: AppConfigRepository, audit: SQLiteAuditLogRepository, yvy_root: Path
+) -> UpdateInstaller:
     return UpdateInstaller(app_config_repo=cfg, audit_repo=audit, root_path=yvy_root)
 
 
 def _register_pending(cfg: AppConfigRepository, pkg: Path, sha: str) -> None:
-    cfg.set_pending_update({
-        # Versión futura: el guard ERR-003 auto-limpia pending <= __version__ (1.5.1).
-        "edge_version": "99.0.0",
-        "package_url": "https://example.com/pkg.tar.gz",
-        "package_sha256": sha,
-        "package_size_bytes": pkg.stat().st_size,
-        "released_at": "2026-06-01T00:00:00Z",
-        "min_edge_version": "",
-        "notes": "",
-    })
+    cfg.set_pending_update(
+        {
+            # Versión futura: el guard ERR-003 auto-limpia pending <= __version__ (1.5.1).
+            "edge_version": "99.0.0",
+            "package_url": "https://example.com/pkg.tar.gz",
+            "package_sha256": sha,
+            "package_size_bytes": pkg.stat().st_size,
+            "released_at": "2026-06-01T00:00:00Z",
+            "min_edge_version": "",
+            "notes": "",
+        }
+    )
     cfg.mark_update_downloaded(str(pkg))
 
 
@@ -86,9 +90,9 @@ def test_request_install_does_not_modify_original_db(
     with patch("yvy.infrastructure.updates.installer.subprocess.Popen"):
         installer.request_install(requested_by_user_id=None)
 
-    assert db_file.read_bytes() == original_content, (
-        "data/yvy.sqlite fue modificado durante request_install"
-    )
+    assert (
+        db_file.read_bytes() == original_content
+    ), "data/yvy.sqlite fue modificado durante request_install"
 
 
 @pytest.mark.integration
@@ -134,9 +138,10 @@ def test_request_install_only_writes_to_updates_dir(
     for f in new_files:
         rel = f.relative_to(yvy_root / "data")
         parts = rel.parts
-        assert parts[0] in ("updates", "backups"), (
-            f"Archivo inesperado creado fuera de updates/ o backups/: {f}"
-        )
+        assert parts[0] in (
+            "updates",
+            "backups",
+        ), f"Archivo inesperado creado fuera de updates/ o backups/: {f}"
 
 
 @pytest.mark.integration
@@ -167,6 +172,6 @@ def test_rollback_does_not_modify_original_db(
     with patch("yvy.infrastructure.updates.installer.subprocess.Popen"):
         installer.rollback("1.2.0", reason="test", performed_by=None)
 
-    assert db_file.read_bytes() == original_content, (
-        "data/yvy.sqlite fue modificado durante rollback"
-    )
+    assert (
+        db_file.read_bytes() == original_content
+    ), "data/yvy.sqlite fue modificado durante rollback"

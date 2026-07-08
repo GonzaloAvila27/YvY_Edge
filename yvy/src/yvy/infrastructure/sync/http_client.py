@@ -49,6 +49,7 @@ The single legitimate "retry" — TCP-level reconnects — happens inside
 ``httpx``'s transport, which we leave on by default. That's a socket
 detail, not a business-policy retry.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -307,21 +308,15 @@ class HttpClient:
         try:
             response = self._client.post(path, json=envelope)
         except httpx.TimeoutException as exc:
-            raise HttpTimeoutError(
-                f"timeout during POST {path}: {exc}"
-            ) from exc
+            raise HttpTimeoutError(f"timeout during POST {path}: {exc}") from exc
         except httpx.ConnectError as exc:
             # Connection refused, DNS, TLS handshake failures
-            raise NetworkError(
-                f"connection failed for POST {path}: {exc}"
-            ) from exc
+            raise NetworkError(f"connection failed for POST {path}: {exc}") from exc
         except httpx.HTTPError as exc:
             # Catch-all for other httpx-level transport problems
             # (NetworkError, ProxyError, ReadError, etc.). All of these
             # mean we never got a structured response.
-            raise NetworkError(
-                f"network error during POST {path}: {exc}"
-            ) from exc
+            raise NetworkError(f"network error during POST {path}: {exc}") from exc
 
         return self._build_send_result(response)
 
@@ -380,22 +375,14 @@ class HttpClient:
                 timeout=timeout_s,
             )
         except httpx.TimeoutException as exc:
-            raise NetworkError(
-                f"timeout during GET /api/v1/edge/sync: {exc}"
-            ) from exc
+            raise NetworkError(f"timeout during GET /api/v1/edge/sync: {exc}") from exc
         except httpx.ConnectError as exc:
-            raise NetworkError(
-                f"connection failed for GET /api/v1/edge/sync: {exc}"
-            ) from exc
+            raise NetworkError(f"connection failed for GET /api/v1/edge/sync: {exc}") from exc
         except httpx.HTTPError as exc:
-            raise NetworkError(
-                f"network error during GET /api/v1/edge/sync: {exc}"
-            ) from exc
+            raise NetworkError(f"network error during GET /api/v1/edge/sync: {exc}") from exc
 
         if response.status_code in (401, 403):
-            raise AuthError(
-                f"HTTP {response.status_code} from GET /api/v1/edge/sync"
-            )
+            raise AuthError(f"HTTP {response.status_code} from GET /api/v1/edge/sync")
         if response.status_code == 404:
             raise StationNotFoundError(
                 "station_uuid desconocido en el servidor — verificar credentials"
@@ -410,9 +397,7 @@ class HttpClient:
             ) from exc
 
         if not isinstance(body, dict):
-            raise MalformedResponseError(
-                "response from GET /api/v1/edge/sync is not a JSON object"
-            )
+            raise MalformedResponseError("response from GET /api/v1/edge/sync is not a JSON object")
 
         try:
             sync_version = int(body["sync_version"])
@@ -586,8 +571,7 @@ class HttpClient:
                 sha256_verified=False,
                 dest_path=dest_path,
                 error=(
-                    f"hash_mismatch: expected {expected_sha256[:16]}… "
-                    f"got {actual_sha256[:16]}…"
+                    f"hash_mismatch: expected {expected_sha256[:16]}… " f"got {actual_sha256[:16]}…"
                 ),
             )
 
@@ -598,10 +582,7 @@ class HttpClient:
                 bytes_downloaded=bytes_downloaded,
                 sha256_verified=False,
                 dest_path=dest_path,
-                error=(
-                    f"size_mismatch: expected {expected_size_bytes} "
-                    f"got {bytes_downloaded}"
-                ),
+                error=(f"size_mismatch: expected {expected_size_bytes} " f"got {bytes_downloaded}"),
             )
 
         return DownloadResult(

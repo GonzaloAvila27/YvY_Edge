@@ -78,5 +78,5 @@ def test_alumno_list_is_non_empty() -> None:
 
 def test_alumno_list_is_shorter_than_full() -> None:
     alumno = allowed_chart_labels_for_role("alumno")
-    full   = allowed_chart_labels_for_role("admin")
+    full = allowed_chart_labels_for_role("admin")
     assert len(alumno) == len(full) - 1

@@ -153,9 +153,7 @@ class EmpiricalEvent:
                 )
         if self.ended_at_local is not None:
             if not _TIME_HHMM_RE.match(self.ended_at_local):
-                raise MalformedTimeError(
-                    f"ended_at_local debe ser HH:MM: {self.ended_at_local!r}"
-                )
+                raise MalformedTimeError(f"ended_at_local debe ser HH:MM: {self.ended_at_local!r}")
         if self.started_at_local is not None and self.ended_at_local is not None:
             if self.started_at_local > self.ended_at_local:
                 raise InvalidEventError(
@@ -168,16 +166,12 @@ class EmpiricalEvent:
                 f"recibido event_type={self.event_type}"
             )
         if self.created_by_user_id < 0:
-            raise InvalidEventError(
-                f"created_by_user_id debe ser >= 0: {self.created_by_user_id}"
-            )
+            raise InvalidEventError(f"created_by_user_id debe ser >= 0: {self.created_by_user_id}")
         if self.created_at_utc is not None and self.created_at_utc.tzinfo is None:
             raise InvalidEventError("created_at_utc debe ser timezone-aware si está presente")
 
 
-def validate_observation_date_window(
-    observed_at_local: datetime, now_local: datetime
-) -> None:
+def validate_observation_date_window(observed_at_local: datetime, now_local: datetime) -> None:
     """Valida que la fecha esté dentro de la ventana operativa (no futuro, max 7 días atrás)."""
     if observed_at_local > now_local:
         raise InvalidObservationError(
@@ -197,9 +191,7 @@ def validate_event_date_window(observation_date: str, now_local: datetime) -> No
     try:
         evt_date = datetime.strptime(observation_date, "%Y-%m-%d").date()
     except ValueError as exc:
-        raise InvalidEventError(
-            f"observation_date inválida: {observation_date!r}"
-        ) from exc
+        raise InvalidEventError(f"observation_date inválida: {observation_date!r}") from exc
 
     today_local = now_local.date()
     if evt_date > today_local:

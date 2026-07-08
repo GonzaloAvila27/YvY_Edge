@@ -47,7 +47,7 @@ def _seed_sensor_data(
                 20.0 + i,  # temp_outdoor
                 22.0 + i,  # temp_indoor
                 65.0 + i,  # hum_outdoor
-                50.0,      # hum_indoor
+                50.0,  # hum_indoor
                 1013.2 - i,
                 3.5 + i,
                 0.0,

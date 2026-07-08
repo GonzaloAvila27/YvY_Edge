@@ -33,7 +33,9 @@ def audit(db_factory: SQLiteConnectionFactory) -> SQLiteAuditLogRepository:
 
 
 @pytest.fixture
-def installer(cfg: AppConfigRepository, audit: SQLiteAuditLogRepository, yvy_root: Path) -> UpdateInstaller:
+def installer(
+    cfg: AppConfigRepository, audit: SQLiteAuditLogRepository, yvy_root: Path
+) -> UpdateInstaller:
     return UpdateInstaller(app_config_repo=cfg, audit_repo=audit, root_path=yvy_root)
 
 
@@ -57,7 +59,9 @@ def test_write_boot_ok_flag_content(installer: UpdateInstaller, yvy_root: Path) 
 
 
 @pytest.mark.integration
-def test_write_boot_ok_flag_creates_dir_if_missing(tmp_path: Path, cfg: AppConfigRepository, audit: SQLiteAuditLogRepository) -> None:
+def test_write_boot_ok_flag_creates_dir_if_missing(
+    tmp_path: Path, cfg: AppConfigRepository, audit: SQLiteAuditLogRepository
+) -> None:
     root = tmp_path / "newroot"
     root.mkdir()
     # data/updates does NOT exist yet
@@ -96,19 +100,25 @@ def test_clear_boot_ok_flag_no_error_if_missing(installer: UpdateInstaller) -> N
 
 
 @pytest.mark.integration
-def test_has_pending_install_request_true(installer: UpdateInstaller, cfg: AppConfigRepository) -> None:
+def test_has_pending_install_request_true(
+    installer: UpdateInstaller, cfg: AppConfigRepository
+) -> None:
     cfg.set_install_status("requested")
     assert installer.has_pending_install_request() is True
 
 
 @pytest.mark.integration
-def test_has_pending_install_request_false_completed(installer: UpdateInstaller, cfg: AppConfigRepository) -> None:
+def test_has_pending_install_request_false_completed(
+    installer: UpdateInstaller, cfg: AppConfigRepository
+) -> None:
     cfg.set_install_status("completed")
     assert installer.has_pending_install_request() is False
 
 
 @pytest.mark.integration
-def test_has_pending_install_request_false_failed(installer: UpdateInstaller, cfg: AppConfigRepository) -> None:
+def test_has_pending_install_request_false_failed(
+    installer: UpdateInstaller, cfg: AppConfigRepository
+) -> None:
     cfg.set_install_status("failed")
     assert installer.has_pending_install_request() is False
 

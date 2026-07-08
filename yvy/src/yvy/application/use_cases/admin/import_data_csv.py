@@ -40,12 +40,20 @@ _REQUIRED_COLUMNS = {
 }
 
 _NUMERIC_NULLABLE = {
-    "temp_outdoor", "temp_indoor",
-    "hum_outdoor", "hum_indoor",
-    "pressure_abs", "pressure_rel",
-    "wind_speed", "wind_gust", "wind_direction",
-    "rain_1h", "rain_24h", "rain_total",
-    "uv_index", "solar_radiation",
+    "temp_outdoor",
+    "temp_indoor",
+    "hum_outdoor",
+    "hum_indoor",
+    "pressure_abs",
+    "pressure_rel",
+    "wind_speed",
+    "wind_gust",
+    "wind_direction",
+    "rain_1h",
+    "rain_24h",
+    "rain_total",
+    "uv_index",
+    "solar_radiation",
 }
 
 
@@ -95,9 +103,7 @@ class ImportDataCsvUseCase:
 
             missing = _REQUIRED_COLUMNS - set(reader.fieldnames)
             if missing:
-                raise ValueError(
-                    f"CSV falta columnas requeridas: {', '.join(sorted(missing))}"
-                )
+                raise ValueError(f"CSV falta columnas requeridas: {', '.join(sorted(missing))}")
 
             conn = self.factory.get_connection()
 
@@ -146,7 +152,10 @@ class ImportDataCsvUseCase:
 
         logger.info(
             "Import sensor_data: %d insertadas, %d omitidas, %d errores — %s",
-            inserted, skipped, errors, input_path,
+            inserted,
+            skipped,
+            errors,
+            input_path,
         )
         return ImportDataResult(
             file_path=input_path,

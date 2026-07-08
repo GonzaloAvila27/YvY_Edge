@@ -77,9 +77,13 @@ def empirical_repo(conn):
 @pytest.fixture
 def actor():
     return User(
-        id=1, user_uuid=uuid.uuid4(), username="testuser",
-        full_name="Test User", role=Role.ALUMNO,
-        is_active=True, can_export_raw=False,
+        id=1,
+        user_uuid=uuid.uuid4(),
+        username="testuser",
+        full_name="Test User",
+        role=Role.ALUMNO,
+        is_active=True,
+        can_export_raw=False,
     )
 
 
@@ -109,7 +113,9 @@ def time_provider_mock():
 
 
 @pytest.fixture
-def create_obs_uc(empirical_repo, sync_repo_mock, audit_repo_mock, app_config_mock, time_provider_mock):
+def create_obs_uc(
+    empirical_repo, sync_repo_mock, audit_repo_mock, app_config_mock, time_provider_mock
+):
     return CreateEmpiricalObservationUseCase(
         empirical_repo=empirical_repo,
         sync_repo=sync_repo_mock,
@@ -120,7 +126,9 @@ def create_obs_uc(empirical_repo, sync_repo_mock, audit_repo_mock, app_config_mo
 
 
 @pytest.fixture
-def create_event_uc(empirical_repo, sync_repo_mock, audit_repo_mock, app_config_mock, time_provider_mock):
+def create_event_uc(
+    empirical_repo, sync_repo_mock, audit_repo_mock, app_config_mock, time_provider_mock
+):
     return CreateEmpiricalEventUseCase(
         empirical_repo=empirical_repo,
         sync_repo=sync_repo_mock,
@@ -143,8 +151,11 @@ class TestCreateObservation:
             observed_at_utc=datetime(2026, 5, 12, 14, 30, tzinfo=UTC),
             observed_at_local=datetime(2026, 5, 12, 11, 30, tzinfo=UTC),
             actor=actor,
-            rain_mm=5.0, temp_c=22.0, wind_beaufort=3,
-            wind_direction=WindDirection.SE, sky_coverage_pct=50,
+            rain_mm=5.0,
+            temp_c=22.0,
+            wind_beaufort=3,
+            wind_direction=WindDirection.SE,
+            sky_coverage_pct=50,
         )
         result = create_obs_uc.execute(input_data)
         assert result.quality_warnings == []
@@ -196,8 +207,11 @@ class TestCreateObservation:
             observed_at_utc=datetime(2026, 5, 12, 14, 30, tzinfo=UTC),
             observed_at_local=datetime(2026, 5, 12, 11, 30, tzinfo=UTC),
             actor=actor,
-            rain_mm=0.0, temp_c=99.0,  # fuera de rango
-            wind_beaufort=0, wind_direction=WindDirection.N, sky_coverage_pct=0,
+            rain_mm=0.0,
+            temp_c=99.0,  # fuera de rango
+            wind_beaufort=0,
+            wind_direction=WindDirection.N,
+            sky_coverage_pct=0,
             confirmed_with_warnings=True,  # aun confirmado, fuera de rango bloquea
         )
         result = create_obs_uc.execute(input_data)
@@ -207,41 +221,48 @@ class TestCreateObservation:
         assert empirical_repo.count_observations() == 0
         sync_repo_mock.enqueue.assert_not_called()
 
-    def test_fecha_futura_levanta_error(
-        self, create_obs_uc, actor, time_provider_mock
-    ):
+    def test_fecha_futura_levanta_error(self, create_obs_uc, actor, time_provider_mock):
         future_local = time_provider_mock.now_local.return_value + timedelta(days=1)
         future_utc = time_provider_mock.now_utc.return_value + timedelta(days=1)
         input_data = CreateObservationInput(
-            observed_at_utc=future_utc, observed_at_local=future_local, actor=actor,
-            rain_mm=0.0, temp_c=20.0, wind_beaufort=0,
-            wind_direction=WindDirection.N, sky_coverage_pct=0,
+            observed_at_utc=future_utc,
+            observed_at_local=future_local,
+            actor=actor,
+            rain_mm=0.0,
+            temp_c=20.0,
+            wind_beaufort=0,
+            wind_direction=WindDirection.N,
+            sky_coverage_pct=0,
         )
         with pytest.raises(InvalidObservationError, match="futuro"):
             create_obs_uc.execute(input_data)
 
-    def test_fecha_mas_de_7_dias_atras_rechaza(
-        self, create_obs_uc, actor, time_provider_mock
-    ):
+    def test_fecha_mas_de_7_dias_atras_rechaza(self, create_obs_uc, actor, time_provider_mock):
         old_local = time_provider_mock.now_local.return_value - timedelta(days=10)
         old_utc = time_provider_mock.now_utc.return_value - timedelta(days=10)
         input_data = CreateObservationInput(
-            observed_at_utc=old_utc, observed_at_local=old_local, actor=actor,
-            rain_mm=0.0, temp_c=20.0, wind_beaufort=0,
-            wind_direction=WindDirection.N, sky_coverage_pct=0,
+            observed_at_utc=old_utc,
+            observed_at_local=old_local,
+            actor=actor,
+            rain_mm=0.0,
+            temp_c=20.0,
+            wind_beaufort=0,
+            wind_direction=WindDirection.N,
+            sky_coverage_pct=0,
         )
         with pytest.raises(InvalidObservationError, match="7 días"):
             create_obs_uc.execute(input_data)
 
-    def test_audit_log_contiene_event_type_correcto(
-        self, create_obs_uc, actor, audit_repo_mock
-    ):
+    def test_audit_log_contiene_event_type_correcto(self, create_obs_uc, actor, audit_repo_mock):
         input_data = CreateObservationInput(
             observed_at_utc=datetime(2026, 5, 12, 14, 30, tzinfo=UTC),
             observed_at_local=datetime(2026, 5, 12, 11, 30, tzinfo=UTC),
             actor=actor,
-            rain_mm=0.0, temp_c=20.0, wind_beaufort=0,
-            wind_direction=WindDirection.N, sky_coverage_pct=0,
+            rain_mm=0.0,
+            temp_c=20.0,
+            wind_beaufort=0,
+            wind_direction=WindDirection.N,
+            sky_coverage_pct=0,
         )
         create_obs_uc.execute(input_data)
         audit_call = audit_repo_mock.append.call_args[0][0]
@@ -255,8 +276,11 @@ class TestCreateObservation:
             observed_at_utc=datetime(2026, 5, 12, 14, 30, tzinfo=UTC),
             observed_at_local=datetime(2026, 5, 12, 11, 30, tzinfo=UTC),
             actor=actor,
-            rain_mm=0.0, temp_c=20.0, wind_beaufort=0,
-            wind_direction=WindDirection.N, sky_coverage_pct=0,
+            rain_mm=0.0,
+            temp_c=20.0,
+            wind_beaufort=0,
+            wind_direction=WindDirection.N,
+            sky_coverage_pct=0,
         )
         result = create_obs_uc.execute(input_data)
         sync_call = sync_repo_mock.enqueue.call_args[0][0]
@@ -287,7 +311,8 @@ class TestCreateEvent:
             event_type=EventType.GRANIZO,
             hail_size=HailSize.NUEZ,
             actor=actor,
-            started_at_local="14:30", ended_at_local="14:50",
+            started_at_local="14:30",
+            ended_at_local="14:50",
         )
         result = create_event_uc.execute(input_data)
         assert result.event.hail_size == HailSize.NUEZ
@@ -303,7 +328,9 @@ class TestCreateEvent:
             create_event_uc.execute(input_data)
 
     def test_fecha_evento_futura_rechazada(self, create_event_uc, actor, time_provider_mock):
-        future_date = (time_provider_mock.now_local.return_value + timedelta(days=1)).date().isoformat()
+        future_date = (
+            (time_provider_mock.now_local.return_value + timedelta(days=1)).date().isoformat()
+        )
         input_data = CreateEventInput(
             observation_date=future_date,
             event_type=EventType.HELADA,
@@ -327,14 +354,22 @@ class TestCreateEvent:
 
     def test_multiples_eventos_mismo_tipo_mismo_dia(self, create_event_uc, actor, empirical_repo):
         # Dos heladas el mismo día (madrugada y noche)
-        create_event_uc.execute(CreateEventInput(
-            observation_date="2026-05-12", event_type=EventType.HELADA, actor=actor,
-            started_at_local="04:00",
-        ))
-        create_event_uc.execute(CreateEventInput(
-            observation_date="2026-05-12", event_type=EventType.HELADA, actor=actor,
-            started_at_local="20:00",
-        ))
+        create_event_uc.execute(
+            CreateEventInput(
+                observation_date="2026-05-12",
+                event_type=EventType.HELADA,
+                actor=actor,
+                started_at_local="04:00",
+            )
+        )
+        create_event_uc.execute(
+            CreateEventInput(
+                observation_date="2026-05-12",
+                event_type=EventType.HELADA,
+                actor=actor,
+                started_at_local="20:00",
+            )
+        )
         events = empirical_repo.list_events_for_date("2026-05-12")
         assert len(events) == 2
 
@@ -358,8 +393,11 @@ class TestListAndDetails:
             observed_at_utc=datetime(2026, 5, 12, 14, 30, tzinfo=UTC),
             observed_at_local=datetime(2026, 5, 12, 11, 30, tzinfo=UTC),
             actor=actor,
-            rain_mm=0.0, temp_c=20.0, wind_beaufort=0,
-            wind_direction=WindDirection.N, sky_coverage_pct=0,
+            rain_mm=0.0,
+            temp_c=20.0,
+            wind_beaufort=0,
+            wind_direction=WindDirection.N,
+            sky_coverage_pct=0,
         )
         obs_result = create_obs_uc.execute(obs_input)
 
@@ -394,7 +432,7 @@ class TestSyncPayloadObserverId:
     """observer_id debe ser siempre un string no vacío en el payload enviado a Core."""
 
     # now_local del mock = 11:30 UTC; observed_at_local debe ser <= now_local
-    _OBS_UTC   = datetime(2026, 5, 12, 14, 30, tzinfo=UTC)
+    _OBS_UTC = datetime(2026, 5, 12, 14, 30, tzinfo=UTC)
     _OBS_LOCAL = datetime(2026, 5, 12, 11, 30, tzinfo=UTC)
 
     def _make_input(self, actor):
@@ -402,8 +440,11 @@ class TestSyncPayloadObserverId:
             observed_at_utc=self._OBS_UTC,
             observed_at_local=self._OBS_LOCAL,
             actor=actor,
-            rain_mm=0.0, temp_c=20.0, wind_beaufort=0,
-            wind_direction=WindDirection.N, sky_coverage_pct=0,
+            rain_mm=0.0,
+            temp_c=20.0,
+            wind_beaufort=0,
+            wind_direction=WindDirection.N,
+            sky_coverage_pct=0,
         )
 
     def _get_payload(self, uc, sync_repo_mock, input_data):
@@ -412,16 +453,12 @@ class TestSyncPayloadObserverId:
         sync_call = sync_repo_mock.enqueue.call_args[0][0]
         return sync_call.payload  # fix 1.5.1: payload es dict, no str codificado
 
-    def test_observer_id_es_string_no_vacio(
-        self, create_obs_uc, actor, sync_repo_mock
-    ):
+    def test_observer_id_es_string_no_vacio(self, create_obs_uc, actor, sync_repo_mock):
         payload = self._get_payload(create_obs_uc, sync_repo_mock, self._make_input(actor))
         assert isinstance(payload["observer_id"], str)
         assert payload["observer_id"].strip() != ""
 
-    def test_observer_id_usa_full_name_del_actor(
-        self, create_obs_uc, actor, sync_repo_mock
-    ):
+    def test_observer_id_usa_full_name_del_actor(self, create_obs_uc, actor, sync_repo_mock):
         payload = self._get_payload(create_obs_uc, sync_repo_mock, self._make_input(actor))
         assert payload["observer_id"] == actor.full_name
 
@@ -431,8 +468,9 @@ class TestSyncPayloadObserverId:
         # User no permite full_name vacío, pero sí con espacios; usamos mock para
         # testear la rama de fallback de _enqueue_sync directamente.
         from unittest.mock import MagicMock
+
         actor_mock = MagicMock()
-        actor_mock.full_name = "   "   # solo espacios → strip() = ""
+        actor_mock.full_name = "   "  # solo espacios → strip() = ""
         actor_mock.username = "jperez"
         actor_mock.id = 1
         actor_mock.role = Role.ALUMNO
@@ -447,9 +485,7 @@ class TestSyncPayloadObserverId:
         payload = self._get_payload(uc, sync_repo_mock, self._make_input(actor_mock))
         assert payload["observer_id"] == "jperez"
 
-    def test_payload_no_contiene_created_by_user_id(
-        self, create_obs_uc, actor, sync_repo_mock
-    ):
+    def test_payload_no_contiene_created_by_user_id(self, create_obs_uc, actor, sync_repo_mock):
         payload = self._get_payload(create_obs_uc, sync_repo_mock, self._make_input(actor))
         assert "created_by_user_id" not in payload
 

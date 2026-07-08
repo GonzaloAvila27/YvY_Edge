@@ -111,20 +111,34 @@ class UpdateModal(tk.Toplevel):
         def _row(label: str, value: str, value_fg: str = TEXT_PRIMARY) -> None:
             row = tk.Frame(inner, bg=BG_CARD)
             row.pack(fill="x", pady=2)
-            tk.Label(row, text=label, bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL, width=28, anchor="w").pack(side="left")
-            tk.Label(row, text=value, bg=BG_CARD, fg=value_fg, font=FONT_SMALL, anchor="w").pack(side="left")
+            tk.Label(
+                row,
+                text=label,
+                bg=BG_CARD,
+                fg=TEXT_SECONDARY,
+                font=FONT_SMALL,
+                width=28,
+                anchor="w",
+            ).pack(side="left")
+            tk.Label(row, text=value, bg=BG_CARD, fg=value_fg, font=FONT_SMALL, anchor="w").pack(
+                side="left"
+            )
 
         _row("Versión actual:", from_ver)
         _row("Versión nueva:", to_ver, SUCCESS)
         _row("Tamaño:", f"{size_mb:.1f} MB" if size_mb else "—")
         _row("Publicada:", released)
-        _row("SHA-256:", f"{sha_short}  ({sha_status})", SUCCESS if is_downloaded else TEXT_SECONDARY)
+        _row(
+            "SHA-256:", f"{sha_short}  ({sha_status})", SUCCESS if is_downloaded else TEXT_SECONDARY
+        )
 
         # Notas
         if notes:
             sep = tk.Frame(inner, bg=BORDER, height=1)
             sep.pack(fill="x", pady=(SPACE_SM, SPACE_SM))
-            tk.Label(inner, text="Novedades:", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL).pack(anchor="w")
+            tk.Label(inner, text="Novedades:", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL).pack(
+                anchor="w"
+            )
             tk.Label(
                 inner,
                 text=notes,
@@ -144,7 +158,9 @@ class UpdateModal(tk.Toplevel):
             "Si algo falla, se vuelve a la versión anterior.",
             "No apagues la computadora durante el proceso.",
         ):
-            tk.Label(inner, text=f"• {line}", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_TINY, anchor="w").pack(anchor="w")
+            tk.Label(
+                inner, text=f"• {line}", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_TINY, anchor="w"
+            ).pack(anchor="w")
 
         # Releases en disco
         if self._releases:
@@ -154,7 +170,13 @@ class UpdateModal(tk.Toplevel):
                 f"{r['version']}{' (' + ', '.join(r['states']) + ')' if r['states'] else ''}"
                 for r in self._releases
             )
-            tk.Label(inner, text=f"Releases en disco: {releases_text}", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_TINY).pack(anchor="w")
+            tk.Label(
+                inner,
+                text=f"Releases en disco: {releases_text}",
+                bg=BG_CARD,
+                fg=TEXT_SECONDARY,
+                font=FONT_TINY,
+            ).pack(anchor="w")
 
         # Botones
         btn_row = tk.Frame(outer, bg=BG_CREAM)

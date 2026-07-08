@@ -16,9 +16,9 @@ _PRESET_LABELS: frozenset[str] = frozenset({"24h", "7d", "30d", "1y", "custom"})
 class PeriodRange:
     """Rango temporal con etiqueta de origen."""
 
-    start: datetime     # timezone-aware
-    end: datetime       # timezone-aware
-    preset_label: str   # "24h" | "7d" | "30d" | "1y" | "custom"
+    start: datetime  # timezone-aware
+    end: datetime  # timezone-aware
+    preset_label: str  # "24h" | "7d" | "30d" | "1y" | "custom"
 
     def __post_init__(self) -> None:
         if self.preset_label not in _PRESET_LABELS:

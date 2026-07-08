@@ -93,7 +93,9 @@ class ReleaseRetention:
                 logger.info("update.retention.removed_release", extra={"version": ver})
             except OSError as exc:
                 errors.append(f"{ver}: {exc}")
-                logger.error("update.retention.remove_failed", extra={"version": ver, "error": str(exc)})
+                logger.error(
+                    "update.retention.remove_failed", extra={"version": ver, "error": str(exc)}
+                )
                 kept.append(ver)  # no remover del registro si falló
 
         # Actualizar lista de instalados
@@ -156,16 +158,18 @@ class ReleaseRetention:
 
         # Promover
         self._cfg.set_last_stable_release(current, source="auto")
-        self._audit.append(AuditLogEntry(
-            event_type=AuditEventType.RELEASE_MARKED_STABLE,
-            source=AuditSource.SYSTEM,
-            metadata={
-                "version": current,
-                "source": "auto",
-                "days_as_current": days_as_current,
-                "error_count": error_count,
-            },
-        ))
+        self._audit.append(
+            AuditLogEntry(
+                event_type=AuditEventType.RELEASE_MARKED_STABLE,
+                source=AuditSource.SYSTEM,
+                metadata={
+                    "version": current,
+                    "source": "auto",
+                    "days_as_current": days_as_current,
+                    "error_count": error_count,
+                },
+            )
+        )
         logger.info(
             "update.stable.promoted",
             extra={
@@ -179,12 +183,14 @@ class ReleaseRetention:
     def mark_stable_manual(self, version: str, user_id: int | None) -> None:
         """Override manual: el técnico marca un release como estable."""
         self._cfg.set_last_stable_release(version, source="manual", marked_by=user_id)
-        self._audit.append(AuditLogEntry(
-            event_type=AuditEventType.RELEASE_MARKED_STABLE,
-            user_id=user_id,
-            source=AuditSource.UI,
-            metadata={"version": version, "source": "manual"},
-        ))
+        self._audit.append(
+            AuditLogEntry(
+                event_type=AuditEventType.RELEASE_MARKED_STABLE,
+                user_id=user_id,
+                source=AuditSource.UI,
+                metadata={"version": version, "source": "manual"},
+            )
+        )
         logger.info("update.stable.marked_manual", extra={"version": version, "by": user_id})
 
     # ─── Helpers privados ─────────────────────────────────────────────────

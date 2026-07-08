@@ -61,9 +61,7 @@ class TestCaptureLiveSuccessful:
         frozen_clock: FrozenClock,
     ) -> None:
         source = StubLiveSource([make_test_reading(minute=32)])
-        use_case = _build_use_case(
-            source, sensor_repo, sync_repo, station_uuid, frozen_clock
-        )
+        use_case = _build_use_case(source, sensor_repo, sync_repo, station_uuid, frozen_clock)
 
         result = use_case.execute()
 
@@ -86,9 +84,7 @@ class TestCaptureLiveSuccessful:
             make_test_reading(minute=34, temp_outdoor=24.0),
         ]
         source = StubLiveSource(readings)
-        use_case = _build_use_case(
-            source, sensor_repo, sync_repo, station_uuid, frozen_clock
-        )
+        use_case = _build_use_case(source, sensor_repo, sync_repo, station_uuid, frozen_clock)
 
         for _ in range(3):
             result = use_case.execute()
@@ -107,9 +103,7 @@ class TestCaptureLiveSuccessful:
         db_factory,
     ) -> None:
         source = StubLiveSource([make_test_reading(minute=32)])
-        use_case = _build_use_case(
-            source, sensor_repo, sync_repo, station_uuid, frozen_clock
-        )
+        use_case = _build_use_case(source, sensor_repo, sync_repo, station_uuid, frozen_clock)
         use_case.execute()
 
         # Verificar el JOIN raw_id → sensor_raw.id
@@ -141,9 +135,7 @@ class TestCaptureIdempotence:
         for _ in range(100):
             source.add_reading(make_test_reading(minute=32, temp_outdoor=23.5))
 
-        use_case = _build_use_case(
-            source, sensor_repo, sync_repo, station_uuid, frozen_clock
-        )
+        use_case = _build_use_case(source, sensor_repo, sync_repo, station_uuid, frozen_clock)
 
         new_count = 0
         dup_count = 0
@@ -179,9 +171,7 @@ class TestCaptureIdempotence:
         r2["idx"] = "2026-04-26T14:32:47+00:00"
 
         source = StubLiveSource([r1, r2])
-        use_case = _build_use_case(
-            source, sensor_repo, sync_repo, station_uuid, frozen_clock
-        )
+        use_case = _build_use_case(source, sensor_repo, sync_repo, station_uuid, frozen_clock)
 
         result1 = use_case.execute()
         result2 = use_case.execute()
@@ -203,9 +193,7 @@ class TestCaptureSkipReasons:
         frozen_clock: FrozenClock,
     ) -> None:
         source = StubLiveSource([])
-        use_case = _build_use_case(
-            source, sensor_repo, sync_repo, station_uuid, frozen_clock
-        )
+        use_case = _build_use_case(source, sensor_repo, sync_repo, station_uuid, frozen_clock)
 
         result = use_case.execute()
 
@@ -224,9 +212,7 @@ class TestCaptureSkipReasons:
         future_reading = make_test_reading(minute=0, hour=15)
 
         source = StubLiveSource([future_reading])
-        use_case = _build_use_case(
-            source, sensor_repo, sync_repo, station_uuid, clock
-        )
+        use_case = _build_use_case(source, sensor_repo, sync_repo, station_uuid, clock)
 
         result = use_case.execute()
 
@@ -245,9 +231,7 @@ class TestCaptureSkipReasons:
         reading["station_uuid"] = "99999999-9999-4999-8999-999999999999"
 
         source = StubLiveSource([reading])
-        use_case = _build_use_case(
-            source, sensor_repo, sync_repo, station_uuid, frozen_clock
-        )
+        use_case = _build_use_case(source, sensor_repo, sync_repo, station_uuid, frozen_clock)
 
         result = use_case.execute()
 
@@ -265,9 +249,7 @@ class TestCaptureSkipReasons:
         # Payload sin 'idx' ni 'timestamp'
         bad = {"temp_out": "23.5", "hum_out": 70}
         source = StubLiveSource([bad])
-        use_case = _build_use_case(
-            source, sensor_repo, sync_repo, station_uuid, frozen_clock
-        )
+        use_case = _build_use_case(source, sensor_repo, sync_repo, station_uuid, frozen_clock)
 
         result = use_case.execute()
 
@@ -286,9 +268,7 @@ class TestCaptureSkipReasons:
         reading = make_test_reading(minute=3, hour=14)
 
         source = StubLiveSource([reading])
-        use_case = _build_use_case(
-            source, sensor_repo, sync_repo, station_uuid, clock
-        )
+        use_case = _build_use_case(source, sensor_repo, sync_repo, station_uuid, clock)
 
         result = use_case.execute()
 
@@ -310,9 +290,7 @@ class TestSensorReadingFieldMapping:
 
         reading = make_test_reading(minute=32, temp_outdoor=23.5)
         source = StubLiveSource([reading])
-        use_case = _build_use_case(
-            source, sensor_repo, sync_repo, station_uuid, frozen_clock
-        )
+        use_case = _build_use_case(source, sensor_repo, sync_repo, station_uuid, frozen_clock)
         use_case.execute()
 
         # Hidratar y verificar

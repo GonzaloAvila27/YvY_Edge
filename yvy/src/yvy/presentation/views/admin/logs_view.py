@@ -121,7 +121,10 @@ class LogsView(tk.Frame):
 
         columns = ("ts", "event", "user", "source", "detail")
         self._tree = ttk.Treeview(
-            inner, columns=columns, show="headings", height=18,
+            inner,
+            columns=columns,
+            show="headings",
+            height=18,
         )
         self._tree.heading("ts", text="Fecha y hora")
         self._tree.heading("event", text="Evento")
@@ -178,7 +181,11 @@ class LogsView(tk.Frame):
 
         if event_type == AuditEventType.LOGIN_FAILED:
             return f"Razón: {metadata.get('reason', '—')}"
-        if event_type in (AuditEventType.USER_CREATED, AuditEventType.USER_DEACTIVATED, AuditEventType.USER_REACTIVATED):
+        if event_type in (
+            AuditEventType.USER_CREATED,
+            AuditEventType.USER_DEACTIVATED,
+            AuditEventType.USER_REACTIVATED,
+        ):
             target = metadata.get("created_username") or metadata.get("target_username") or "—"
             return f"Usuario afectado: {target}"
         if event_type == AuditEventType.PASSWORD_CHANGED:

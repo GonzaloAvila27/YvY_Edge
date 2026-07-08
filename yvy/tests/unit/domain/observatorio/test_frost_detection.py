@@ -1,6 +1,5 @@
 """Tests para domain.observatorio.frost_detection."""
 
-
 from yvy.domain.observatorio.frost_detection import (
     FrostLevel,
     frost_color_hex,

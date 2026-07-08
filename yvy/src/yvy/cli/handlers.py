@@ -166,29 +166,32 @@ def compute_status(deps: CoreDependencies) -> dict[str, Any]:
     try:
         db_size = deps.db_path.stat().st_size if deps.db_path.exists() else 0
         from yvy.cli.formatting import fmt_bytes
-        checks.append({
-            "name": "Base de datos",
-            "status": "ok",
-            "detail": f"{deps.db_path.name} ({fmt_bytes(db_size)})",
-            "value": {"path": str(deps.db_path), "size_bytes": db_size},
-        })
+
+        checks.append(
+            {
+                "name": "Base de datos",
+                "status": "ok",
+                "detail": f"{deps.db_path.name} ({fmt_bytes(db_size)})",
+                "value": {"path": str(deps.db_path), "size_bytes": db_size},
+            }
+        )
     except Exception as exc:
         overall_ok = False
-        checks.append({
-            "name": "Base de datos",
-            "status": "fail",
-            "detail": f"error: {exc}",
-            "value": None,
-        })
+        checks.append(
+            {
+                "name": "Base de datos",
+                "status": "fail",
+                "detail": f"error: {exc}",
+                "value": None,
+            }
+        )
 
     # 2. Último sensor reading
     try:
         # Buscamos el reading más reciente. SQLite query directa para
         # evitar cargar el modelo completo si la tabla es grande.
         conn = deps.factory.get_connection()
-        cur = conn.execute(
-            "SELECT MAX(observed_at) FROM sensor_data"
-        )
+        cur = conn.execute("SELECT MAX(observed_at) FROM sensor_data")
         row = cur.fetchone()
         last_obs_raw = row[0] if row else None
 
@@ -208,52 +211,64 @@ def compute_status(deps: CoreDependencies) -> dict[str, Any]:
                 status = "fail"
                 overall_ok = False
 
-            checks.append({
-                "name": "Último reading sensor",
-                "status": status,
-                "detail": f"hace {fmt_duration(age)}",
-                "value": {"timestamp": last_obs_raw, "age_seconds": age},
-            })
+            checks.append(
+                {
+                    "name": "Último reading sensor",
+                    "status": status,
+                    "detail": f"hace {fmt_duration(age)}",
+                    "value": {"timestamp": last_obs_raw, "age_seconds": age},
+                }
+            )
         else:
-            checks.append({
-                "name": "Último reading sensor",
-                "status": "warn",
-                "detail": "ningún reading registrado todavía",
-                "value": None,
-            })
+            checks.append(
+                {
+                    "name": "Último reading sensor",
+                    "status": "warn",
+                    "detail": "ningún reading registrado todavía",
+                    "value": None,
+                }
+            )
     except Exception as exc:
-        checks.append({
-            "name": "Último reading sensor",
-            "status": "fail",
-            "detail": f"error consultando DB: {exc}",
-            "value": None,
-        })
+        checks.append(
+            {
+                "name": "Último reading sensor",
+                "status": "fail",
+                "detail": f"error consultando DB: {exc}",
+                "value": None,
+            }
+        )
 
     # 3. Sync agent: hay credentials?
     creds_path = deps.root / "data" / "station_credentials.json"
     server_url = deps.app_config_repo.get("sync_server_url")
 
     if creds_path.exists() and server_url:
-        checks.append({
-            "name": "Sync agent",
-            "status": "ok",
-            "detail": "credentials presentes + server configurado",
-            "value": {"server_url": server_url, "credentials_path": str(creds_path)},
-        })
+        checks.append(
+            {
+                "name": "Sync agent",
+                "status": "ok",
+                "detail": "credentials presentes + server configurado",
+                "value": {"server_url": server_url, "credentials_path": str(creds_path)},
+            }
+        )
     elif not server_url:
-        checks.append({
-            "name": "Sync agent",
-            "status": "warn",
-            "detail": "sync_server_url no configurado",
-            "value": None,
-        })
+        checks.append(
+            {
+                "name": "Sync agent",
+                "status": "warn",
+                "detail": "sync_server_url no configurado",
+                "value": None,
+            }
+        )
     elif not creds_path.exists():
-        checks.append({
-            "name": "Sync agent",
-            "status": "warn",
-            "detail": "credentials no presentes",
-            "value": None,
-        })
+        checks.append(
+            {
+                "name": "Sync agent",
+                "status": "warn",
+                "detail": "credentials no presentes",
+                "value": None,
+            }
+        )
 
     # 4. Cola sync por status
     try:
@@ -268,26 +283,29 @@ def compute_status(deps: CoreDependencies) -> dict[str, Any]:
         else:
             queue_status = "ok"
 
-        detail = (
-            f"{pending} pending · {sending} sending · "
-            f"{sent} sent · {error} error"
+        detail = f"{pending} pending · {sending} sending · " f"{sent} sent · {error} error"
+        checks.append(
+            {
+                "name": "Cola sync",
+                "status": queue_status,
+                "detail": detail,
+                "value": {
+                    "pending": pending,
+                    "sending": sending,
+                    "sent": sent,
+                    "error": error,
+                },
+            }
         )
-        checks.append({
-            "name": "Cola sync",
-            "status": queue_status,
-            "detail": detail,
-            "value": {
-                "pending": pending, "sending": sending,
-                "sent": sent, "error": error,
-            },
-        })
     except Exception as exc:
-        checks.append({
-            "name": "Cola sync",
-            "status": "fail",
-            "detail": f"error: {exc}",
-            "value": None,
-        })
+        checks.append(
+            {
+                "name": "Cola sync",
+                "status": "fail",
+                "detail": f"error: {exc}",
+                "value": None,
+            }
+        )
 
     summary = "OK" if overall_ok else "con avisos"
     return {
@@ -309,55 +327,67 @@ def compute_info(deps: CoreDependencies) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
 
     # Version
-    checks.append({
-        "name": "Versión",
-        "status": "info",
-        "detail": __version__,
-        "value": __version__,
-    })
+    checks.append(
+        {
+            "name": "Versión",
+            "status": "info",
+            "detail": __version__,
+            "value": __version__,
+        }
+    )
 
     # station_uuid
     if deps.station_uuid:
-        checks.append({
-            "name": "Station UUID",
-            "status": "info",
-            "detail": str(deps.station_uuid),
-            "value": str(deps.station_uuid),
-        })
+        checks.append(
+            {
+                "name": "Station UUID",
+                "status": "info",
+                "detail": str(deps.station_uuid),
+                "value": str(deps.station_uuid),
+            }
+        )
     else:
-        checks.append({
-            "name": "Station UUID",
-            "status": "warn",
-            "detail": "no configurado",
-            "value": None,
-        })
+        checks.append(
+            {
+                "name": "Station UUID",
+                "status": "warn",
+                "detail": "no configurado",
+                "value": None,
+            }
+        )
 
     # IEA name — guardada por el wizard como "school_name"
     iea_name = deps.app_config_repo.get("school_name") or "no configurado"
-    checks.append({
-        "name": "IEA",
-        "status": "info",
-        "detail": iea_name,
-        "value": iea_name,
-    })
+    checks.append(
+        {
+            "name": "IEA",
+            "status": "info",
+            "detail": iea_name,
+            "value": iea_name,
+        }
+    )
 
     # CUE — guardada por el wizard como "cue"
     cue = deps.app_config_repo.get("cue") or "no configurado"
-    checks.append({
-        "name": "CUE",
-        "status": "info",
-        "detail": cue,
-        "value": cue,
-    })
+    checks.append(
+        {
+            "name": "CUE",
+            "status": "info",
+            "detail": cue,
+            "value": cue,
+        }
+    )
 
     # Server URL
     server_url = deps.app_config_repo.get("sync_server_url") or "no configurado"
-    checks.append({
-        "name": "Server URL",
-        "status": "info",
-        "detail": server_url,
-        "value": server_url,
-    })
+    checks.append(
+        {
+            "name": "Server URL",
+            "status": "info",
+            "detail": server_url,
+            "value": server_url,
+        }
+    )
 
     # Disco libre
     try:
@@ -368,25 +398,31 @@ def compute_info(deps: CoreDependencies) -> dict[str, Any]:
             disk_status = "fail"
         elif pct_used > 75:
             disk_status = "warn"
-        checks.append({
-            "name": "Disco",
-            "status": disk_status,
-            "detail": (
-                f"{fmt_bytes(usage.free)} libre de {fmt_bytes(usage.total)} "
-                f"({pct_used:.1f}% usado)"
-            ),
-            "value": {
-                "total": usage.total, "used": usage.used,
-                "free": usage.free, "pct_used": pct_used,
-            },
-        })
+        checks.append(
+            {
+                "name": "Disco",
+                "status": disk_status,
+                "detail": (
+                    f"{fmt_bytes(usage.free)} libre de {fmt_bytes(usage.total)} "
+                    f"({pct_used:.1f}% usado)"
+                ),
+                "value": {
+                    "total": usage.total,
+                    "used": usage.used,
+                    "free": usage.free,
+                    "pct_used": pct_used,
+                },
+            }
+        )
     except Exception as exc:
-        checks.append({
-            "name": "Disco",
-            "status": "fail",
-            "detail": f"error: {exc}",
-            "value": None,
-        })
+        checks.append(
+            {
+                "name": "Disco",
+                "status": "fail",
+                "detail": f"error: {exc}",
+                "value": None,
+            }
+        )
 
     return {
         "ok": True,
@@ -422,41 +458,53 @@ def test_sensor() -> dict[str, Any]:
     # 1. pywws
     try:
         import pywws  # noqa: F401
-        checks.append({
-            "name": "pywws",
-            "status": "ok",
-            "detail": "importable",
-            "value": True,
-        })
+
+        checks.append(
+            {
+                "name": "pywws",
+                "status": "ok",
+                "detail": "importable",
+                "value": True,
+            }
+        )
     except ImportError as exc:
         overall_ok = False
-        checks.append({
-            "name": "pywws",
-            "status": "fail",
-            "detail": f"no importable: {exc}",
-            "value": False,
-        })
+        checks.append(
+            {
+                "name": "pywws",
+                "status": "fail",
+                "detail": f"no importable: {exc}",
+                "value": False,
+            }
+        )
 
     # 2. pyusb
     try:
         import usb.core
-        checks.append({
-            "name": "pyusb",
-            "status": "ok",
-            "detail": "importable",
-            "value": True,
-        })
+
+        checks.append(
+            {
+                "name": "pyusb",
+                "status": "ok",
+                "detail": "importable",
+                "value": True,
+            }
+        )
     except ImportError as exc:
         overall_ok = False
-        checks.append({
-            "name": "pyusb",
-            "status": "fail",
-            "detail": f"no importable: {exc}",
-            "value": False,
-        })
+        checks.append(
+            {
+                "name": "pyusb",
+                "status": "fail",
+                "detail": f"no importable: {exc}",
+                "value": False,
+            }
+        )
         # Sin pyusb no podemos seguir con los otros checks
         return {
-            "ok": False, "checks": checks, "notes": [
+            "ok": False,
+            "checks": checks,
+            "notes": [
                 "Ejecutar VALIDAR_SENSOR.bat para diagnóstico detallado.",
             ],
             "summary": "Sensor: pyusb no disponible",
@@ -465,58 +513,72 @@ def test_sensor() -> dict[str, Any]:
     # 3. backend libusb
     try:
         import usb.backend.libusb1 as libusb1
+
         backend = libusb1.get_backend()
         if backend is None:
             overall_ok = False
-            checks.append({
-                "name": "libusb backend",
-                "status": "fail",
-                "detail": "backend no encontrado (instalar libusb1.dll / Zadig)",
-                "value": None,
-            })
+            checks.append(
+                {
+                    "name": "libusb backend",
+                    "status": "fail",
+                    "detail": "backend no encontrado (instalar libusb1.dll / Zadig)",
+                    "value": None,
+                }
+            )
         else:
-            checks.append({
-                "name": "libusb backend",
-                "status": "ok",
-                "detail": "disponible",
-                "value": True,
-            })
+            checks.append(
+                {
+                    "name": "libusb backend",
+                    "status": "ok",
+                    "detail": "disponible",
+                    "value": True,
+                }
+            )
     except Exception as exc:
         overall_ok = False
-        checks.append({
-            "name": "libusb backend",
-            "status": "fail",
-            "detail": f"error: {exc}",
-            "value": None,
-        })
+        checks.append(
+            {
+                "name": "libusb backend",
+                "status": "fail",
+                "detail": f"error: {exc}",
+                "value": None,
+            }
+        )
 
     # 4. Detectar device por VID/PID
     try:
         import usb.core
+
         device = usb.core.find(idVendor=_WH1081_VID, idProduct=_WH1081_PID)
         if device is None:
             overall_ok = False
-            checks.append({
-                "name": "WH1081 detectado",
-                "status": "fail",
-                "detail": f"VID:{_WH1081_VID:04x} PID:{_WH1081_PID:04x} no encontrado",
-                "value": False,
-            })
+            checks.append(
+                {
+                    "name": "WH1081 detectado",
+                    "status": "fail",
+                    "detail": f"VID:{_WH1081_VID:04x} PID:{_WH1081_PID:04x} no encontrado",
+                    "value": False,
+                }
+            )
         else:
-            checks.append({
-                "name": "WH1081 detectado",
-                "status": "ok",
-                "detail": f"VID:{_WH1081_VID:04x} PID:{_WH1081_PID:04x}",
-                "value": True,
-            })
+            checks.append(
+                {
+                    "name": "WH1081 detectado",
+                    "status": "ok",
+                    "detail": f"VID:{_WH1081_VID:04x} PID:{_WH1081_PID:04x}",
+                    "value": True,
+                }
+            )
     except Exception as exc:
         overall_ok = False
-        checks.append({
-            "name": "WH1081 detectado",
-            "status": "fail",
-            "detail": f"error: {exc}",
-            "value": None,
-        })
+        checks.append(
+            {
+                "name": "WH1081 detectado",
+                "status": "fail",
+                "detail": f"error: {exc}",
+                "value": None,
+            }
+        )
 
     notes = []
     if not overall_ok:
@@ -527,7 +589,10 @@ def test_sensor() -> dict[str, Any]:
 
     summary = "Sensor OK" if overall_ok else "Sensor con problemas"
     return {
-        "ok": overall_ok, "checks": checks, "notes": notes, "summary": summary,
+        "ok": overall_ok,
+        "checks": checks,
+        "notes": notes,
+        "summary": summary,
     }
 
 
@@ -551,41 +616,50 @@ def test_db(deps: CoreDependencies) -> dict[str, Any]:
     if not deps.db_path.exists():
         return {
             "ok": False,
-            "checks": [{
-                "name": "Archivo DB",
-                "status": "fail",
-                "detail": f"{deps.db_path} no existe",
-                "value": None,
-            }],
+            "checks": [
+                {
+                    "name": "Archivo DB",
+                    "status": "fail",
+                    "detail": f"{deps.db_path} no existe",
+                    "value": None,
+                }
+            ],
             "notes": ["Ejecutar el launcher principal para crear la DB."],
             "summary": "DB inexistente",
         }
-    checks.append({
-        "name": "Archivo DB",
-        "status": "ok",
-        "detail": str(deps.db_path),
-        "value": str(deps.db_path),
-    })
+    checks.append(
+        {
+            "name": "Archivo DB",
+            "status": "ok",
+            "detail": str(deps.db_path),
+            "value": str(deps.db_path),
+        }
+    )
 
     # 2. Conexión y SELECT trivial
     try:
         conn = deps.factory.get_connection()
         conn.execute("SELECT 1").fetchone()
-        checks.append({
-            "name": "Conexión",
-            "status": "ok",
-            "detail": "SELECT 1 ok",
-            "value": True,
-        })
+        checks.append(
+            {
+                "name": "Conexión",
+                "status": "ok",
+                "detail": "SELECT 1 ok",
+                "value": True,
+            }
+        )
     except Exception as exc:
         return {
             "ok": False,
-            "checks": checks + [{
-                "name": "Conexión",
-                "status": "fail",
-                "detail": f"error: {exc}",
-                "value": None,
-            }],
+            "checks": checks
+            + [
+                {
+                    "name": "Conexión",
+                    "status": "fail",
+                    "detail": f"error: {exc}",
+                    "value": None,
+                }
+            ],
             "notes": [],
             "summary": "DB no accesible",
         }
@@ -593,20 +667,24 @@ def test_db(deps: CoreDependencies) -> dict[str, Any]:
     # 3. Migración v13 aplicada (sync_agent_state singleton)
     try:
         state = deps.sync_agent_state_repo.get_state()
-        checks.append({
-            "name": "Migración v13",
-            "status": "ok",
-            "detail": f"sync_agent_state OK (state={state.state.value})",
-            "value": state.state.value,
-        })
+        checks.append(
+            {
+                "name": "Migración v13",
+                "status": "ok",
+                "detail": f"sync_agent_state OK (state={state.state.value})",
+                "value": state.state.value,
+            }
+        )
     except Exception as exc:
         overall_ok = False
-        checks.append({
-            "name": "Migración v13",
-            "status": "fail",
-            "detail": f"singleton no encontrado: {exc}",
-            "value": None,
-        })
+        checks.append(
+            {
+                "name": "Migración v13",
+                "status": "fail",
+                "detail": f"singleton no encontrado: {exc}",
+                "value": None,
+            }
+        )
 
     # 4. Counts críticos
     try:
@@ -615,32 +693,40 @@ def test_db(deps: CoreDependencies) -> dict[str, Any]:
         empirical_count = conn.execute("SELECT COUNT(*) FROM empirical_observation").fetchone()[0]
         queue_count = deps.sync_repo.count()
 
-        checks.append({
-            "name": "sensor_data",
-            "status": "info",
-            "detail": f"{sensor_count} filas",
-            "value": sensor_count,
-        })
-        checks.append({
-            "name": "empirical_observation",
-            "status": "info",
-            "detail": f"{empirical_count} filas",
-            "value": empirical_count,
-        })
-        checks.append({
-            "name": "sync_queue",
-            "status": "info",
-            "detail": f"{queue_count} filas",
-            "value": queue_count,
-        })
+        checks.append(
+            {
+                "name": "sensor_data",
+                "status": "info",
+                "detail": f"{sensor_count} filas",
+                "value": sensor_count,
+            }
+        )
+        checks.append(
+            {
+                "name": "empirical_observation",
+                "status": "info",
+                "detail": f"{empirical_count} filas",
+                "value": empirical_count,
+            }
+        )
+        checks.append(
+            {
+                "name": "sync_queue",
+                "status": "info",
+                "detail": f"{queue_count} filas",
+                "value": queue_count,
+            }
+        )
     except Exception as exc:
         overall_ok = False
-        checks.append({
-            "name": "Conteos de tablas",
-            "status": "fail",
-            "detail": f"error: {exc}",
-            "value": None,
-        })
+        checks.append(
+            {
+                "name": "Conteos de tablas",
+                "status": "fail",
+                "detail": f"error: {exc}",
+                "value": None,
+            }
+        )
 
     return {
         "ok": overall_ok,
@@ -681,12 +767,14 @@ def test_sync(deps: CoreDependencies, *, timeout_s: float = 5.0) -> dict[str, An
     if not creds_path.exists():
         return {
             "ok": False,
-            "checks": [{
-                "name": "Credentials JSON",
-                "status": "fail",
-                "detail": f"{creds_path.name} no existe",
-                "value": None,
-            }],
+            "checks": [
+                {
+                    "name": "Credentials JSON",
+                    "status": "fail",
+                    "detail": f"{creds_path.name} no existe",
+                    "value": None,
+                }
+            ],
             "notes": [
                 "Generar credentials con el CLI del server YVY Core: "
                 "`yvy-server create-station -o credentials.json`",
@@ -697,21 +785,25 @@ def test_sync(deps: CoreDependencies, *, timeout_s: float = 5.0) -> dict[str, An
 
     try:
         creds = _json.loads(creds_path.read_text(encoding="utf-8-sig"))
-        checks.append({
-            "name": "Credentials JSON",
-            "status": "ok",
-            "detail": "presente, parsea",
-            "value": str(creds_path),
-        })
+        checks.append(
+            {
+                "name": "Credentials JSON",
+                "status": "ok",
+                "detail": "presente, parsea",
+                "value": str(creds_path),
+            }
+        )
     except Exception as exc:
         return {
             "ok": False,
-            "checks": [{
-                "name": "Credentials JSON",
-                "status": "fail",
-                "detail": f"parse error: {exc}",
-                "value": None,
-            }],
+            "checks": [
+                {
+                    "name": "Credentials JSON",
+                    "status": "fail",
+                    "detail": f"parse error: {exc}",
+                    "value": None,
+                }
+            ],
             "notes": [],
             "summary": "Credentials JSON corrupto",
         }
@@ -725,25 +817,30 @@ def test_sync(deps: CoreDependencies, *, timeout_s: float = 5.0) -> dict[str, An
         key_bytes = bytes.fromhex(key_hex)
         if len(key_bytes) < 32:
             raise ValueError(f"key_hmac_hex muy corto ({len(key_bytes)} bytes < 32)")
-        checks.append({
-            "name": "Formato credentials",
-            "status": "ok",
-            "detail": f"uuid + key v{key_version} + {len(key_bytes)} bytes",
-            "value": {
-                "station_uuid": str(cred_station_uuid),
-                "key_version": key_version,
-                "key_length_bytes": len(key_bytes),
-            },
-        })
+        checks.append(
+            {
+                "name": "Formato credentials",
+                "status": "ok",
+                "detail": f"uuid + key v{key_version} + {len(key_bytes)} bytes",
+                "value": {
+                    "station_uuid": str(cred_station_uuid),
+                    "key_version": key_version,
+                    "key_length_bytes": len(key_bytes),
+                },
+            }
+        )
     except (KeyError, ValueError, TypeError) as exc:
         return {
             "ok": False,
-            "checks": checks + [{
-                "name": "Formato credentials",
-                "status": "fail",
-                "detail": f"{type(exc).__name__}: {exc}",
-                "value": None,
-            }],
+            "checks": checks
+            + [
+                {
+                    "name": "Formato credentials",
+                    "status": "fail",
+                    "detail": f"{type(exc).__name__}: {exc}",
+                    "value": None,
+                }
+            ],
             "notes": [],
             "summary": "Credentials con formato inválido",
         }
@@ -753,37 +850,40 @@ def test_sync(deps: CoreDependencies, *, timeout_s: float = 5.0) -> dict[str, An
     if not server_url:
         return {
             "ok": False,
-            "checks": checks + [{
-                "name": "URL del server",
-                "status": "fail",
-                "detail": "sync_server_url no configurado en app_config",
-                "value": None,
-            }],
+            "checks": checks
+            + [
+                {
+                    "name": "URL del server",
+                    "status": "fail",
+                    "detail": "sync_server_url no configurado en app_config",
+                    "value": None,
+                }
+            ],
             "notes": [
-                "Configurar con: `app_config_repo.set('sync_server_url', "
-                "'https://...')`",
+                "Configurar con: `app_config_repo.set('sync_server_url', " "'https://...')`",
             ],
             "summary": "Server URL no configurada",
         }
-    checks.append({
-        "name": "URL del server",
-        "status": "ok",
-        "detail": server_url,
-        "value": server_url,
-    })
+    checks.append(
+        {
+            "name": "URL del server",
+            "status": "ok",
+            "detail": server_url,
+            "value": server_url,
+        }
+    )
 
     # 5. Cross-check station_uuid
     if deps.station_uuid is not None and deps.station_uuid != cred_station_uuid:
         overall_ok = False
-        checks.append({
-            "name": "Cross-check UUIDs",
-            "status": "fail",
-            "detail": (
-                f"credentials={cred_station_uuid} ≠ "
-                f"app_config={deps.station_uuid}"
-            ),
-            "value": False,
-        })
+        checks.append(
+            {
+                "name": "Cross-check UUIDs",
+                "status": "fail",
+                "detail": (f"credentials={cred_station_uuid} ≠ " f"app_config={deps.station_uuid}"),
+                "value": False,
+            }
+        )
         return {
             "ok": False,
             "checks": checks,
@@ -793,12 +893,14 @@ def test_sync(deps: CoreDependencies, *, timeout_s: float = 5.0) -> dict[str, An
             ],
             "summary": "UUIDs no coinciden",
         }
-    checks.append({
-        "name": "Cross-check UUIDs",
-        "status": "ok",
-        "detail": "credentials = app_config",
-        "value": True,
-    })
+    checks.append(
+        {
+            "name": "Cross-check UUIDs",
+            "status": "ok",
+            "detail": "credentials = app_config",
+            "value": True,
+        }
+    )
 
     # 6. GET /healthz
     healthz_url = server_url.rstrip("/") + "/healthz"
@@ -807,55 +909,67 @@ def test_sync(deps: CoreDependencies, *, timeout_s: float = 5.0) -> dict[str, An
             response = client.get(healthz_url)
 
         if response.status_code == 200:
-            checks.append({
-                "name": "Conectividad server",
-                "status": "ok",
-                "detail": f"GET /healthz → 200 OK ({response.elapsed.total_seconds()*1000:.0f}ms)",
-                "value": {
-                    "status_code": 200,
-                    "elapsed_ms": response.elapsed.total_seconds() * 1000,
-                },
-            })
+            checks.append(
+                {
+                    "name": "Conectividad server",
+                    "status": "ok",
+                    "detail": f"GET /healthz → 200 OK ({response.elapsed.total_seconds()*1000:.0f}ms)",
+                    "value": {
+                        "status_code": 200,
+                        "elapsed_ms": response.elapsed.total_seconds() * 1000,
+                    },
+                }
+            )
         elif response.status_code == 404:
             overall_ok = False
-            checks.append({
-                "name": "Conectividad server",
-                "status": "warn",
-                "detail": "GET /healthz → 404 (¿endpoint distinto?)",
-                "value": {"status_code": 404},
-            })
+            checks.append(
+                {
+                    "name": "Conectividad server",
+                    "status": "warn",
+                    "detail": "GET /healthz → 404 (¿endpoint distinto?)",
+                    "value": {"status_code": 404},
+                }
+            )
         else:
             overall_ok = False
-            checks.append({
-                "name": "Conectividad server",
-                "status": "warn",
-                "detail": f"GET /healthz → {response.status_code}",
-                "value": {"status_code": response.status_code},
-            })
+            checks.append(
+                {
+                    "name": "Conectividad server",
+                    "status": "warn",
+                    "detail": f"GET /healthz → {response.status_code}",
+                    "value": {"status_code": response.status_code},
+                }
+            )
     except httpx.ConnectTimeout:
         overall_ok = False
-        checks.append({
-            "name": "Conectividad server",
-            "status": "fail",
-            "detail": f"timeout ({timeout_s}s) — server no responde",
-            "value": None,
-        })
+        checks.append(
+            {
+                "name": "Conectividad server",
+                "status": "fail",
+                "detail": f"timeout ({timeout_s}s) — server no responde",
+                "value": None,
+            }
+        )
     except httpx.ConnectError as exc:
         overall_ok = False
-        checks.append({
-            "name": "Conectividad server",
-            "status": "fail",
-            "detail": f"no se pudo conectar: {exc}",
-            "value": None,
-        })
+        checks.append(
+            {
+                "name": "Conectividad server",
+                "status": "fail",
+                "detail": f"no se pudo conectar: {exc}",
+                "value": None,
+            }
+        )
     except (httpx.HTTPError, OSError) as exc:
         overall_ok = False
-        checks.append({
-            "name": "Conectividad server",
-            "status": "fail",
-            "detail": f"{type(exc).__name__}: {exc}",
-            "value": None,
-        })
+        checks.append(
+            {
+                "name": "Conectividad server",
+                "status": "fail",
+                "detail": f"{type(exc).__name__}: {exc}",
+                "value": None,
+            }
+        )
 
     notes = []
     if not overall_ok:
@@ -1026,59 +1140,70 @@ def compute_update_status(deps: CoreDependencies) -> dict[str, Any]:
         root_path=deps.root,
     )
 
-    checks.append({
-        "name": "Versión instalada",
-        "status": "info",
-        "detail": __version__,
-        "value": __version__,
-    })
+    checks.append(
+        {
+            "name": "Versión instalada",
+            "status": "info",
+            "detail": __version__,
+            "value": __version__,
+        }
+    )
 
     current = deps.app_config_repo.get_current_release()
     previous = deps.app_config_repo.get_previous_release()
     stable = deps.app_config_repo.get_last_stable_release()
 
     if current:
-        checks.append({
-            "name": "Release actual (current)",
-            "status": "info",
-            "detail": current,
-            "value": current,
-        })
+        checks.append(
+            {
+                "name": "Release actual (current)",
+                "status": "info",
+                "detail": current,
+                "value": current,
+            }
+        )
         if previous:
-            checks.append({
-                "name": "Release anterior (previous)",
-                "status": "info",
-                "detail": previous,
-                "value": previous,
-            })
+            checks.append(
+                {
+                    "name": "Release anterior (previous)",
+                    "status": "info",
+                    "detail": previous,
+                    "value": previous,
+                }
+            )
         if stable:
-            checks.append({
-                "name": "Último estable (last_stable)",
-                "status": "info",
-                "detail": stable,
-                "value": stable,
-            })
+            checks.append(
+                {
+                    "name": "Último estable (last_stable)",
+                    "status": "info",
+                    "detail": stable,
+                    "value": stable,
+                }
+            )
     else:
-        checks.append({
-            "name": "Modo de instalación",
-            "status": "warn",
-            "detail": "flat (sin slots — primera actualización migrará automáticamente)",
-            "value": "flat",
-        })
+        checks.append(
+            {
+                "name": "Modo de instalación",
+                "status": "warn",
+                "detail": "flat (sin slots — primera actualización migrará automáticamente)",
+                "value": "flat",
+            }
+        )
 
     releases = installer.get_releases_on_disk()
     if releases:
         details = "  ·  ".join(
-            f"{r['version']}"
-            + (f" ({', '.join(r['states'])})" if r["states"] else "")
+            f"{r['version']}" + (f" ({', '.join(r['states'])})" if r["states"] else "")
             for r in releases
         )
-        checks.append({
-            "name": "Releases en disco",
-            "status": "info",
-            "detail": details,
-            "value": [{"version": r["version"], "states": r["states"]} for r in releases],
-        })
+        checks.append(
+            {
+                "name": "Releases en disco",
+                "status": "info",
+                "detail": details,
+                "value": [{"version": r["version"], "states": r["states"]} for r in releases],
+            }
+        )
 
     pending = deps.app_config_repo.get_pending_update()
     if pending:
@@ -1086,29 +1211,35 @@ def compute_update_status(deps: CoreDependencies) -> dict[str, Any]:
         is_dl = deps.app_config_repo.is_update_downloaded()
         dl_label = "descargado ✓" if is_dl else "pendiente de descarga"
         size_mb = pending.get("package_size_bytes", 0) / (1024 * 1024)
-        checks.append({
-            "name": "Actualización disponible",
-            "status": "ok" if is_dl else "warn",
-            "detail": f"v{to_ver}  {size_mb:.1f} MB  ({dl_label})",
-            "value": {"version": to_ver, "is_downloaded": is_dl},
-        })
+        checks.append(
+            {
+                "name": "Actualización disponible",
+                "status": "ok" if is_dl else "warn",
+                "detail": f"v{to_ver}  {size_mb:.1f} MB  ({dl_label})",
+                "value": {"version": to_ver, "is_downloaded": is_dl},
+            }
+        )
     else:
-        checks.append({
-            "name": "Actualización disponible",
-            "status": "ok",
-            "detail": "al día — no hay updates pendientes",
-            "value": None,
-        })
+        checks.append(
+            {
+                "name": "Actualización disponible",
+                "status": "ok",
+                "detail": "al día — no hay updates pendientes",
+                "value": None,
+            }
+        )
 
     install_status = deps.app_config_repo.get_install_status()
     if install_status and install_status not in ("completed", "failed"):
         to_v = deps.app_config_repo.get_install_to_version() or "?"
-        checks.append({
-            "name": "Instalación en curso",
-            "status": "warn",
-            "detail": f"estado={install_status}  destino={to_v}",
-            "value": {"status": install_status, "to_version": to_v},
-        })
+        checks.append(
+            {
+                "name": "Instalación en curso",
+                "status": "warn",
+                "detail": f"estado={install_status}  destino={to_v}",
+                "value": {"status": install_status, "to_version": to_v},
+            }
+        )
 
     return {
         "ok": True,
@@ -1319,16 +1450,24 @@ def configure_sync(
     url = (server_url or os.environ.get("YVY_SYNC_URL", "")).strip()
     if not url:
         return {
-            "ok": False, "skipped": False, "reason": "no_server_url",
-            "station_uuid": None, "server_url": None, "dest_path": None,
+            "ok": False,
+            "skipped": False,
+            "reason": "no_server_url",
+            "station_uuid": None,
+            "server_url": None,
+            "dest_path": None,
             "error": "Falta la URL del servidor (--server-url o YVY_SYNC_URL).",
             "notes": [],
         }
 
     if not creds_path.exists():
         return {
-            "ok": False, "skipped": False, "reason": "creds_not_found",
-            "station_uuid": None, "server_url": None, "dest_path": None,
+            "ok": False,
+            "skipped": False,
+            "reason": "creds_not_found",
+            "station_uuid": None,
+            "server_url": None,
+            "dest_path": None,
             "error": f"No se encontró el archivo de credentials: {creds_path}",
             "notes": [],
         }
@@ -1337,17 +1476,27 @@ def configure_sync(
         creds = json.loads(creds_path.read_text(encoding="utf-8-sig"))
     except (json.JSONDecodeError, OSError) as exc:
         return {
-            "ok": False, "skipped": False, "reason": "creds_invalid_json",
-            "station_uuid": None, "server_url": None, "dest_path": None,
-            "error": f"el archivo no es JSON válido: {exc}", "notes": [],
+            "ok": False,
+            "skipped": False,
+            "reason": "creds_invalid_json",
+            "station_uuid": None,
+            "server_url": None,
+            "dest_path": None,
+            "error": f"el archivo no es JSON válido: {exc}",
+            "notes": [],
         }
 
     err = _validate_credentials_dict(creds)
     if err:
         return {
-            "ok": False, "skipped": False, "reason": "creds_invalid",
-            "station_uuid": None, "server_url": None, "dest_path": None,
-            "error": f"credentials inválidas — {err}", "notes": [],
+            "ok": False,
+            "skipped": False,
+            "reason": "creds_invalid",
+            "station_uuid": None,
+            "server_url": None,
+            "dest_path": None,
+            "error": f"credentials inválidas — {err}",
+            "notes": [],
         }
 
     station_uuid = str(creds["station_uuid"])
@@ -1369,7 +1518,12 @@ def configure_sync(
     deps.app_config_repo.set("station_uuid", station_uuid)
 
     return {
-        "ok": True, "skipped": False, "reason": "configured",
-        "station_uuid": station_uuid, "server_url": url, "dest_path": str(dest),
-        "error": None, "notes": notes,
+        "ok": True,
+        "skipped": False,
+        "reason": "configured",
+        "station_uuid": station_uuid,
+        "server_url": url,
+        "dest_path": str(dest),
+        "error": None,
+        "notes": notes,
     }

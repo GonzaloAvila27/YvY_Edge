@@ -43,12 +43,14 @@ def print_report(
 
     for check in report.get("checks", []):
         status = _STATUS_MAP.get(check.get("status", "info"), Status.INFO)
-        print(row(
-            check["name"],
-            status,
-            check.get("detail"),
-            label_width=label_width,
-        ))
+        print(
+            row(
+                check["name"],
+                status,
+                check.get("detail"),
+                label_width=label_width,
+            )
+        )
 
     notes = report.get("notes", [])
     if notes:
@@ -63,4 +65,5 @@ def print_report(
             print(bold(summary))
         else:
             from yvy.cli.formatting import yellow
+
             print(bold(yellow(summary)))

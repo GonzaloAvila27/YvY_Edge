@@ -99,7 +99,7 @@ def apparent_temp_c(
 
     # ── Wind Chill (métrico, Environment Canada) ─────────────────────
     if temp_c < 10.0 and wind_kmh > 5.0:
-        v016 = wind_kmh ** 0.16
+        v016 = wind_kmh**0.16
         return 13.12 + 0.6215 * temp_c - 11.37 * v016 + 0.3965 * temp_c * v016
 
     # ── Temperatura seca ─────────────────────────────────────────────
@@ -248,9 +248,9 @@ def pressure_trend_3h(
             continue
 
         t_now = ts_epoch[i]
-        t_target = t_now - 3 * 3600   # 3 horas antes
-        t_low  = t_now - 4 * 3600     # ventana: máximo 4 horas atrás
-        t_high = t_now - 2 * 3600     # ventana: mínimo 2 horas atrás
+        t_target = t_now - 3 * 3600  # 3 horas antes
+        t_low = t_now - 4 * 3600  # ventana: máximo 4 horas atrás
+        t_high = t_now - 2 * 3600  # ventana: mínimo 2 horas atrás
 
         # Posición de inserción para t_low en la lista de timestamps
         lo = bisect.bisect_left(ts_epoch, t_low)
@@ -387,9 +387,7 @@ class ComputeDerivedUseCase:
         # ── Amplitud térmica de hoy ────────────────────────────────────
         thermal_amplitude: float | None = None
         if temp_series is not None and temp_series.timestamps:
-            _, amps = daily_thermal_amplitude(
-                temp_series.timestamps, temp_series.values
-            )
+            _, amps = daily_thermal_amplitude(temp_series.timestamps, temp_series.values)
             if amps:
                 thermal_amplitude = amps[-1]
 
@@ -446,7 +444,9 @@ class ComputeDerivedUseCase:
                     f"condiciones favorables para el desarrollo de hongos."
                 )
             elif vpd_zone_label == "Estrés hídrico":
-                sensacion = f" Sensación térmica de {apparent:.0f}°C." if apparent is not None else ""
+                sensacion = (
+                    f" Sensación térmica de {apparent:.0f}°C." if apparent is not None else ""
+                )
                 parts.append(
                     f"Día {'cálido' if temp >= 28 else 'seco'} a {temp:.0f}°C "
                     f"con estrés hídrico moderado (VPD {vpd_str} kPa).{sensacion}"

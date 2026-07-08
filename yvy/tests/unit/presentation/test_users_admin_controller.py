@@ -49,9 +49,7 @@ class TestListUsers:
 
 
 class TestCreateUser:
-    def test_passes_actor_id_from_provider(
-        self, controller: UsersAdminController
-    ) -> None:
+    def test_passes_actor_id_from_provider(self, controller: UsersAdminController) -> None:
         controller.create_user(
             username="newbie",
             full_name="New Bie",

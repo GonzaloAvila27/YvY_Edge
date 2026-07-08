@@ -20,6 +20,7 @@ on the server side and capturing the output. If a test fails:
   be impossible with stdlib ``hmac``; check if a custom Python build
   is involved.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -31,10 +32,7 @@ from yvy.infrastructure.sync.canonical_json import canonicalize
 from yvy.infrastructure.sync.hmac_signer import sign_envelope
 
 # A 32-byte key with a fixed value for reproducibility.
-_KEY = bytes.fromhex(
-    "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
-    "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
-)
+_KEY = bytes.fromhex("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1" "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1")
 
 # A minimal envelope shape (matches what the builder produces minus signature).
 _ENVELOPE_FIXTURE = {

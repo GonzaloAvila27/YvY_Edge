@@ -40,44 +40,44 @@ logger = logging.getLogger(__name__)
 # ─── Configuración de períodos ────────────────────────────────────────────────
 
 _PERIOD_CONFIG: dict[str, tuple[timedelta, int]] = {
-    "24h": (timedelta(hours=24),  1800),   # 30 min → ~48 puntos  (era 5 min, ~288)
-    "7d":  (timedelta(days=7),   10800),   # 3 h    → ~56 puntos  (era 30 min, ~336)
-    "30d": (timedelta(days=30),  43200),   # 12 h   → ~60 puntos  (era 2 h, ~360)
+    "24h": (timedelta(hours=24), 1800),  # 30 min → ~48 puntos  (era 5 min, ~288)
+    "7d": (timedelta(days=7), 10800),  # 3 h    → ~56 puntos  (era 30 min, ~336)
+    "30d": (timedelta(days=30), 43200),  # 12 h   → ~60 puntos  (era 2 h, ~360)
 }
 
 # ─── Mapeo de alias a columnas reales ────────────────────────────────────────
 
 # Columnas permitidas (whitelist para evitar SQL injection por nombre de campo).
 _FIELD_MAP: dict[str, str] = {
-    "temp_out":        "temp_outdoor",
-    "temp_outdoor":    "temp_outdoor",
-    "temp_indoor":     "temp_indoor",
-    "hum_out":         "hum_outdoor",
-    "hum_outdoor":     "hum_outdoor",
-    "hum_indoor":      "hum_indoor",
-    "pressure":        "pressure_rel",
-    "pressure_rel":    "pressure_rel",
-    "pressure_abs":    "pressure_abs",
-    "abs_pressure":    "pressure_abs",
-    "wind_speed":      "wind_speed",
-    "wind_ave":        "wind_speed",
-    "wind_gust":       "wind_gust",
-    "uv":              "uv_index",
-    "uv_index":        "uv_index",
-    "solar":           "solar_radiation",
+    "temp_out": "temp_outdoor",
+    "temp_outdoor": "temp_outdoor",
+    "temp_indoor": "temp_indoor",
+    "hum_out": "hum_outdoor",
+    "hum_outdoor": "hum_outdoor",
+    "hum_indoor": "hum_indoor",
+    "pressure": "pressure_rel",
+    "pressure_rel": "pressure_rel",
+    "pressure_abs": "pressure_abs",
+    "abs_pressure": "pressure_abs",
+    "wind_speed": "wind_speed",
+    "wind_ave": "wind_speed",
+    "wind_gust": "wind_gust",
+    "uv": "uv_index",
+    "uv_index": "uv_index",
+    "solar": "solar_radiation",
     "solar_radiation": "solar_radiation",
 }
 
 _UNITS: dict[str, str] = {
-    "temp_outdoor":    "°C",
-    "temp_indoor":     "°C",
-    "hum_outdoor":     "%",
-    "hum_indoor":      "%",
-    "pressure_rel":    "hPa",
-    "pressure_abs":    "hPa",
-    "wind_speed":      "m/s",
-    "wind_gust":       "m/s",
-    "uv_index":        "UV",
+    "temp_outdoor": "°C",
+    "temp_indoor": "°C",
+    "hum_outdoor": "%",
+    "hum_indoor": "%",
+    "pressure_rel": "hPa",
+    "pressure_abs": "hPa",
+    "wind_speed": "m/s",
+    "wind_gust": "m/s",
+    "uv_index": "UV",
     "solar_radiation": "W/m²",
 }
 
@@ -96,9 +96,9 @@ class FrostSeries:
     """Serie temporal con campos paralelos para el gráfico de probable helada."""
 
     timestamps: list[datetime]
-    temp_c:     list[float | None]
-    hum_pct:    list[float | None]
-    wind_mps:   list[float | None]
+    temp_c: list[float | None]
+    hum_pct: list[float | None]
+    wind_mps: list[float | None]
 
 
 @dataclass(frozen=True)
@@ -115,18 +115,18 @@ class AggregatedSeries:
 class WindRoseData:
     """Datos para rosa de viento en 16 sectores de 22.5°."""
 
-    sectors: list[int]       # 0..15, en sentido horario desde Norte
+    sectors: list[int]  # 0..15, en sentido horario desde Norte
     avg_speeds: list[float]  # m/s promedio por sector
-    frequencies: list[int]   # cantidad de observaciones por sector
+    frequencies: list[int]  # cantidad de observaciones por sector
 
 
 @dataclass(frozen=True)
 class WindStatsData:
     """Estadísticas escalares de viento para el panel lateral de la rosa."""
 
-    max_gust_ms: float | None     # ráfaga máxima en m/s
+    max_gust_ms: float | None  # ráfaga máxima en m/s
     max_gust_at: datetime | None  # cuándo ocurrió
-    avg_speed_ms: float | None    # velocidad promedio en m/s
+    avg_speed_ms: float | None  # velocidad promedio en m/s
 
 
 @dataclass(frozen=True)
@@ -158,7 +158,7 @@ class QuerySensorAggregatedUseCase:
         self,
         field: str,
         period: str,
-        station_uuid: str,              # reservado para multi-estación futuro
+        station_uuid: str,  # reservado para multi-estación futuro
         aggregation: str = "avg",
     ) -> AggregatedSeries:
         """Serie temporal aggregada por buckets de tiempo.
@@ -304,7 +304,7 @@ class QuerySensorAggregatedUseCase:
             {"since": since_iso},
         ).fetchone()
 
-        max_gust  = float(row[0]) if row and row[0] is not None else None
+        max_gust = float(row[0]) if row and row[0] is not None else None
         avg_speed = float(row[1]) if row and row[1] is not None else None
 
         max_gust_at: datetime | None = None
@@ -326,7 +326,8 @@ class QuerySensorAggregatedUseCase:
                 except (ValueError, AttributeError) as exc:
                     logger.debug(
                         "Timestamp de ráfaga máx no parseable (%r), se omite: %s",
-                        ts_row[0], exc,
+                        ts_row[0],
+                        exc,
                     )
 
         return WindStatsData(
@@ -540,8 +541,12 @@ class QuerySensorAggregatedUseCase:
 
         logger.info(
             "query.sensor_aggregated.executed",
-            extra={"field": "rain_daily", "period": "range", "n_points": len(dates),
-                   "elapsed_ms": round(elapsed_ms, 1)},
+            extra={
+                "field": "rain_daily",
+                "period": "range",
+                "n_points": len(dates),
+                "elapsed_ms": round(elapsed_ms, 1),
+            },
         )
         return DailyRainSeries(dates=dates, mm=mm)
 
@@ -586,8 +591,12 @@ class QuerySensorAggregatedUseCase:
 
         logger.info(
             "query.sensor_aggregated.executed",
-            extra={"field": "wind_rose", "period": "range", "n_points": sum(frequencies),
-                   "elapsed_ms": round(elapsed_ms, 1)},
+            extra={
+                "field": "wind_rose",
+                "period": "range",
+                "n_points": sum(frequencies),
+                "elapsed_ms": round(elapsed_ms, 1),
+            },
         )
         return WindRoseData(sectors=sectors, avg_speeds=avg_speeds, frequencies=frequencies)
 
@@ -611,7 +620,7 @@ class QuerySensorAggregatedUseCase:
             {"since": since_iso, "until": until_iso},
         ).fetchone()
 
-        max_gust  = float(row[0]) if row and row[0] is not None else None
+        max_gust = float(row[0]) if row and row[0] is not None else None
         avg_speed = float(row[1]) if row and row[1] is not None else None
 
         max_gust_at: datetime | None = None
@@ -633,7 +642,8 @@ class QuerySensorAggregatedUseCase:
                 except (ValueError, AttributeError) as exc:
                     logger.debug(
                         "Timestamp de ráfaga máx no parseable (%r), se omite: %s",
-                        ts_row[0], exc,
+                        ts_row[0],
+                        exc,
                     )
 
         return WindStatsData(
@@ -687,9 +697,9 @@ class QuerySensorAggregatedUseCase:
         elapsed_ms = (time.monotonic() - t0) * 1000
 
         timestamps: list[datetime] = []
-        temp_c:     list[float | None] = []
-        hum_pct:    list[float | None] = []
-        wind_mps:   list[float | None] = []
+        temp_c: list[float | None] = []
+        hum_pct: list[float | None] = []
+        wind_mps: list[float | None] = []
 
         for bucket_str, avg_temp, avg_hum, avg_wind in rows:
             try:
@@ -782,8 +792,7 @@ class QuerySensorAggregatedUseCase:
         col = _FIELD_MAP.get(field)
         if col is None:
             raise ValueError(
-                f"Campo '{field}' no soportado. "
-                f"Campos válidos: {sorted(_FIELD_MAP)}"
+                f"Campo '{field}' no soportado. " f"Campos válidos: {sorted(_FIELD_MAP)}"
             )
         return col
 
@@ -792,8 +801,7 @@ class QuerySensorAggregatedUseCase:
         config = _PERIOD_CONFIG.get(period)
         if config is None:
             raise ValueError(
-                f"Período '{period}' no soportado. "
-                f"Períodos válidos: {sorted(_PERIOD_CONFIG)}"
+                f"Período '{period}' no soportado. " f"Períodos válidos: {sorted(_PERIOD_CONFIG)}"
             )
         window, bucket_s = config
         since = datetime.now(UTC) - window
@@ -802,17 +810,19 @@ class QuerySensorAggregatedUseCase:
     @staticmethod
     def _frost_bucket_s(start_dt: datetime, end_dt: datetime) -> int:
         duration = end_dt - start_dt
-        if duration <= timedelta(hours=24):  return 1800    # 30 min → ~48 pts
-        if duration <= timedelta(days=7):    return 10800   #  3 h  → ~56 pts
-        if duration <= timedelta(days=30):   return 43200   # 12 h  → ~60 pts
-        return 86400                                         # 24 h  → ~365 pts (1y)
+        if duration <= timedelta(hours=24):
+            return 1800  # 30 min → ~48 pts
+        if duration <= timedelta(days=7):
+            return 10800  #  3 h  → ~56 pts
+        if duration <= timedelta(days=30):
+            return 43200  # 12 h  → ~60 pts
+        return 86400  # 24 h  → ~365 pts (1y)
 
     @staticmethod
     def _resolve_aggregation(aggregation: str) -> str:
         sql_fn = _AGG_SQL.get(aggregation)
         if sql_fn is None:
             raise ValueError(
-                f"Aggregación '{aggregation}' no soportada. "
-                f"Valores válidos: {sorted(_AGG_SQL)}"
+                f"Aggregación '{aggregation}' no soportada. " f"Valores válidos: {sorted(_AGG_SQL)}"
             )
         return sql_fn

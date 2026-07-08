@@ -32,16 +32,12 @@ def _new_user(
 
 @pytest.mark.integration
 class TestSaveAndFind:
-    def test_save_new_user_returns_id(
-        self, user_repo: SQLiteUserRepository
-    ) -> None:
+    def test_save_new_user_returns_id(self, user_repo: SQLiteUserRepository) -> None:
         u = _new_user()
         new_id = user_repo.save(u, "fake_hash_$2b$04$abc")
         assert new_id > 0
 
-    def test_find_by_username_returns_persisted_data(
-        self, user_repo: SQLiteUserRepository
-    ) -> None:
+    def test_find_by_username_returns_persisted_data(self, user_repo: SQLiteUserRepository) -> None:
         u = _new_user(username="alice", full_name="Alice Smith", role=Role.PROFESOR)
         new_id = user_repo.save(u, "hash1")
 
@@ -76,9 +72,7 @@ class TestSaveAndFind:
         assert found is not None
         assert found.username == u.username
 
-    def test_get_password_hash_returns_stored(
-        self, user_repo: SQLiteUserRepository
-    ) -> None:
+    def test_get_password_hash_returns_stored(self, user_repo: SQLiteUserRepository) -> None:
         u = _new_user()
         new_id = user_repo.save(u, "stored_hash_xyz")
         h = user_repo.get_password_hash(new_id)
@@ -92,14 +86,13 @@ class TestSaveAndFind:
 
 @pytest.mark.integration
 class TestUpdate:
-    def test_save_existing_user_updates_fields(
-        self, user_repo: SQLiteUserRepository
-    ) -> None:
+    def test_save_existing_user_updates_fields(self, user_repo: SQLiteUserRepository) -> None:
         u = _new_user(username="alice", role=Role.ALUMNO)
         new_id = user_repo.save(u, "h1")
 
         # Modificar y re-save
         from dataclasses import replace
+
         modified = replace(
             u,
             id=new_id,
@@ -117,9 +110,7 @@ class TestUpdate:
         # Hash actualizado
         assert user_repo.get_password_hash(new_id) == "h2"
 
-    def test_update_last_login(
-        self, user_repo: SQLiteUserRepository
-    ) -> None:
+    def test_update_last_login(self, user_repo: SQLiteUserRepository) -> None:
         u = _new_user()
         new_id = user_repo.save(u, "h")
 
@@ -134,9 +125,7 @@ class TestUpdate:
 
 @pytest.mark.integration
 class TestList:
-    def test_list_active_returns_only_active(
-        self, user_repo: SQLiteUserRepository
-    ) -> None:
+    def test_list_active_returns_only_active(self, user_repo: SQLiteUserRepository) -> None:
         user_repo.save(_new_user(username="aaa"), "h")
         user_repo.save(_new_user(username="bbb", is_active=False), "h")
         user_repo.save(_new_user(username="ccc"), "h")
@@ -145,18 +134,14 @@ class TestList:
         names = {u.username for u in active}
         assert names == {"aaa", "ccc"}
 
-    def test_list_all_includes_inactive(
-        self, user_repo: SQLiteUserRepository
-    ) -> None:
+    def test_list_all_includes_inactive(self, user_repo: SQLiteUserRepository) -> None:
         user_repo.save(_new_user(username="aaa"), "h")
         user_repo.save(_new_user(username="bbb", is_active=False), "h")
 
         all_users = user_repo.list_all()
         assert {u.username for u in all_users} == {"aaa", "bbb"}
 
-    def test_list_all_ordered_by_username(
-        self, user_repo: SQLiteUserRepository
-    ) -> None:
+    def test_list_all_ordered_by_username(self, user_repo: SQLiteUserRepository) -> None:
         user_repo.save(_new_user(username="zoe"), "h")
         user_repo.save(_new_user(username="alice"), "h")
         user_repo.save(_new_user(username="bob"), "h")
@@ -179,9 +164,7 @@ class TestCounts:
         assert user_repo.count_by_role(Role.PROFESOR) == 1
         assert user_repo.count_by_role(Role.ALUMNO) == 2
 
-    def test_count_by_role_includes_inactive(
-        self, user_repo: SQLiteUserRepository
-    ) -> None:
+    def test_count_by_role_includes_inactive(self, user_repo: SQLiteUserRepository) -> None:
         """Para enforcing del límite de 2 admins, contamos TODOS (activos o no).
 
         Razón: si desactivás un admin y creás otro, técnicamente estás
@@ -207,9 +190,7 @@ class TestCounts:
         # Activos administrativos: 1 superadmin + 1 admin activo
         assert user_repo.count_active_admins() == 2
 
-    def test_count_active_admins_zero_when_no_admins(
-        self, user_repo: SQLiteUserRepository
-    ) -> None:
+    def test_count_active_admins_zero_when_no_admins(self, user_repo: SQLiteUserRepository) -> None:
         user_repo.save(_new_user(username="alumno1", role=Role.ALUMNO), "h")
         user_repo.save(_new_user(username="profe1", role=Role.PROFESOR), "h")
         assert user_repo.count_active_admins() == 0

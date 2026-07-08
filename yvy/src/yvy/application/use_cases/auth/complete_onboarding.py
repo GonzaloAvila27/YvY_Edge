@@ -151,9 +151,7 @@ class CompleteOnboardingUseCase:
                     "school_name": data.school_name,
                     "primary_admin_id": primary.id,
                     "secondary_admin_id": secondary_id,
-                    "has_hardware_fingerprint": (
-                        data.hardware_fingerprint is not None
-                    ),
+                    "has_hardware_fingerprint": (data.hardware_fingerprint is not None),
                 },
             )
         )
@@ -197,7 +195,5 @@ class CompleteOnboardingUseCase:
         creds_dir = self.credentials_root / "data"
         creds_dir.mkdir(parents=True, exist_ok=True)
         creds_path = creds_dir / "station_credentials.json"
-        creds_path.write_text(
-            json.dumps(creds, indent=2), encoding="utf-8"
-        )
+        creds_path.write_text(json.dumps(creds, indent=2), encoding="utf-8")
         logger.info("station_credentials.json escrito en %s", creds_path)

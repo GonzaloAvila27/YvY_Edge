@@ -45,9 +45,7 @@ class TestPywwsMode:
 @pytest.mark.unit
 class TestRawPayload:
     def test_construction_minimal(self, event_id: EventID, station_uuid: StationUUID) -> None:
-        ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
-        )
+        ts = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC))
         raw = RawPayload(
             event_id=event_id,
             station_uuid=station_uuid,
@@ -59,9 +57,7 @@ class TestRawPayload:
         assert raw.payload == {"temp_out": "23.5"}
 
     def test_immutability(self, event_id: EventID, station_uuid: StationUUID) -> None:
-        ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
-        )
+        ts = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC))
         raw = RawPayload(
             event_id=event_id,
             station_uuid=station_uuid,
@@ -72,9 +68,7 @@ class TestRawPayload:
             raw.event_id = event_id  # type: ignore[misc]
 
     def test_payload_must_be_dict(self, event_id: EventID, station_uuid: StationUUID) -> None:
-        ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
-        )
+        ts = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC))
         with pytest.raises(TypeError, match="dict"):
             RawPayload(
                 event_id=event_id,
@@ -84,12 +78,8 @@ class TestRawPayload:
                 payload="not a dict",  # type: ignore[arg-type]
             )
 
-    def test_received_at_must_be_aware(
-        self, event_id: EventID, station_uuid: StationUUID
-    ) -> None:
-        ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
-        )
+    def test_received_at_must_be_aware(self, event_id: EventID, station_uuid: StationUUID) -> None:
+        ts = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC))
         naive = datetime(2026, 4, 26, 14, 32, 0)
         with pytest.raises(ValueError, match="aware"):
             RawPayload(

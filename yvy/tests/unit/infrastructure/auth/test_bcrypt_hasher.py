@@ -34,25 +34,19 @@ class TestHash:
         # $2b$04$... — 04 es el cost
         assert "$04$" in h
 
-    def test_two_hashes_of_same_password_differ(
-        self, hasher: BcryptPasswordHasher
-    ) -> None:
+    def test_two_hashes_of_same_password_differ(self, hasher: BcryptPasswordHasher) -> None:
         """Salt aleatorio: hashes consecutivos del mismo plaintext son distintos."""
         h1 = hasher.hash("mypassword")
         h2 = hasher.hash("mypassword")
         assert h1 != h2
 
-    def test_rejects_password_longer_than_72_bytes(
-        self, hasher: BcryptPasswordHasher
-    ) -> None:
+    def test_rejects_password_longer_than_72_bytes(self, hasher: BcryptPasswordHasher) -> None:
         """No queremos truncado silencioso de bcrypt."""
         too_long = "a" * 73
         with pytest.raises(WeakPasswordError, match="demasiado largo"):
             hasher.hash(too_long)
 
-    def test_accepts_password_exactly_72_bytes(
-        self, hasher: BcryptPasswordHasher
-    ) -> None:
+    def test_accepts_password_exactly_72_bytes(self, hasher: BcryptPasswordHasher) -> None:
         ok = "a" * 72
         h = hasher.hash(ok)  # No raises
         assert hasher.verify(ok, h)
@@ -80,9 +74,7 @@ class TestVerify:
         h = hasher.hash("MyPass123")
         assert hasher.verify("mypass123", h) is False
 
-    def test_verify_malformed_hash_returns_false(
-        self, hasher: BcryptPasswordHasher
-    ) -> None:
+    def test_verify_malformed_hash_returns_false(self, hasher: BcryptPasswordHasher) -> None:
         """Hash inválido NO debe crashear, solo devolver False."""
         assert hasher.verify("anything", "not_a_real_hash") is False
         assert hasher.verify("anything", "") is False

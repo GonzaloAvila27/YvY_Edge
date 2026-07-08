@@ -72,6 +72,7 @@ DO NOT silently coerce a naive datetime. A naive datetime here would
 be a bug in the agent (the time_provider is supposed to return
 tz-aware UTC).
 """
+
 from __future__ import annotations
 
 from datetime import datetime

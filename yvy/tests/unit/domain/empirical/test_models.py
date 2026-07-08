@@ -232,8 +232,11 @@ class TestEventDateWindow:
 class TestQualityHelpers:
     def test_detect_missing_critical_fields_all_present(self):
         obs = _minimal_observation(
-            temp_c=20.5, rain_mm=0.0, sky_coverage_pct=25,
-            wind_direction=WindDirection.N, wind_beaufort=2,
+            temp_c=20.5,
+            rain_mm=0.0,
+            sky_coverage_pct=25,
+            wind_direction=WindDirection.N,
+            wind_beaufort=2,
         )
         assert detect_missing_critical_fields(obs) == []
 

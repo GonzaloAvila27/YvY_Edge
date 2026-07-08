@@ -66,6 +66,7 @@ class LoginView(tk.Frame):
         super().__init__(parent, bg=BG_CREAM)
 
         from yvy import __installer_version__, __version__
+
         self._version = version or __version__
         self._installer_version = installer_version or __installer_version__
         self._on_login = on_login
@@ -116,26 +117,49 @@ class LoginView(tk.Frame):
             lbl.pack()
             # El ícono no tiene texto — mostramos título y subtítulo debajo
             tk.Label(
-                card, text="YVY Edge", bg=BG_CARD, fg=PRIMARY, font=FONT_DISPLAY,
+                card,
+                text="YVY Edge",
+                bg=BG_CARD,
+                fg=PRIMARY,
+                font=FONT_DISPLAY,
             ).pack(pady=(SPACE_SM, 0))
             tk.Label(
-                card, text="Sistema Meteorológico Escolar",
-                bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL,
+                card,
+                text="Sistema Meteorológico Escolar",
+                bg=BG_CARD,
+                fg=TEXT_SECONDARY,
+                font=FONT_SMALL,
             ).pack(pady=(0, SPACE_MD))
         else:
             # Fallback: canvas con texto (sin rectángulo azul)
             logo_canvas = tk.Canvas(
-                logo_frame, width=80, height=80, bg=BG_CARD, highlightthickness=0,
+                logo_frame,
+                width=80,
+                height=80,
+                bg=BG_CARD,
+                highlightthickness=0,
             )
             logo_canvas.pack()
             logo_canvas.create_text(
-                40, 36, text="YVY", fill=PRIMARY, font=("DejaVu Sans", 22, "bold"),
+                40,
+                36,
+                text="YVY",
+                fill=PRIMARY,
+                font=("DejaVu Sans", 22, "bold"),
             )
             logo_canvas.create_text(
-                40, 58, text="Edge", fill=SUCCESS, font=("DejaVu Sans", 11, "bold"),
+                40,
+                58,
+                text="Edge",
+                fill=SUCCESS,
+                font=("DejaVu Sans", 11, "bold"),
             )
             tk.Label(
-                card, text="YVY Edge", bg=BG_CARD, fg=PRIMARY, font=FONT_DISPLAY,
+                card,
+                text="YVY Edge",
+                bg=BG_CARD,
+                fg=PRIMARY,
+                font=FONT_DISPLAY,
             ).pack()
             tk.Label(
                 card,
@@ -295,6 +319,7 @@ def _load_logo(path: Path, width: int, height: int) -> tk.PhotoImage | None:
         return None
     try:
         from PIL import Image, ImageTk
+
         img = Image.open(path).convert("RGBA")
         img = img.resize((width, height), Image.LANCZOS)
         return ImageTk.PhotoImage(img)

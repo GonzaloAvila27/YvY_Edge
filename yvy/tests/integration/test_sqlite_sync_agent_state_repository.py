@@ -4,6 +4,7 @@ Uses a fresh SQLite DB with migrations 001-006 applied. Verifies that
 the repository correctly reads the seeded singleton row and updates
 fields without disturbing unrelated columns.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -70,9 +71,7 @@ def repo(db_v13: sqlite3.Connection) -> SQLiteSyncAgentStateRepository:
 class TestGetState:
     """The migration v13 seeds the singleton — get_state must read it."""
 
-    def test_returns_seeded_state(
-        self, repo: SQLiteSyncAgentStateRepository
-    ) -> None:
+    def test_returns_seeded_state(self, repo: SQLiteSyncAgentStateRepository) -> None:
         state = repo.get_state()
         assert state.state == AgentState.HEALTHY
         assert state.clock_offset_seconds == 0.0
@@ -82,7 +81,8 @@ class TestGetState:
         assert state.updated_at is not None
 
     def test_raises_if_singleton_missing(
-        self, db_v13: sqlite3.Connection,
+        self,
+        db_v13: sqlite3.Connection,
         repo: SQLiteSyncAgentStateRepository,
     ) -> None:
         """If migration not applied (or row deleted), raise loudly."""
@@ -94,9 +94,7 @@ class TestGetState:
 class TestUpdateState:
     """Verify update_state changes the right columns, leaves others."""
 
-    def test_state_transition_persisted(
-        self, repo: SQLiteSyncAgentStateRepository
-    ) -> None:
+    def test_state_transition_persisted(self, repo: SQLiteSyncAgentStateRepository) -> None:
         now = datetime(2026, 5, 27, 12, 0, 0, tzinfo=UTC)
         repo.update_state(
             new_state=AgentState.DEGRADED,
@@ -134,7 +132,8 @@ class TestUpdateState:
     ) -> None:
         station = uuid4()
         repo.update_station_uuid(
-            station_uuid=station, updated_at=datetime.now(UTC),
+            station_uuid=station,
+            updated_at=datetime.now(UTC),
         )
         repo.update_state(
             new_state=AgentState.PAUSED,
@@ -144,9 +143,7 @@ class TestUpdateState:
         state = repo.get_state()
         assert state.station_uuid == station
 
-    def test_all_valid_states_accepted(
-        self, repo: SQLiteSyncAgentStateRepository
-    ) -> None:
+    def test_all_valid_states_accepted(self, repo: SQLiteSyncAgentStateRepository) -> None:
         for state_value in AgentState:
             repo.update_state(
                 new_state=state_value,
@@ -168,17 +165,14 @@ class TestUpdateClockOffset:
         # SQLite REAL holds float — small epsilon for floating point.
         assert abs(state.clock_offset_seconds - 0.347) < 1e-9
 
-    def test_negative_offset(
-        self, repo: SQLiteSyncAgentStateRepository
-    ) -> None:
+    def test_negative_offset(self, repo: SQLiteSyncAgentStateRepository) -> None:
         repo.update_clock_offset(
-            new_offset_seconds=-42.0, updated_at=datetime.now(UTC),
+            new_offset_seconds=-42.0,
+            updated_at=datetime.now(UTC),
         )
         assert repo.get_state().clock_offset_seconds == -42.0
 
-    def test_update_offset_preserves_state(
-        self, repo: SQLiteSyncAgentStateRepository
-    ) -> None:
+    def test_update_offset_preserves_state(self, repo: SQLiteSyncAgentStateRepository) -> None:
         """Recalibrating clock is NOT a state transition."""
         # Transition to DEGRADED first
         repo.update_state(
@@ -188,32 +182,32 @@ class TestUpdateClockOffset:
         )
         # Now recalibrate
         repo.update_clock_offset(
-            new_offset_seconds=5.0, updated_at=datetime.now(UTC),
+            new_offset_seconds=5.0,
+            updated_at=datetime.now(UTC),
         )
         # State must still be DEGRADED
         assert repo.get_state().state == AgentState.DEGRADED
 
 
 class TestUpdateStationUuid:
-    def test_station_uuid_persisted(
-        self, repo: SQLiteSyncAgentStateRepository
-    ) -> None:
+    def test_station_uuid_persisted(self, repo: SQLiteSyncAgentStateRepository) -> None:
         station = uuid4()
         repo.update_station_uuid(
-            station_uuid=station, updated_at=datetime.now(UTC),
+            station_uuid=station,
+            updated_at=datetime.now(UTC),
         )
         assert repo.get_state().station_uuid == station
 
-    def test_station_uuid_overwrites(
-        self, repo: SQLiteSyncAgentStateRepository
-    ) -> None:
+    def test_station_uuid_overwrites(self, repo: SQLiteSyncAgentStateRepository) -> None:
         first = uuid4()
         second = uuid4()
         repo.update_station_uuid(
-            station_uuid=first, updated_at=datetime.now(UTC),
+            station_uuid=first,
+            updated_at=datetime.now(UTC),
         )
         repo.update_station_uuid(
-            station_uuid=second, updated_at=datetime.now(UTC),
+            station_uuid=second,
+            updated_at=datetime.now(UTC),
         )
         assert repo.get_state().station_uuid == second
 
@@ -221,9 +215,7 @@ class TestUpdateStationUuid:
 class TestIntegrationWorkflow:
     """A realistic agent startup → operation → shutdown sequence."""
 
-    def test_full_lifecycle(
-        self, repo: SQLiteSyncAgentStateRepository
-    ) -> None:
+    def test_full_lifecycle(self, repo: SQLiteSyncAgentStateRepository) -> None:
         # 1. Agent starts. Reads seeded state.
         state = repo.get_state()
         assert state.state == AgentState.HEALTHY
@@ -232,12 +224,14 @@ class TestIntegrationWorkflow:
         # 2. First startup: write station_uuid from app_config
         station = uuid4()
         repo.update_station_uuid(
-            station_uuid=station, updated_at=datetime.now(UTC),
+            station_uuid=station,
+            updated_at=datetime.now(UTC),
         )
 
         # 3. After first successful send: recalibrate clock
         repo.update_clock_offset(
-            new_offset_seconds=2.3, updated_at=datetime.now(UTC),
+            new_offset_seconds=2.3,
+            updated_at=datetime.now(UTC),
         )
 
         # 4. Network error → DISCONNECTED

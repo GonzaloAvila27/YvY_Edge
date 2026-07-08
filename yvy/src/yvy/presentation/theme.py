@@ -31,24 +31,24 @@ from typing import Final
 
 # ─── Paleta institucional ────────────────────────────────────────────────
 
-PRIMARY: Final[str] = "#1E3A5F"          # azul profundo (header, primarios)
-PRIMARY_LIGHT: Final[str] = "#3B5F82"    # azul cielo apagado (variantes)
-ACCENT_OLIVE: Final[str] = "#9AA223"     # oliva conductor de marca
-ACCENT_GOLD: Final[str] = "#C9A227"      # dorado highlights/warnings
+PRIMARY: Final[str] = "#1E3A5F"  # azul profundo (header, primarios)
+PRIMARY_LIGHT: Final[str] = "#3B5F82"  # azul cielo apagado (variantes)
+ACCENT_OLIVE: Final[str] = "#9AA223"  # oliva conductor de marca
+ACCENT_GOLD: Final[str] = "#C9A227"  # dorado highlights/warnings
 
-SUCCESS: Final[str] = "#7A9E1F"          # oliva luz (estados OK)
-WARNING: Final[str] = "#C9A227"          # dorado (avisos no críticos)
-DANGER: Final[str] = "#C2362A"           # rojo (errores y alertas)
+SUCCESS: Final[str] = "#7A9E1F"  # oliva luz (estados OK)
+WARNING: Final[str] = "#C9A227"  # dorado (avisos no críticos)
+DANGER: Final[str] = "#C2362A"  # rojo (errores y alertas)
 
-BG_CREAM: Final[str] = "#F5F1E8"         # fondo general de la app
-BG_CARD: Final[str] = "#FFFFFF"          # cards y modals
-BG_SIDEBAR: Final[str] = "#E8E2D2"       # sidebar
-BG_HOVER: Final[str] = "#DCD4C0"         # hover sidebar / item activo
-BORDER: Final[str] = "#D1C9B8"           # bordes de inputs y separadores
+BG_CREAM: Final[str] = "#F5F1E8"  # fondo general de la app
+BG_CARD: Final[str] = "#FFFFFF"  # cards y modals
+BG_SIDEBAR: Final[str] = "#E8E2D2"  # sidebar
+BG_HOVER: Final[str] = "#DCD4C0"  # hover sidebar / item activo
+BORDER: Final[str] = "#D1C9B8"  # bordes de inputs y separadores
 
-TEXT_PRIMARY: Final[str] = "#2B2621"     # texto general
-TEXT_SECONDARY: Final[str] = "#6B7280"   # subtítulos y metadata
-TEXT_ON_DARK: Final[str] = "#FFFFFF"     # texto sobre fondo azul/oscuro
+TEXT_PRIMARY: Final[str] = "#2B2621"  # texto general
+TEXT_SECONDARY: Final[str] = "#6B7280"  # subtítulos y metadata
+TEXT_ON_DARK: Final[str] = "#FFFFFF"  # texto sobre fondo azul/oscuro
 TEXT_ON_DARK_MUTED: Final[str] = "#B0B7C0"  # texto secundario sobre azul
 
 # Colores por rol (avatar)
@@ -108,12 +108,12 @@ PAD_BUTTON_X: Final[int] = 24
 PAD_BUTTON_Y: Final[int] = 12
 
 # Formularios (grid 2 columnas)
-FORM_PADDING_H: Final[int] = 20        # padding horizontal del contenedor
-FORM_PADDING_V: Final[int] = 16        # padding vertical del contenedor
-FORM_COL_GAP: Final[int] = 16          # gap entre columnas
-FORM_ROW_GAP: Final[int] = 16          # gap entre filas
-FORM_LABEL_MB: Final[int] = 4          # margen inferior del label antes del input
-FORM_INPUT_HEIGHT: Final[int] = 34     # altura target del Entry (ipady + font)
+FORM_PADDING_H: Final[int] = 20  # padding horizontal del contenedor
+FORM_PADDING_V: Final[int] = 16  # padding vertical del contenedor
+FORM_COL_GAP: Final[int] = 16  # gap entre columnas
+FORM_ROW_GAP: Final[int] = 16  # gap entre filas
+FORM_LABEL_MB: Final[int] = 4  # margen inferior del label antes del input
+FORM_INPUT_HEIGHT: Final[int] = 34  # altura target del Entry (ipady + font)
 FORM_TEXTAREA_HEIGHT: Final[int] = 80  # altura target del Text area
 
 # ─── Dimensiones de layout ───────────────────────────────────────────────

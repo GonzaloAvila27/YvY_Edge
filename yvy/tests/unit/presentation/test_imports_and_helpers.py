@@ -112,9 +112,7 @@ def test_sidebar_item_dataclass() -> None:
     assert item.key == "dashboard"
     assert item.admin_only is False
 
-    admin_item = SidebarItem(
-        key="usuarios", label="Usuarios", icon_char="👥", admin_only=True
-    )
+    admin_item = SidebarItem(key="usuarios", label="Usuarios", icon_char="👥", admin_only=True)
     assert admin_item.admin_only is True
 
     # Frozen

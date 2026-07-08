@@ -102,7 +102,7 @@ def _parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
         return {}, text
 
     fm_block = text[4:close_idx]
-    body = text[close_idx + 5:]  # saltar el "\n---\n"
+    body = text[close_idx + 5 :]  # saltar el "\n---\n"
 
     metadata: dict[str, str] = {}
     for line in fm_block.splitlines():
@@ -162,9 +162,7 @@ class HelpRepository:
     def _load(self) -> None:
         index_path = self._help_dir / "index.json"
         if not index_path.exists():
-            logger.warning(
-                "Help index no encontrado en %s. Help vacío.", index_path
-            )
+            logger.warning("Help index no encontrado en %s. Help vacío.", index_path)
             return
 
         try:
@@ -228,7 +226,9 @@ class HelpRepository:
 
             self._categories.append(
                 HelpCategory(
-                    key=cat_key, label=cat_label, articles=articles_in_cat,
+                    key=cat_key,
+                    label=cat_label,
+                    articles=articles_in_cat,
                 )
             )
 
@@ -243,7 +243,8 @@ class HelpRepository:
                 else:
                     logger.warning(
                         "Artículo '%s': related key '%s' no existe — ignorada",
-                        key, rel_key,
+                        key,
+                        rel_key,
                     )
             # frozen dataclass → rebuild con related correcto
             validated[key] = HelpArticle(
@@ -261,9 +262,7 @@ class HelpRepository:
         # Sincronizar referencias en categorías
         for cat in self._categories:
             cat.articles[:] = [
-                self._articles[a.key]
-                for a in cat.articles
-                if a.key in self._articles
+                self._articles[a.key] for a in cat.articles if a.key in self._articles
             ]
 
         logger.info(
@@ -284,11 +283,7 @@ class HelpRepository:
         article = self._articles.get(key)
         if article is None:
             return []
-        return [
-            self._articles[rel_key]
-            for rel_key in article.related
-            if rel_key in self._articles
-        ]
+        return [self._articles[rel_key] for rel_key in article.related if rel_key in self._articles]
 
     def get_language(self) -> str:
         """Devuelve el código de idioma del help cargado. 'es' por default."""

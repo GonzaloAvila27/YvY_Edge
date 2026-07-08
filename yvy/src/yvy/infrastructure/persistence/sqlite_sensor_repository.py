@@ -47,9 +47,7 @@ class SQLiteSensorRepository:
         """
         conn = self._factory.get_connection()
 
-        received_at_iso = (
-            raw.received_at.isoformat() if raw.received_at is not None else None
-        )
+        received_at_iso = raw.received_at.isoformat() if raw.received_at is not None else None
 
         cur = conn.execute(
             """
@@ -166,9 +164,7 @@ class SQLiteSensorRepository:
             event_id=EventID.from_str(row["event_id"]),
             station_uuid=station,
             pywws_mode=PywwsMode(row["pywws_mode"]),
-            pywws_ts=canonicalize_to_minute_utc(
-                datetime.fromisoformat(row["pywws_ts"])
-            ),
+            pywws_ts=canonicalize_to_minute_utc(datetime.fromisoformat(row["pywws_ts"])),
             payload=json.loads(row["payload"]),
             received_at=(
                 datetime.fromisoformat(row["received_at"])
@@ -267,9 +263,7 @@ class SQLiteSensorRepository:
         En producción esto lo setea el wizard de onboarding (Fase 6).
         """
         conn = self._factory.get_connection()
-        cur = conn.execute(
-            "SELECT value FROM app_config WHERE key = 'station_uuid'"
-        )
+        cur = conn.execute("SELECT value FROM app_config WHERE key = 'station_uuid'")
         row = cur.fetchone()
         if row is None:
             # En tests sin onboarding usamos un placeholder

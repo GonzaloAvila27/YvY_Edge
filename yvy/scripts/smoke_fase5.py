@@ -40,6 +40,7 @@ TZ_AR = ZoneInfo("America/Argentina/Cordoba")
 def _seed_old_raw(factory: SQLiteConnectionFactory, count: int) -> None:
     """Inserta 'count' filas de raw de hace 60 días."""
     import uuid as _uuid_mod
+
     conn = factory.get_connection()
     old = datetime.now(UTC) - timedelta(days=60)
     for _ in range(count):

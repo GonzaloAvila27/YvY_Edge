@@ -5,6 +5,7 @@ state across restarts. The CHECK constraint ``id = 1`` in the schema
 enforces singleton; this Protocol respects that by not exposing
 arbitrary inserts.
 """
+
 from __future__ import annotations
 
 from datetime import datetime

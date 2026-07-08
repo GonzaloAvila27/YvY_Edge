@@ -88,9 +88,15 @@ def _seed_observations(factory: SQLiteConnectionFactory, count: int = 50) -> Non
             (
                 f"00000000-0000-5000-8000-{i:012x}",
                 observed.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
-                temp_out, temp_in, hum_out, 50.0,
-                pressure, pressure - 5,
-                wind, wind + 1.0, wind_dir,
+                temp_out,
+                temp_in,
+                hum_out,
+                50.0,
+                pressure,
+                pressure - 5,
+                wind,
+                wind + 1.0,
+                wind_dir,
                 rain,
                 uv,
             ),
@@ -134,7 +140,9 @@ def main() -> int:
     clock = SystemClock()
 
     create_uc = CreateUserUseCase(user_repo=user_repo, audit_repo=audit_repo, hasher=hasher)
-    login_uc = LoginUseCase(user_repo=user_repo, audit_repo=audit_repo, hasher=hasher, time_provider=clock)
+    login_uc = LoginUseCase(
+        user_repo=user_repo, audit_repo=audit_repo, hasher=hasher, time_provider=clock
+    )
     change_uc = ChangePasswordUseCase(user_repo=user_repo, audit_repo=audit_repo, hasher=hasher)
     set_active_uc = SetUserActiveUseCase(user_repo=user_repo, audit_repo=audit_repo)
     toggle_uc = ToggleExportFlagUseCase(user_repo=user_repo, audit_repo=audit_repo)
@@ -152,19 +160,29 @@ def main() -> int:
 
     # Seed users
     create_uc.execute(
-        username="director", full_name="Juan Pérez", password="director2026",
-        role=Role.SUPERADMIN, can_export_raw=True,  # superadmin con flag para mostrar ambos botones export
+        username="director",
+        full_name="Juan Pérez",
+        password="director2026",
+        role=Role.SUPERADMIN,
+        can_export_raw=True,  # superadmin con flag para mostrar ambos botones export
     )
     create_uc.execute(
-        username="vicedir", full_name="María González", password="vicedir2026",
+        username="vicedir",
+        full_name="María González",
+        password="vicedir2026",
         role=Role.ADMIN,
     )
     create_uc.execute(
-        username="profe_bio", full_name="Carlos Sánchez", password="profe2026",
-        role=Role.PROFESOR, can_export_raw=True,
+        username="profe_bio",
+        full_name="Carlos Sánchez",
+        password="profe2026",
+        role=Role.PROFESOR,
+        can_export_raw=True,
     )
     create_uc.execute(
-        username="profe_quim", full_name="Laura Fernández", password="profe2026",
+        username="profe_quim",
+        full_name="Laura Fernández",
+        password="profe2026",
         role=Role.PROFESOR,
     )
     for i in range(1, 4):

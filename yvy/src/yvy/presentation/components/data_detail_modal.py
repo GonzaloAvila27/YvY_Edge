@@ -93,17 +93,24 @@ class DataDetailModal(tk.Toplevel):
             row.pack(fill="x", pady=2)
 
             tk.Label(
-                row, text=f"{label}:",
-                bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY,
-                width=26, anchor="w",
+                row,
+                text=f"{label}:",
+                bg=BG_CARD,
+                fg=TEXT_SECONDARY,
+                font=FONT_BODY,
+                width=26,
+                anchor="w",
             ).pack(side="left")
 
             value = self._obs.get(key)
             value_str = self._format_value(key, value, unit)
 
             tk.Label(
-                row, text=value_str,
-                bg=BG_CARD, fg=TEXT_PRIMARY, font=FONT_BODY_BOLD,
+                row,
+                text=value_str,
+                bg=BG_CARD,
+                fg=TEXT_PRIMARY,
+                font=FONT_BODY_BOLD,
                 anchor="w",
             ).pack(side="left")
 
@@ -112,7 +119,9 @@ class DataDetailModal(tk.Toplevel):
         footer.pack(fill="x", side="bottom")
 
         ttk.Button(
-            footer, text="Cerrar", command=self._close,
+            footer,
+            text="Cerrar",
+            command=self._close,
             style="Primary.TButton",
         ).pack(side="right")
 

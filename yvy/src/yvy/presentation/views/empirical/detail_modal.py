@@ -66,7 +66,9 @@ class EmpiricalDetailModal(tk.Toplevel):
             return
 
         if self._detail is None:
-            tk.Label(self, text="Observación no encontrada.", bg=COLORS["bg"]).pack(padx=SPACE_LG, pady=SPACE_LG)
+            tk.Label(self, text="Observación no encontrada.", bg=COLORS["bg"]).pack(
+                padx=SPACE_LG, pady=SPACE_LG
+            )
             return
 
         self._build_layout()
@@ -82,16 +84,23 @@ class EmpiricalDetailModal(tk.Toplevel):
         tk.Label(
             header,
             text=f"Observación · {obs.observed_at_local.strftime('%d/%m/%Y %H:%M')}",
-            font=FONTS["heading"], bg=COLORS["primary"], fg=COLORS["text_inverse"],
+            font=FONTS["heading"],
+            bg=COLORS["primary"],
+            fg=COLORS["text_inverse"],
         ).pack(side="left", padx=SPACE_LG, pady=SPACE_SM, anchor="w")
 
         # Badge de calidad
-        quality_bg = COLORS.get("success", "#28A745") if obs.is_valid else COLORS.get("warning", "#FFC107")
+        quality_bg = (
+            COLORS.get("success", "#28A745") if obs.is_valid else COLORS.get("warning", "#FFC107")
+        )
         tk.Label(
             header,
             text="✓ Válida" if obs.is_valid else "⚠ Revisar",
-            font=FONTS["body_bold"], bg=quality_bg, fg=COLORS["text_inverse"],
-            padx=SPACE_MD, pady=SPACE_SM // 2,
+            font=FONTS["body_bold"],
+            bg=quality_bg,
+            fg=COLORS["text_inverse"],
+            padx=SPACE_MD,
+            pady=SPACE_SM // 2,
         ).pack(side="right", padx=SPACE_LG)
 
         # Body con scroll
@@ -125,24 +134,48 @@ class EmpiricalDetailModal(tk.Toplevel):
             self._render_section_header(body, "Notas de calidad")
             for flag in _parse_validation_flags(obs.validation_notes):
                 label = _QUALITY_FLAG_LABELS.get(flag, flag)
-                tk.Label(body, text=f"• {label}", font=FONTS["body"], bg=COLORS["bg"], fg=COLORS["text_muted"]).pack(anchor="w")
+                tk.Label(
+                    body,
+                    text=f"• {label}",
+                    font=FONTS["body"],
+                    bg=COLORS["bg"],
+                    fg=COLORS["text_muted"],
+                ).pack(anchor="w")
 
         # Bloque cuantitativo
         self._render_section_header(body, "Mediciones cuantitativas")
         self._render_kv(body, "Lluvia (mm)", _fmt(obs.rain_mm))
         self._render_kv(body, "Temperatura (°C)", _fmt(obs.temp_c))
-        beaufort_label = BEAUFORT_DESCRIPTIONS.get(obs.wind_beaufort) if obs.wind_beaufort is not None else None
+        beaufort_label = (
+            BEAUFORT_DESCRIPTIONS.get(obs.wind_beaufort) if obs.wind_beaufort is not None else None
+        )
         self._render_kv(body, "Viento (Beaufort)", beaufort_label or "—")
-        self._render_kv(body, "Dirección viento", obs.wind_direction.value if obs.wind_direction else "—")
-        self._render_kv(body, "Humedad percibida", obs.humidity_percept.value if obs.humidity_percept else "—")
+        self._render_kv(
+            body, "Dirección viento", obs.wind_direction.value if obs.wind_direction else "—"
+        )
+        self._render_kv(
+            body, "Humedad percibida", obs.humidity_percept.value if obs.humidity_percept else "—"
+        )
 
         # Bloque cualitativo
         self._render_section_header(body, "Observaciones cualitativas")
-        self._render_kv(body, "Cobertura cielo", f"{obs.sky_coverage_pct}%" if obs.sky_coverage_pct is not None else "—")
-        self._render_kv(body, "Tipo de nubes", CLOUD_TYPE_DESCRIPTIONS.get(obs.cloud_type) if obs.cloud_type else "—")
+        self._render_kv(
+            body,
+            "Cobertura cielo",
+            f"{obs.sky_coverage_pct}%" if obs.sky_coverage_pct is not None else "—",
+        )
+        self._render_kv(
+            body,
+            "Tipo de nubes",
+            CLOUD_TYPE_DESCRIPTIONS.get(obs.cloud_type) if obs.cloud_type else "—",
+        )
         self._render_kv(body, "Estado del suelo", obs.soil_state.value if obs.soil_state else "—")
         self._render_kv(body, "Visibilidad", obs.visibility.value if obs.visibility else "—")
-        self._render_kv(body, "Precipitación ahora", obs.precipitation_now.value if obs.precipitation_now else "—")
+        self._render_kv(
+            body,
+            "Precipitación ahora",
+            obs.precipitation_now.value if obs.precipitation_now else "—",
+        )
 
         # Texto libre
         if obs.phenology_notes or obs.livestock_state or obs.general_notes:
@@ -159,47 +192,93 @@ class EmpiricalDetailModal(tk.Toplevel):
 
         # Eventos del mismo día
         if self._detail.events_same_day:
-            self._render_section_header(body, f"Eventos puntuales del día ({len(self._detail.events_same_day)})")
+            self._render_section_header(
+                body, f"Eventos puntuales del día ({len(self._detail.events_same_day)})"
+            )
             for evt in self._detail.events_same_day:
                 self._render_event(body, evt)
         else:
             self._render_section_header(body, "Eventos puntuales del día")
-            tk.Label(body, text="No se reportaron eventos puntuales este día.",
-                     font=FONTS["body"], bg=COLORS["bg"], fg=COLORS["text_muted"]).pack(anchor="w")
+            tk.Label(
+                body,
+                text="No se reportaron eventos puntuales este día.",
+                font=FONTS["body"],
+                bg=COLORS["bg"],
+                fg=COLORS["text_muted"],
+            ).pack(anchor="w")
 
         # Footer
         footer = tk.Frame(self, bg=COLORS["bg_alt"], height=50)
         footer.pack(side="bottom", fill="x")
         footer.pack_propagate(False)
-        ttk.Button(footer, text="Cerrar", style="Secondary.TButton", command=self._close).pack(side="right", padx=SPACE_LG, pady=SPACE_SM)
+        ttk.Button(footer, text="Cerrar", style="Secondary.TButton", command=self._close).pack(
+            side="right", padx=SPACE_LG, pady=SPACE_SM
+        )
 
     def _render_section_header(self, parent: tk.Misc, text: str) -> None:
         tk.Label(
-            parent, text=text,
-            font=FONTS["body_bold"], bg=COLORS["bg"], fg=COLORS["primary"],
+            parent,
+            text=text,
+            font=FONTS["body_bold"],
+            bg=COLORS["bg"],
+            fg=COLORS["primary"],
         ).pack(anchor="w", pady=(SPACE_MD, SPACE_SM))
 
     def _render_kv(self, parent: tk.Misc, key: str, value: str) -> None:
         row = tk.Frame(parent, bg=COLORS["bg"])
         row.pack(anchor="w", fill="x")
-        tk.Label(row, text=f"{key}:", font=FONTS["body"], bg=COLORS["bg"], fg=COLORS["text_muted"], width=22, anchor="w").pack(side="left")
-        tk.Label(row, text=value, font=FONTS["body"], bg=COLORS["bg"], fg=COLORS["text"], wraplength=440, justify="left").pack(side="left", padx=SPACE_SM)
+        tk.Label(
+            row,
+            text=f"{key}:",
+            font=FONTS["body"],
+            bg=COLORS["bg"],
+            fg=COLORS["text_muted"],
+            width=22,
+            anchor="w",
+        ).pack(side="left")
+        tk.Label(
+            row,
+            text=value,
+            font=FONTS["body"],
+            bg=COLORS["bg"],
+            fg=COLORS["text"],
+            wraplength=440,
+            justify="left",
+        ).pack(side="left", padx=SPACE_SM)
 
     def _render_event(self, parent: tk.Misc, evt: EmpiricalEvent) -> None:
-        frame = tk.LabelFrame(parent, text=evt.event_type.value.replace("_", " ").capitalize(),
-                              bg=COLORS["bg"], padx=SPACE_SM, pady=SPACE_SM)
+        frame = tk.LabelFrame(
+            parent,
+            text=evt.event_type.value.replace("_", " ").capitalize(),
+            bg=COLORS["bg"],
+            padx=SPACE_SM,
+            pady=SPACE_SM,
+        )
         frame.pack(anchor="w", fill="x", pady=SPACE_SM)
 
         if evt.started_at_local or evt.ended_at_local:
             tk.Label(
                 frame,
                 text=f"Desde {evt.started_at_local or '—'} hasta {evt.ended_at_local or '—'}",
-                font=FONTS["body"], bg=COLORS["bg"],
+                font=FONTS["body"],
+                bg=COLORS["bg"],
             ).pack(anchor="w")
         if evt.hail_size:
-            tk.Label(frame, text=f"Tamaño granizo: {evt.hail_size.value}", font=FONTS["body"], bg=COLORS["bg"]).pack(anchor="w")
+            tk.Label(
+                frame,
+                text=f"Tamaño granizo: {evt.hail_size.value}",
+                font=FONTS["body"],
+                bg=COLORS["bg"],
+            ).pack(anchor="w")
         if evt.description:
-            tk.Label(frame, text=evt.description, font=FONTS["body"], bg=COLORS["bg"], wraplength=600, justify="left").pack(anchor="w")
+            tk.Label(
+                frame,
+                text=evt.description,
+                font=FONTS["body"],
+                bg=COLORS["bg"],
+                wraplength=600,
+                justify="left",
+            ).pack(anchor="w")
 
     def _close(self) -> None:
         self.grab_release()

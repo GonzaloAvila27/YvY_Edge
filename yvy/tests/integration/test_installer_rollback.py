@@ -35,7 +35,9 @@ def audit(db_factory: SQLiteConnectionFactory) -> SQLiteAuditLogRepository:
 
 
 @pytest.fixture
-def installer(cfg: AppConfigRepository, audit: SQLiteAuditLogRepository, yvy_root: Path) -> UpdateInstaller:
+def installer(
+    cfg: AppConfigRepository, audit: SQLiteAuditLogRepository, yvy_root: Path
+) -> UpdateInstaller:
     return UpdateInstaller(app_config_repo=cfg, audit_repo=audit, root_path=yvy_root)
 
 
@@ -109,6 +111,7 @@ def test_rollback_logs_rollback_manual_audit(
     ).fetchone()
     assert row is not None
     import json
+
     meta = json.loads(row[0])
     assert meta["to_version"] == "1.2.0"
     assert meta["reason"] == "broken"

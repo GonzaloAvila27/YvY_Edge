@@ -9,6 +9,7 @@ Fakes are minimal hand-rolled classes (not MagicMock) so that test
 failures point at real method signatures, not "you forgot to set up
 the mock".
 """
+
 from __future__ import annotations
 
 import time
@@ -66,9 +67,7 @@ class FakeSyncRepo:
     pending_jobs: list[tuple[int, SyncJob]] = field(default_factory=list)
     """Queue of jobs claim_next_pending will return, in order."""
 
-    status_counts: dict[SyncStatus, int] = field(
-        default_factory=lambda: {s: 0 for s in SyncStatus}
-    )
+    status_counts: dict[SyncStatus, int] = field(default_factory=lambda: {s: 0 for s in SyncStatus})
 
     # Recording of calls for assertions
     mark_sent_calls: list[dict] = field(default_factory=list)
@@ -85,22 +84,24 @@ class FakeSyncRepo:
         now_utc: datetime,
         supported_entity_types: set[EntityType],
     ) -> tuple[int, SyncJob] | None:
-        self.claim_calls.append({
-            "now_utc": now_utc,
-            "supported_entity_types": supported_entity_types,
-        })
+        self.claim_calls.append(
+            {
+                "now_utc": now_utc,
+                "supported_entity_types": supported_entity_types,
+            }
+        )
         if not self.pending_jobs:
             return None
         return self.pending_jobs.pop(0)
 
-    def mark_sent(
-        self, *, job_id: int, was_duplicate: bool, sent_at_utc: datetime
-    ) -> None:
-        self.mark_sent_calls.append({
-            "job_id": job_id,
-            "was_duplicate": was_duplicate,
-            "sent_at_utc": sent_at_utc,
-        })
+    def mark_sent(self, *, job_id: int, was_duplicate: bool, sent_at_utc: datetime) -> None:
+        self.mark_sent_calls.append(
+            {
+                "job_id": job_id,
+                "was_duplicate": was_duplicate,
+                "sent_at_utc": sent_at_utc,
+            }
+        )
 
     def mark_failed(
         self,
@@ -111,21 +112,23 @@ class FakeSyncRepo:
         next_retry_at: datetime | None,
         permanent: bool = False,
     ) -> None:
-        self.mark_failed_calls.append({
-            "job_id": job_id,
-            "attempt_count": attempt_count,
-            "last_error": last_error,
-            "next_retry_at": next_retry_at,
-            "permanent": permanent,
-        })
+        self.mark_failed_calls.append(
+            {
+                "job_id": job_id,
+                "attempt_count": attempt_count,
+                "last_error": last_error,
+                "next_retry_at": next_retry_at,
+                "permanent": permanent,
+            }
+        )
 
-    def reap_zombies(
-        self, *, now_utc: datetime, lease_timeout_seconds: int
-    ) -> int:
-        self.reap_calls.append({
-            "now_utc": now_utc,
-            "lease_timeout_seconds": lease_timeout_seconds,
-        })
+    def reap_zombies(self, *, now_utc: datetime, lease_timeout_seconds: int) -> int:
+        self.reap_calls.append(
+            {
+                "now_utc": now_utc,
+                "lease_timeout_seconds": lease_timeout_seconds,
+            }
+        )
         if self.zombies_to_rescue > 0:
             n = self.zombies_to_rescue
             self.zombies_to_rescue = 0
@@ -156,14 +159,14 @@ class FakeAgentStateRepo:
     def get_state(self) -> SyncAgentState:
         return self.current_state
 
-    def update_state(
-        self, *, new_state: AgentState, reason: str, updated_at: datetime
-    ) -> None:
-        self.update_state_calls.append({
-            "new_state": new_state,
-            "reason": reason,
-            "updated_at": updated_at,
-        })
+    def update_state(self, *, new_state: AgentState, reason: str, updated_at: datetime) -> None:
+        self.update_state_calls.append(
+            {
+                "new_state": new_state,
+                "reason": reason,
+                "updated_at": updated_at,
+            }
+        )
         # Reflect the change in current_state
         self.current_state = SyncAgentState(
             state=new_state,
@@ -174,13 +177,13 @@ class FakeAgentStateRepo:
             updated_at=updated_at,
         )
 
-    def update_clock_offset(
-        self, *, new_offset_seconds: float, updated_at: datetime
-    ) -> None:
-        self.update_offset_calls.append({
-            "new_offset_seconds": new_offset_seconds,
-            "updated_at": updated_at,
-        })
+    def update_clock_offset(self, *, new_offset_seconds: float, updated_at: datetime) -> None:
+        self.update_offset_calls.append(
+            {
+                "new_offset_seconds": new_offset_seconds,
+                "updated_at": updated_at,
+            }
+        )
         self.current_state = SyncAgentState(
             state=self.current_state.state,
             last_transition_at=self.current_state.last_transition_at,
@@ -190,9 +193,7 @@ class FakeAgentStateRepo:
             updated_at=updated_at,
         )
 
-    def update_station_uuid(
-        self, *, station_uuid: UUID, updated_at: datetime
-    ) -> None:
+    def update_station_uuid(self, *, station_uuid: UUID, updated_at: datetime) -> None:
         self.current_state = SyncAgentState(
             state=self.current_state.state,
             last_transition_at=self.current_state.last_transition_at,
@@ -252,7 +253,9 @@ def _make_daemon(
         station_uuid=_STATION_UUID,
         key_version=1,
         key=_KEY,
-        config=config if config is not None else SyncAgentConfig(
+        config=config
+        if config is not None
+        else SyncAgentConfig(
             INTER_JOB_DELAY_MS=0,  # disable sleep in tests
         ),
     )
@@ -304,8 +307,10 @@ class TestSuccessPath:
         sync_repo.pending_jobs.append((42, _make_job()))
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
         )
         daemon._iterate_once()
 
@@ -320,8 +325,10 @@ class TestSuccessPath:
         sync_repo.pending_jobs.append((1, job))
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
         )
         daemon._iterate_once()
 
@@ -335,8 +342,10 @@ class TestSuccessPath:
         sync_repo.pending_jobs.append((1, _make_job()))
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
         )
         daemon._iterate_once()
 
@@ -354,16 +363,18 @@ class TestSuccessPath:
         tp = FakeTimeProvider()
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
         )
         daemon._iterate_once()
 
         # The claim call must specify supported types EXCLUDING empirical_record
         types = sync_repo.claim_calls[0]["supported_entity_types"]
-        assert EntityType.EMPIRICAL_RECORD not in types, (
-            "D52 violated: empirical_record must be excluded from claim filter"
-        )
+        assert (
+            EntityType.EMPIRICAL_RECORD not in types
+        ), "D52 violated: empirical_record must be excluded from claim filter"
         assert EntityType.SENSOR_READING in types
         assert EntityType.EMPIRICAL_OBSERVATION in types
 
@@ -382,8 +393,10 @@ class TestNetworkErrorPath:
         sync_repo.pending_jobs.append((10, _make_job()))
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
         )
         daemon._iterate_once()
 
@@ -404,8 +417,10 @@ class TestNetworkErrorPath:
         sync_repo.pending_jobs.append((10, _make_job()))
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
         )
         daemon._iterate_once()
 
@@ -420,8 +435,10 @@ class TestNetworkErrorPath:
         sync_repo.pending_jobs.append((10, _make_job()))
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
         )
         daemon._iterate_once()
 
@@ -438,18 +455,24 @@ class TestAuthErrorPath:
     def test_401_latches_agent(self) -> None:
         sync_repo = FakeSyncRepo()
         agent_repo = FakeAgentStateRepo()
-        http = FakeHttpClient(responses=[SendResult(
-            status_code=401,
-            body_json={"error": "HMAC mismatch", "error_class": "AUTH"},
-            headers={},
-            server_time_utc=None,
-        )])
+        http = FakeHttpClient(
+            responses=[
+                SendResult(
+                    status_code=401,
+                    body_json={"error": "HMAC mismatch", "error_class": "AUTH"},
+                    headers={},
+                    server_time_utc=None,
+                )
+            ]
+        )
         tp = FakeTimeProvider()
         sync_repo.pending_jobs.append((10, _make_job()))
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
         )
         daemon._iterate_once()
 
@@ -476,8 +499,10 @@ class TestAuthErrorPath:
         sync_repo.pending_jobs.append((99, _make_job()))
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
             config=SyncAgentConfig(
                 IDLE_POLL_LATCHED_S=0.001,  # tiny sleep for test speed
                 INTER_JOB_DELAY_MS=0,
@@ -485,9 +510,7 @@ class TestAuthErrorPath:
         )
         daemon._iterate_once()
 
-        assert len(sync_repo.claim_calls) == 0, (
-            "Latched agent must not call claim_next_pending"
-        )
+        assert len(sync_repo.claim_calls) == 0, "Latched agent must not call claim_next_pending"
         assert len(http.post_calls) == 0
 
 
@@ -500,18 +523,24 @@ class TestSchemaErrorPath:
     def test_schema_error_marks_permanent(self) -> None:
         sync_repo = FakeSyncRepo()
         agent_repo = FakeAgentStateRepo()
-        http = FakeHttpClient(responses=[SendResult(
-            status_code=400,
-            body_json={"error": "rain_mm must be >= 0", "error_class": "SCHEMA"},
-            headers={},
-            server_time_utc=None,
-        )])
+        http = FakeHttpClient(
+            responses=[
+                SendResult(
+                    status_code=400,
+                    body_json={"error": "rain_mm must be >= 0", "error_class": "SCHEMA"},
+                    headers={},
+                    server_time_utc=None,
+                )
+            ]
+        )
         tp = FakeTimeProvider()
         sync_repo.pending_jobs.append((10, _make_job()))
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
         )
         daemon._iterate_once()
 
@@ -544,8 +573,10 @@ class TestClockRecalibration:
         sync_repo.pending_jobs.append((1, _make_job()))
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
         )
         daemon._iterate_once()
 
@@ -570,8 +601,10 @@ class TestClockRecalibration:
         sync_repo.pending_jobs.append((1, _make_job()))
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
         )
         daemon._iterate_once()
 
@@ -592,8 +625,10 @@ class TestReaper:
         tp = FakeTimeProvider()
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
         )
 
         for _ in range(3):
@@ -609,8 +644,11 @@ class TestReaper:
         config = SyncAgentConfig(SENDING_LEASE_TIMEOUT_S=60)
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp, config=config,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
+            config=config,
         )
         daemon._iterate_once()
 
@@ -618,21 +656,22 @@ class TestReaper:
 
     def test_rescued_jobs_logged(self, caplog) -> None:
         import logging
+
         sync_repo = FakeSyncRepo(zombies_to_rescue=3)
         agent_repo = FakeAgentStateRepo()
         http = FakeHttpClient()
         tp = FakeTimeProvider()
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
         )
         with caplog.at_level(logging.WARNING, logger="yvy.sync.agent"):
             daemon._iterate_once()
 
-        assert any(
-            "zombie_jobs_rescued" in record.message for record in caplog.records
-        )
+        assert any("zombie_jobs_rescued" in record.message for record in caplog.records)
 
 
 # ─── Consecutive errors → DEGRADED ───────────────────────────────────────
@@ -643,11 +682,13 @@ class TestDegradedTransition:
         sync_repo = FakeSyncRepo()
         agent_repo = FakeAgentStateRepo()
         # Three 500 responses queued
-        http = FakeHttpClient(responses=[
-            SendResult(500, {"error": "internal", "error_class": "SERVER"}, {}, None),
-            SendResult(500, {"error": "internal", "error_class": "SERVER"}, {}, None),
-            SendResult(500, {"error": "internal", "error_class": "SERVER"}, {}, None),
-        ])
+        http = FakeHttpClient(
+            responses=[
+                SendResult(500, {"error": "internal", "error_class": "SERVER"}, {}, None),
+                SendResult(500, {"error": "internal", "error_class": "SERVER"}, {}, None),
+                SendResult(500, {"error": "internal", "error_class": "SERVER"}, {}, None),
+            ]
+        )
         tp = FakeTimeProvider()
         sync_repo.pending_jobs = [
             (1, _make_job(event_id=UUID("aaaaaaaa-aaaa-4aaa-8aaa-000000000001"))),
@@ -660,8 +701,11 @@ class TestDegradedTransition:
         )
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp, config=config,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
+            config=config,
         )
 
         for _ in range(3):
@@ -687,8 +731,10 @@ class TestDegradedTransition:
         sync_repo.pending_jobs.append((1, _make_job()))
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
         )
         daemon._iterate_once()
 
@@ -701,6 +747,7 @@ class TestDegradedTransition:
 class TestBacklogDetection:
     def test_startup_logs_backlog_when_above_threshold(self, caplog) -> None:
         import logging
+
         sync_repo = FakeSyncRepo()
         sync_repo.status_counts[SyncStatus.PENDING] = 75
         agent_repo = FakeAgentStateRepo()
@@ -708,17 +755,16 @@ class TestBacklogDetection:
         tp = FakeTimeProvider()
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
         )
         with caplog.at_level(logging.INFO, logger="yvy.sync.agent"):
             daemon._log_startup()
 
         assert daemon._in_backlog_mode is True
-        assert any(
-            "sync_agent.startup" in record.message
-            for record in caplog.records
-        )
+        assert any("sync_agent.startup" in record.message for record in caplog.records)
 
     def test_startup_steady_state_below_threshold(self) -> None:
         sync_repo = FakeSyncRepo()
@@ -728,8 +774,10 @@ class TestBacklogDetection:
         tp = FakeTimeProvider()
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
         )
         daemon._log_startup()
 
@@ -747,8 +795,10 @@ class TestOperatorControls:
         tp = FakeTimeProvider()
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
         )
         daemon.pause(reason="testing")
 
@@ -770,8 +820,10 @@ class TestOperatorControls:
         tp = FakeTimeProvider()
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
         )
         daemon.resume()
 
@@ -794,8 +846,10 @@ class TestOperatorControls:
         tp = FakeTimeProvider()
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
         )
         daemon.resume()
 
@@ -821,8 +875,11 @@ class TestThreadLifecycle:
         )
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp, config=config,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
+            config=config,
         )
 
         daemon.start()
@@ -842,8 +899,11 @@ class TestThreadLifecycle:
         config = SyncAgentConfig(IDLE_POLL_HEALTHY_S=0.01)
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp, config=config,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
+            config=config,
         )
 
         daemon.start()
@@ -864,8 +924,11 @@ class TestThreadLifecycle:
         )
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp, config=config,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
+            config=config,
         )
 
         daemon.start()
@@ -881,8 +944,10 @@ class TestThreadLifecycle:
         tp = FakeTimeProvider()
 
         daemon = _make_daemon(
-            sync_repo=sync_repo, agent_state_repo=agent_repo,
-            http_client=http, time_provider=tp,
+            sync_repo=sync_repo,
+            agent_state_repo=agent_repo,
+            http_client=http,
+            time_provider=tp,
         )
         state = daemon.get_state()
         assert state.state == AgentState.HEALTHY

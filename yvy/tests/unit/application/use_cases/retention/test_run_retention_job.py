@@ -162,9 +162,7 @@ class TestThresholds:
         use_case.execute()
 
         expected_threshold = fixed_now - timedelta(days=14)
-        mock_sensor_repo.delete_raw_older_than.assert_called_once_with(
-            expected_threshold
-        )
+        mock_sensor_repo.delete_raw_older_than.assert_called_once_with(expected_threshold)
 
     def test_calls_sync_repo_with_sync_threshold(
         self,
@@ -175,9 +173,7 @@ class TestThresholds:
         use_case.execute()
 
         expected_threshold = fixed_now - timedelta(days=30)
-        mock_sync_repo.delete_sent_older_than.assert_called_once_with(
-            expected_threshold
-        )
+        mock_sync_repo.delete_sent_older_than.assert_called_once_with(expected_threshold)
 
     def test_uses_custom_policy(
         self,
@@ -231,9 +227,7 @@ class TestResultPropagation:
         result = use_case.execute()
 
         assert result.did_run is True
-        mock_metrics_repo.set_timestamp.assert_called_once_with(
-            LAST_RUN_KEY, fixed_now
-        )
+        mock_metrics_repo.set_timestamp.assert_called_once_with(LAST_RUN_KEY, fixed_now)
 
 
 class TestErrorHandling:

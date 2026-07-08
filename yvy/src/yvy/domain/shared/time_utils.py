@@ -54,9 +54,7 @@ class CanonicalTimestamp:
         # Verificación defensiva: si alguien construye este objeto a mano
         # con un datetime que rompe los invariantes, falla acá.
         if self.value.tzinfo is None:
-            raise InvalidTimestampError(
-                "CanonicalTimestamp requiere datetime timezone-aware"
-            )
+            raise InvalidTimestampError("CanonicalTimestamp requiere datetime timezone-aware")
         if self.value.tzinfo.utcoffset(self.value) != UTC.utcoffset(self.value):
             raise InvalidTimestampError(
                 f"CanonicalTimestamp debe estar en UTC, recibido tz={self.value.tzinfo}"
@@ -158,9 +156,7 @@ def parse_pywws_ts(raw: str | datetime) -> CanonicalTimestamp:
         try:
             parsed = datetime.fromisoformat(raw)
         except ValueError as exc:
-            raise InvalidTimestampError(
-                f"timestamp string no parseable: {raw!r}"
-            ) from exc
+            raise InvalidTimestampError(f"timestamp string no parseable: {raw!r}") from exc
     else:
         parsed = raw
 

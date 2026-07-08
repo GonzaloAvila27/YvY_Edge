@@ -67,9 +67,7 @@ class LoginUseCase:
 
         if not user.is_active:
             self._audit_failed(username, reason="user_inactive", user_id=user.id)
-            raise UserInactiveError(
-                "Tu cuenta está desactivada. Contactá a un administrador."
-            )
+            raise UserInactiveError("Tu cuenta está desactivada. Contactá a un administrador.")
 
         # Éxito
         now = self.time_provider.now_utc()

@@ -21,6 +21,7 @@ SELECTs let us verify column-level correctness independently of the
 row mapper. The mapper is tested implicitly via the round-trip in
 ``claim_next_pending``.
 """
+
 from __future__ import annotations
 
 import json
@@ -106,9 +107,7 @@ def _insert_pending_job(
     eid = event_id or uuid4()
     pld = payload if payload is not None else {"k": "v"}
     next_retry_iso = (
-        next_retry_at.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-        if next_retry_at
-        else None
+        next_retry_at.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z" if next_retry_at else None
     )
     cur = conn.execute(
         """
@@ -118,8 +117,13 @@ def _insert_pending_job(
         ) VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)
         """,
         (
-            str(eid), str(_STATION), str(entity_type), json.dumps(pld),
-            attempt_count, attempt_count, next_retry_iso,
+            str(eid),
+            str(_STATION),
+            str(entity_type),
+            json.dumps(pld),
+            attempt_count,
+            attempt_count,
+            next_retry_iso,
         ),
     )
     conn.commit()
@@ -134,11 +138,7 @@ def _insert_sending_job(
 ) -> int:
     """Insert a job in 'sending' state with given claimed_at."""
     eid = event_id or uuid4()
-    claimed_iso = (
-        claimed_at.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-        if claimed_at
-        else None
-    )
+    claimed_iso = claimed_at.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z" if claimed_at else None
     cur = conn.execute(
         """
         INSERT INTO sync_queue (
@@ -166,11 +166,10 @@ def _row_for(conn: sqlite3.Connection, job_id: int) -> sqlite3.Row:
 class TestClaimNextPending:
     """Atomic claim: filtering, ordering, side effects."""
 
-    def test_returns_none_when_queue_empty(
-        self, repo: SQLiteSyncRepository
-    ) -> None:
+    def test_returns_none_when_queue_empty(self, repo: SQLiteSyncRepository) -> None:
         result = repo.claim_next_pending(
-            now_utc=_NOW, supported_entity_types=_SUPPORTED,
+            now_utc=_NOW,
+            supported_entity_types=_SUPPORTED,
         )
         assert result is None
 
@@ -198,10 +197,12 @@ class TestClaimNextPending:
     ) -> None:
         """D52: empirical_record is legacy — never claim."""
         _insert_pending_job(
-            db_v13, entity_type=EntityType.EMPIRICAL_RECORD,
+            db_v13,
+            entity_type=EntityType.EMPIRICAL_RECORD,
         )
         result = repo.claim_next_pending(
-            now_utc=_NOW, supported_entity_types=_SUPPORTED,
+            now_utc=_NOW,
+            supported_entity_types=_SUPPORTED,
         )
         assert result is None, "empirical_record must not be claimed"
 
@@ -212,7 +213,8 @@ class TestClaimNextPending:
         future = _NOW + timedelta(seconds=60)
         _insert_pending_job(db_v13, next_retry_at=future)
         result = repo.claim_next_pending(
-            now_utc=_NOW, supported_entity_types=_SUPPORTED,
+            now_utc=_NOW,
+            supported_entity_types=_SUPPORTED,
         )
         assert result is None
 
@@ -223,7 +225,8 @@ class TestClaimNextPending:
         past = _NOW - timedelta(seconds=10)
         job_id = _insert_pending_job(db_v13, next_retry_at=past)
         result = repo.claim_next_pending(
-            now_utc=_NOW, supported_entity_types=_SUPPORTED,
+            now_utc=_NOW,
+            supported_entity_types=_SUPPORTED,
         )
         assert result is not None
         claimed_id, _job = result
@@ -235,7 +238,8 @@ class TestClaimNextPending:
         """Fresh jobs (no retry scheduled) are eligible."""
         job_id = _insert_pending_job(db_v13)  # next_retry_at is NULL
         result = repo.claim_next_pending(
-            now_utc=_NOW, supported_entity_types=_SUPPORTED,
+            now_utc=_NOW,
+            supported_entity_types=_SUPPORTED,
         )
         assert result is not None
         claimed_id, _ = result
@@ -249,7 +253,8 @@ class TestClaimNextPending:
         claimed_ids = []
         for _ in range(3):
             result = repo.claim_next_pending(
-                now_utc=_NOW, supported_entity_types=_SUPPORTED,
+                now_utc=_NOW,
+                supported_entity_types=_SUPPORTED,
             )
             assert result is not None
             claimed_ids.append(result[0])
@@ -263,9 +268,7 @@ class TestClaimNextPending:
         row = _row_for(db_v13, job_id)
         assert row["status"] == "sending"
 
-    def test_sets_claimed_at(
-        self, repo: SQLiteSyncRepository, db_v13: sqlite3.Connection
-    ) -> None:
+    def test_sets_claimed_at(self, repo: SQLiteSyncRepository, db_v13: sqlite3.Connection) -> None:
         job_id = _insert_pending_job(db_v13)
         repo.claim_next_pending(now_utc=_NOW, supported_entity_types=_SUPPORTED)
         row = _row_for(db_v13, job_id)
@@ -288,13 +291,15 @@ class TestClaimNextPending:
         """The SyncJob returned must match what was inserted."""
         eid = uuid4()
         _insert_pending_job(
-            db_v13, event_id=eid,
+            db_v13,
+            event_id=eid,
             entity_type=EntityType.EMPIRICAL_OBSERVATION,
             payload={"observed_at_utc": "2026-05-27T17:00:00.000Z", "x": 1},
             attempt_count=2,
         )
         result = repo.claim_next_pending(
-            now_utc=_NOW, supported_entity_types=_SUPPORTED,
+            now_utc=_NOW,
+            supported_entity_types=_SUPPORTED,
         )
         assert result is not None
         _, job = result
@@ -310,7 +315,8 @@ class TestClaimNextPending:
         """Defensive: empty filter set means nothing to claim."""
         _insert_pending_job(db_v13)
         result = repo.claim_next_pending(
-            now_utc=_NOW, supported_entity_types=set(),
+            now_utc=_NOW,
+            supported_entity_types=set(),
         )
         assert result is None
 
@@ -325,7 +331,8 @@ class TestMarkSent:
         """Helper: insert + claim a job. Returns id."""
         job_id = _insert_pending_job(db_v13)
         result = repo.claim_next_pending(
-            now_utc=_NOW, supported_entity_types=_SUPPORTED,
+            now_utc=_NOW,
+            supported_entity_types=_SUPPORTED,
         )
         assert result is not None
         return result[0]
@@ -404,7 +411,8 @@ class TestMarkFailed:
     def _claim_one(self, repo, db_v13, **kwargs) -> int:
         _insert_pending_job(db_v13, **kwargs)
         result = repo.claim_next_pending(
-            now_utc=_NOW, supported_entity_types=_SUPPORTED,
+            now_utc=_NOW,
+            supported_entity_types=_SUPPORTED,
         )
         assert result is not None
         return result[0]
@@ -416,9 +424,11 @@ class TestMarkFailed:
         job_id = self._claim_one(repo, db_v13)
         next_retry = _NOW + timedelta(seconds=10)
         repo.mark_failed(
-            job_id=job_id, attempt_count=1,
+            job_id=job_id,
+            attempt_count=1,
             last_error="NETWORK: timeout",
-            next_retry_at=next_retry, permanent=False,
+            next_retry_at=next_retry,
+            permanent=False,
         )
         row = _row_for(db_v13, job_id)
         assert row["status"] == "pending"
@@ -429,9 +439,11 @@ class TestMarkFailed:
         """Permanent failure → status='error', no retry."""
         job_id = self._claim_one(repo, db_v13)
         repo.mark_failed(
-            job_id=job_id, attempt_count=1,
+            job_id=job_id,
+            attempt_count=1,
             last_error="SCHEMA: invalid payload",
-            next_retry_at=None, permanent=True,
+            next_retry_at=None,
+            permanent=True,
         )
         row = _row_for(db_v13, job_id)
         assert row["status"] == "error"
@@ -441,7 +453,8 @@ class TestMarkFailed:
     ) -> None:
         job_id = self._claim_one(repo, db_v13, attempt_count=2)
         repo.mark_failed(
-            job_id=job_id, attempt_count=3,
+            job_id=job_id,
+            attempt_count=3,
             last_error="NETWORK: refused",
             next_retry_at=_NOW + timedelta(seconds=10),
             permanent=False,
@@ -455,7 +468,8 @@ class TestMarkFailed:
         """last_error format: '<CLASS>: <message>' — used for SQL filtering."""
         job_id = self._claim_one(repo, db_v13)
         repo.mark_failed(
-            job_id=job_id, attempt_count=1,
+            job_id=job_id,
+            attempt_count=1,
             last_error="NETWORK: connection refused",
             next_retry_at=_NOW + timedelta(seconds=10),
             permanent=False,
@@ -469,7 +483,8 @@ class TestMarkFailed:
         """D68: mark_failed mirrors v13 attempt_count to legacy attempts."""
         job_id = self._claim_one(repo, db_v13)
         repo.mark_failed(
-            job_id=job_id, attempt_count=5,
+            job_id=job_id,
+            attempt_count=5,
             last_error="NETWORK: timeout",
             next_retry_at=_NOW + timedelta(seconds=60),
             permanent=False,
@@ -484,7 +499,8 @@ class TestMarkFailed:
         """D68: last_error mirrors to legacy error_msg."""
         job_id = self._claim_one(repo, db_v13)
         repo.mark_failed(
-            job_id=job_id, attempt_count=1,
+            job_id=job_id,
+            attempt_count=1,
             last_error="SERVER: internal error",
             next_retry_at=_NOW + timedelta(seconds=10),
             permanent=False,
@@ -499,9 +515,11 @@ class TestMarkFailed:
         job_id = self._claim_one(repo, db_v13)
         next_retry = _NOW + timedelta(seconds=120)
         repo.mark_failed(
-            job_id=job_id, attempt_count=1,
+            job_id=job_id,
+            attempt_count=1,
             last_error="NETWORK: timeout",
-            next_retry_at=next_retry, permanent=False,
+            next_retry_at=next_retry,
+            permanent=False,
         )
         row = _row_for(db_v13, job_id)
         assert row["next_retry_at"] is not None
@@ -514,9 +532,11 @@ class TestMarkFailed:
         """Permanent failure: no retry scheduled."""
         job_id = self._claim_one(repo, db_v13)
         repo.mark_failed(
-            job_id=job_id, attempt_count=1,
+            job_id=job_id,
+            attempt_count=1,
             last_error="SCHEMA: bad",
-            next_retry_at=None, permanent=True,
+            next_retry_at=None,
+            permanent=True,
         )
         row = _row_for(db_v13, job_id)
         assert row["next_retry_at"] is None
@@ -530,7 +550,8 @@ class TestMarkFailed:
         # Verify claim set claimed_at
         assert _row_for(db_v13, job_id)["claimed_at"] is not None
         repo.mark_failed(
-            job_id=job_id, attempt_count=1,
+            job_id=job_id,
+            attempt_count=1,
             last_error="NETWORK: timeout",
             next_retry_at=_NOW + timedelta(seconds=10),
             permanent=False,
@@ -593,8 +614,7 @@ class TestReapZombies:
                 status, claimed_at, attempt_count
             ) VALUES (?, ?, 'sensor_reading', '{}', 'sending', ?, 3)
             """,
-            (str(uuid4()), str(_STATION),
-             old.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"),
+            (str(uuid4()), str(_STATION), old.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"),
         )
         job_id = cur.lastrowid
         db_v13.commit()
@@ -615,8 +635,7 @@ class TestReapZombies:
                 status, claimed_at, last_error
             ) VALUES (?, ?, 'sensor_reading', '{}', 'sending', ?, 'NETWORK: prior')
             """,
-            (str(uuid4()), str(_STATION),
-             old.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"),
+            (str(uuid4()), str(_STATION), old.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"),
         )
         job_id = cur.lastrowid
         db_v13.commit()
@@ -667,16 +686,15 @@ class TestReapZombies:
 class TestLifecycle:
     """Realistic agent loop: claim → fail → wait → claim → success."""
 
-    def test_full_retry_cycle(
-        self, repo: SQLiteSyncRepository, db_v13: sqlite3.Connection
-    ) -> None:
+    def test_full_retry_cycle(self, repo: SQLiteSyncRepository, db_v13: sqlite3.Connection) -> None:
         """A job that fails once and succeeds on retry."""
         # 1. Insert pending job
         job_id = _insert_pending_job(db_v13)
 
         # 2. Agent claims it
         result1 = repo.claim_next_pending(
-            now_utc=_NOW, supported_entity_types=_SUPPORTED,
+            now_utc=_NOW,
+            supported_entity_types=_SUPPORTED,
         )
         assert result1 is not None
         claimed_id, _job = result1
@@ -685,9 +703,11 @@ class TestLifecycle:
         # 3. POST fails with 500 → mark transient failure, schedule retry
         next_retry = _NOW + timedelta(seconds=2)
         repo.mark_failed(
-            job_id=job_id, attempt_count=1,
+            job_id=job_id,
+            attempt_count=1,
             last_error="SERVER: internal error",
-            next_retry_at=next_retry, permanent=False,
+            next_retry_at=next_retry,
+            permanent=False,
         )
 
         # Verify post-fail state
@@ -706,7 +726,8 @@ class TestLifecycle:
         # 5. After next_retry_at, claim succeeds
         retry_time = _NOW + timedelta(seconds=3)
         result2 = repo.claim_next_pending(
-            now_utc=retry_time, supported_entity_types=_SUPPORTED,
+            now_utc=retry_time,
+            supported_entity_types=_SUPPORTED,
         )
         assert result2 is not None
         claimed_id2, job2 = result2
@@ -715,7 +736,9 @@ class TestLifecycle:
 
         # 6. Send succeeds → mark sent
         repo.mark_sent(
-            job_id=job_id, was_duplicate=False, sent_at_utc=retry_time,
+            job_id=job_id,
+            was_duplicate=False,
+            sent_at_utc=retry_time,
         )
 
         # Final state
@@ -743,7 +766,8 @@ class TestLifecycle:
 
         # 4. Job is reclaimable
         result = repo.claim_next_pending(
-            now_utc=later, supported_entity_types=_SUPPORTED,
+            now_utc=later,
+            supported_entity_types=_SUPPORTED,
         )
         assert result is not None
         claimed_id, job = result
@@ -772,14 +796,17 @@ class TestLifecycle:
         job_id = _insert_pending_job(db_v13)
         repo.claim_next_pending(now_utc=_NOW, supported_entity_types=_SUPPORTED)
         repo.mark_failed(
-            job_id=job_id, attempt_count=1,
+            job_id=job_id,
+            attempt_count=1,
             last_error="SCHEMA: invalid",
-            next_retry_at=None, permanent=True,
+            next_retry_at=None,
+            permanent=True,
         )
 
         # No matter how far in the future, never claimed again
         far_future = _NOW + timedelta(days=365)
         result = repo.claim_next_pending(
-            now_utc=far_future, supported_entity_types=_SUPPORTED,
+            now_utc=far_future,
+            supported_entity_types=_SUPPORTED,
         )
         assert result is None

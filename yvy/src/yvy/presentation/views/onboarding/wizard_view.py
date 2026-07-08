@@ -82,6 +82,7 @@ class _WizardState:
 
     def to_onboarding_data(self) -> OnboardingData:
         import json as _json
+
         primary = AdminCreationData(
             username=self.primary_username.strip(),
             full_name=self.primary_full_name.strip(),
@@ -106,8 +107,7 @@ class _WizardState:
         return OnboardingData(
             cue=self.cue.strip(),
             school_name=self.school_name.strip(),
-            school_short_name=self.school_short_name.strip()
-            or self.school_name.strip()[:30],
+            school_short_name=self.school_short_name.strip() or self.school_name.strip()[:30],
             timezone=self.timezone,
             primary_admin=primary,
             secondary_admin=secondary,
@@ -341,11 +341,15 @@ class OnboardingWizard(tk.Frame):
 
         # Footer
         ttk.Button(
-            self._footer, text="← Atrás", command=self._prev,
+            self._footer,
+            text="← Atrás",
+            command=self._prev,
             style="Secondary.TButton",
         ).pack(side="left")
         ttk.Button(
-            self._footer, text="Siguiente →", command=self._next_from_iea,
+            self._footer,
+            text="Siguiente →",
+            command=self._next_from_iea,
             style="Primary.TButton",
         ).pack(side="right")
 
@@ -372,7 +376,9 @@ class OnboardingWizard(tk.Frame):
         tk.Label(
             self._body,
             text="Conexión con YVY Core",
-            bg=BG_CARD, fg=TEXT_PRIMARY, font=FONT_H2,
+            bg=BG_CARD,
+            fg=TEXT_PRIMARY,
+            font=FONT_H2,
         ).pack(anchor="w")
 
         tk.Label(
@@ -381,8 +387,11 @@ class OnboardingWizard(tk.Frame):
                 "Este paso configura la sincronización automática con el servidor central.\n"
                 "Si no tenés las credentials todavía, podés saltear este paso."
             ),
-            bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL,
-            wraplength=560, justify="left",
+            bg=BG_CARD,
+            fg=TEXT_SECONDARY,
+            font=FONT_SMALL,
+            wraplength=560,
+            justify="left",
         ).pack(anchor="w", pady=(0, SPACE_MD))
 
         # URL del servidor
@@ -394,16 +403,21 @@ class OnboardingWizard(tk.Frame):
         tk.Label(
             self._body,
             text="Credentials JSON (pegá el contenido del archivo station_credentials.json):",
-            bg=BG_CARD, fg=TEXT_PRIMARY, font=FONT_SMALL,
+            bg=BG_CARD,
+            fg=TEXT_PRIMARY,
+            font=FONT_SMALL,
         ).pack(anchor="w", pady=(SPACE_MD, 2))
 
         creds_frame = tk.Frame(self._body, bg=BG_CARD)
         creds_frame.pack(fill="x")
         self._creds_text = tk.Text(
             creds_frame,
-            height=5, width=60,
+            height=5,
+            width=60,
             font=("Courier", 9),
-            bg="#F8F8F8", relief="solid", bd=1,
+            bg="#F8F8F8",
+            relief="solid",
+            bd=1,
         )
         self._creds_text.pack(side="left", fill="x", expand=True)
         if self._state.station_credentials_json:
@@ -420,11 +434,15 @@ class OnboardingWizard(tk.Frame):
 
         # Footer
         ttk.Button(
-            self._footer, text="← Atrás", command=self._prev,
+            self._footer,
+            text="← Atrás",
+            command=self._prev,
             style="Secondary.TButton",
         ).pack(side="left")
         ttk.Button(
-            self._footer, text="Siguiente →", command=self._next_from_sync,
+            self._footer,
+            text="Siguiente →",
+            command=self._next_from_sync,
             style="Primary.TButton",
         ).pack(side="right")
 
@@ -473,6 +491,7 @@ class OnboardingWizard(tk.Frame):
 
             try:
                 from uuid import UUID
+
                 UUID(creds["station_uuid"])
                 int(creds["key_version"])
                 key_bytes = bytes.fromhex(creds["key_hmac_hex"])
@@ -514,7 +533,9 @@ class OnboardingWizard(tk.Frame):
         tk.Label(
             self._body,
             text="Administrador principal (superadmin)",
-            bg=BG_CARD, fg=TEXT_PRIMARY, font=FONT_BODY_BOLD,
+            bg=BG_CARD,
+            fg=TEXT_PRIMARY,
+            font=FONT_BODY_BOLD,
         ).pack(anchor="w", pady=(0, SPACE_SM))
 
         primary_user = tk.StringVar(value=self._state.primary_username)
@@ -524,8 +545,12 @@ class OnboardingWizard(tk.Frame):
         self._field(self._body, "Usuario", primary_user, width=20, inline=True)
         self._field(self._body, "Nombre completo", primary_name, width=30, inline=True)
         self._field(
-            self._body, "Contraseña (mín. 8 caracteres)",
-            primary_pwd, width=20, inline=True, show="•",
+            self._body,
+            "Contraseña (mín. 8 caracteres)",
+            primary_pwd,
+            width=20,
+            inline=True,
+            show="•",
         )
 
         self._primary_user = primary_user
@@ -552,11 +577,15 @@ class OnboardingWizard(tk.Frame):
 
         # Footer
         ttk.Button(
-            self._footer, text="← Atrás", command=self._prev,
+            self._footer,
+            text="← Atrás",
+            command=self._prev,
             style="Secondary.TButton",
         ).pack(side="left")
         ttk.Button(
-            self._footer, text="Siguiente →", command=self._next_from_admins,
+            self._footer,
+            text="Siguiente →",
+            command=self._next_from_admins,
             style="Primary.TButton",
         ).pack(side="right")
 
@@ -575,8 +604,12 @@ class OnboardingWizard(tk.Frame):
         self._field(self._secondary_frame, "Usuario", sec_user, width=20, inline=True)
         self._field(self._secondary_frame, "Nombre completo", sec_name, width=30, inline=True)
         self._field(
-            self._secondary_frame, "Contraseña",
-            sec_pwd, width=20, inline=True, show="•",
+            self._secondary_frame,
+            "Contraseña",
+            sec_pwd,
+            width=20,
+            inline=True,
+            show="•",
         )
 
         self._sec_user = sec_user
@@ -650,14 +683,18 @@ class OnboardingWizard(tk.Frame):
             ("Institución", self._state.school_name),
             ("CUE", self._state.cue),
             ("Zona horaria", self._state.timezone),
-            ("Administrador principal",
-             f"{self._state.primary_username} ({self._state.primary_full_name})"),
+            (
+                "Administrador principal",
+                f"{self._state.primary_username} ({self._state.primary_full_name})",
+            ),
         ]
         if self._state.has_secondary:
-            rows.append((
-                "Administrador secundario",
-                f"{self._state.secondary_username} ({self._state.secondary_full_name})",
-            ))
+            rows.append(
+                (
+                    "Administrador secundario",
+                    f"{self._state.secondary_username} ({self._state.secondary_full_name})",
+                )
+            )
 
         if self._state.skip_sync or not self._state.sync_server_url:
             rows.append(("Sincronización", "Configurar más tarde"))
@@ -667,22 +704,31 @@ class OnboardingWizard(tk.Frame):
                 rows.append(("Credentials", "✓ cargadas"))
 
         if self._state.hardware_fingerprint:
-            rows.append((
-                "Identificador hardware",
-                f"{self._state.hardware_fingerprint[:8]}...",
-            ))
+            rows.append(
+                (
+                    "Identificador hardware",
+                    f"{self._state.hardware_fingerprint[:8]}...",
+                )
+            )
 
         for label, value in rows:
             row = tk.Frame(self._body, bg=BG_CARD)
             row.pack(fill="x", pady=2)
             tk.Label(
-                row, text=label + ":",
-                bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY,
-                anchor="w", width=22,
+                row,
+                text=label + ":",
+                bg=BG_CARD,
+                fg=TEXT_SECONDARY,
+                font=FONT_BODY,
+                anchor="w",
+                width=22,
             ).pack(side="left")
             tk.Label(
-                row, text=value,
-                bg=BG_CARD, fg=TEXT_PRIMARY, font=FONT_BODY_BOLD,
+                row,
+                text=value,
+                bg=BG_CARD,
+                fg=TEXT_PRIMARY,
+                font=FONT_BODY_BOLD,
                 anchor="w",
             ).pack(side="left")
 
@@ -700,11 +746,14 @@ class OnboardingWizard(tk.Frame):
         ).pack(anchor="w", pady=(SPACE_LG, 0))
 
         ttk.Button(
-            self._footer, text="← Atrás", command=self._prev,
+            self._footer,
+            text="← Atrás",
+            command=self._prev,
             style="Secondary.TButton",
         ).pack(side="left")
         ttk.Button(
-            self._footer, text="Comenzar a usar YVY Edge",
+            self._footer,
+            text="Comenzar a usar YVY Edge",
             command=self._submit,
             style="Primary.TButton",
         ).pack(side="right")
@@ -760,17 +809,24 @@ class OnboardingWizard(tk.Frame):
             row = tk.Frame(parent, bg=BG_CARD)
             row.pack(anchor="w", fill="x", pady=2)
             tk.Label(
-                row, text=label + ":",
-                bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL,
-                width=30, anchor="w",
+                row,
+                text=label + ":",
+                bg=BG_CARD,
+                fg=TEXT_SECONDARY,
+                font=FONT_SMALL,
+                width=30,
+                anchor="w",
             ).pack(side="left")
             entry = ttk.Entry(row, textvariable=var, width=width, show=show or "")
             entry.pack(side="left")
             return entry
 
         tk.Label(
-            parent, text=label,
-            bg=BG_CARD, fg=TEXT_PRIMARY, font=FONT_SMALL,
+            parent,
+            text=label,
+            bg=BG_CARD,
+            fg=TEXT_PRIMARY,
+            font=FONT_SMALL,
         ).pack(anchor="w", pady=(SPACE_SM, 2))
         entry = ttk.Entry(parent, textvariable=var, width=width, show=show or "")
         entry.pack(anchor="w", fill="x")

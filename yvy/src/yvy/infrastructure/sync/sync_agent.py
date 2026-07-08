@@ -49,6 +49,7 @@ failed iteration, resets to 0 on every JOB_SUCCESS. When it crosses
 ``CONSECUTIVE_ERRORS_THRESHOLD`` (default 3) AND the agent is HEALTHY,
 emit ``CONSECUTIVE_ERRORS_THRESHOLD`` event → transition to DEGRADED.
 """
+
 from __future__ import annotations
 
 import logging
@@ -497,8 +498,8 @@ class SyncAgentDaemon:
             last_error=last_error,
             next_retry_at=next_retry,
             permanent=False,  # AUTH not strictly permanent on the job;
-                              # the agent latches, so no retry happens
-                              # until restart anyway.
+            # the agent latches, so no retry happens
+            # until restart anyway.
         )
         log.error(
             "sync_agent.auth_error",
@@ -562,9 +563,7 @@ class SyncAgentDaemon:
         # No agent transition. Schema errors don't degrade the agent —
         # one bad payload doesn't mean the agent is unhealthy.
 
-    def _on_not_implemented(
-        self, job_id: int, job: SyncJob, result: SendResult
-    ) -> None:
+    def _on_not_implemented(self, job_id: int, job: SyncJob, result: SendResult) -> None:
         """501 — server doesn't implement this endpoint. Permanent."""
         msg = result.body_json.get("error", "not implemented")
         last_error = f"{FailureClass.SCHEMA}: {msg}"
@@ -584,9 +583,7 @@ class SyncAgentDaemon:
             },
         )
 
-    def _on_server_error(
-        self, job_id: int, job: SyncJob, result: SendResult
-    ) -> None:
+    def _on_server_error(self, job_id: int, job: SyncJob, result: SendResult) -> None:
         """5xx — transient. Schedule retry with backoff."""
         msg = result.body_json.get("error", f"server error {result.status_code}")
         last_error = f"{FailureClass.SERVER}: {msg}"
@@ -612,9 +609,7 @@ class SyncAgentDaemon:
         self._consecutive_errors += 1
         self._maybe_emit_degraded()
 
-    def _on_unknown_status(
-        self, job_id: int, job: SyncJob, result: SendResult
-    ) -> None:
+    def _on_unknown_status(self, job_id: int, job: SyncJob, result: SendResult) -> None:
         """Unexpected status code. Treat as transient with UNKNOWN class."""
         last_error = f"{FailureClass.UNKNOWN}: HTTP {result.status_code}"
         next_retry = self._compute_next_retry(job.attempt_count + 1)
@@ -636,9 +631,7 @@ class SyncAgentDaemon:
         self._consecutive_errors += 1
         self._maybe_emit_degraded()
 
-    def _handle_send_error(
-        self, job_id: int, job: SyncJob, exc: SendError
-    ) -> None:
+    def _handle_send_error(self, job_id: int, job: SyncJob, exc: SendError) -> None:
         """No structured response — transient network failure."""
         if isinstance(exc, HttpTimeoutError):
             failure_class = FailureClass.NETWORK
@@ -686,9 +679,7 @@ class SyncAgentDaemon:
 
     # ─── Clock recalibration ────────────────────────────────────────────
 
-    def _maybe_recalibrate_clock(
-        self, server_time_utc: datetime, edge_time_utc: datetime
-    ) -> None:
+    def _maybe_recalibrate_clock(self, server_time_utc: datetime, edge_time_utc: datetime) -> None:
         result = compute_recalibration(
             server_time_utc=server_time_utc,
             edge_time_utc=edge_time_utc,

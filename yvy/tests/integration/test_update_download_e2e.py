@@ -3,6 +3,7 @@
 Usa respx para mockear el server. AppConfigRepository y UpdateDownloader
 sobre SQLite real (en memoria via tmp_path).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -63,9 +64,7 @@ def updates_dir(tmp_path):
     return d
 
 
-def _make_downloader(
-    http_client, app_config_repo, updates_dir
-) -> UpdateDownloader:
+def _make_downloader(http_client, app_config_repo, updates_dir) -> UpdateDownloader:
     return UpdateDownloader(
         http_client=http_client,
         app_config_repo=app_config_repo,
@@ -84,15 +83,17 @@ def _fake_package() -> tuple[bytes, str]:
 
 
 def _seed_pending_update(repo: AppConfigRepository, sha: str, content: bytes) -> None:
-    repo.set_pending_update({
-        "edge_version": _VERSION,
-        "package_url": _PACKAGE_URL,
-        "package_sha256": sha,
-        "package_size_bytes": len(content),
-        "released_at": "2026-06-01T00:00:00Z",
-        "min_edge_version": "0.9.0",
-        "notes": "Correcciones varias",
-    })
+    repo.set_pending_update(
+        {
+            "edge_version": _VERSION,
+            "package_url": _PACKAGE_URL,
+            "package_sha256": sha,
+            "package_size_bytes": len(content),
+            "released_at": "2026-06-01T00:00:00Z",
+            "min_edge_version": "0.9.0",
+            "notes": "Correcciones varias",
+        }
+    )
 
 
 # ─── Tests ───────────────────────────────────────────────────────────────────
@@ -126,9 +127,7 @@ class TestFullDownloadFlow:
         assert app_config_repo.get("update_pending.local_path") == str(result.dest_path)
         assert app_config_repo.get("update_pending.downloaded_at") is not None
 
-    def test_reintento_tras_fallo_red_luego_exito(
-        self, http_client, app_config_repo, updates_dir
-    ):
+    def test_reintento_tras_fallo_red_luego_exito(self, http_client, app_config_repo, updates_dir):
         """Primer download falla (network); segundo descarga OK."""
         import httpx
 
@@ -150,9 +149,7 @@ class TestFullDownloadFlow:
         assert result_2.success is True
         assert app_config_repo.is_update_downloaded() is True
 
-    def test_idempotencia_dos_downloads_seguidos(
-        self, http_client, app_config_repo, updates_dir
-    ):
+    def test_idempotencia_dos_downloads_seguidos(self, http_client, app_config_repo, updates_dir):
         """Dos downloads seguidos; el segundo detecta que ya está descargado."""
         content, sha = _fake_package()
         _seed_pending_update(app_config_repo, sha, content)
@@ -181,17 +178,13 @@ class TestFullDownloadFlow:
 
 @pytest.mark.integration
 class TestDownloadHelpers:
-    def test_has_pending_download_true_before_download(
-        self, app_config_repo, updates_dir
-    ):
+    def test_has_pending_download_true_before_download(self, app_config_repo, updates_dir):
         content, sha = _fake_package()
         _seed_pending_update(app_config_repo, sha, content)
         dl = _make_downloader(None, app_config_repo, updates_dir)  # type: ignore
         assert dl.has_pending_download() is True
 
-    def test_has_pending_download_false_when_no_metadata(
-        self, app_config_repo, updates_dir
-    ):
+    def test_has_pending_download_false_when_no_metadata(self, app_config_repo, updates_dir):
         dl = _make_downloader(None, app_config_repo, updates_dir)  # type: ignore
         assert dl.has_pending_download() is False
 
@@ -208,9 +201,7 @@ class TestDownloadHelpers:
 
         assert downloader.is_already_downloaded() is True
 
-    def test_clear_downloaded_update_resets_flags(
-        self, http_client, app_config_repo, updates_dir
-    ):
+    def test_clear_downloaded_update_resets_flags(self, http_client, app_config_repo, updates_dir):
         content, sha = _fake_package()
         _seed_pending_update(app_config_repo, sha, content)
         downloader = _make_downloader(http_client, app_config_repo, updates_dir)

@@ -41,6 +41,7 @@ def _insert_raw(
     uuid5 con NAMESPACE_OID para tests (irrelevante el namespace).
     """
     import uuid as _uuid_mod
+
     event_id = _uuid_mod.uuid5(_uuid_mod.NAMESPACE_OID, str(uuid4()))
     pywws_ts = received_at - timedelta(seconds=30)
     conn = factory.get_connection()
@@ -70,6 +71,7 @@ def _insert_data(
 ) -> None:
     """Inserta una fila en sensor_data ligada a un raw."""
     import uuid as _uuid_mod
+
     event_id = _uuid_mod.uuid5(_uuid_mod.NAMESPACE_OID, str(uuid4()))
     conn = factory.get_connection()
     raw_id_row = conn.execute(
@@ -90,7 +92,9 @@ def _insert_data(
             str(event_id),
             raw_id,
             observed_at.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
-            20.5, 60.0, 1013.0,
+            20.5,
+            60.0,
+            1013.0,
         ),
     )
 
@@ -106,9 +110,7 @@ def _insert_sync(
     event_id = uuid4()
     station = "12345678-1234-4123-8123-123456789012"
     last_attempt_str = (
-        last_attempt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
-        if last_attempt is not None
-        else None
+        last_attempt.strftime("%Y-%m-%dT%H:%M:%S.000Z") if last_attempt is not None else None
     )
     created = created_at or datetime.now(UTC)
 
@@ -141,9 +143,7 @@ def _insert_sync(
 
 @pytest.mark.integration
 class TestDeleteRawOlderThan:
-    def test_returns_zero_when_no_rows(
-        self, sensor_repo: SQLiteSensorRepository
-    ) -> None:
+    def test_returns_zero_when_no_rows(self, sensor_repo: SQLiteSensorRepository) -> None:
         threshold = datetime.now(UTC) - timedelta(days=14)
         deleted = sensor_repo.delete_raw_older_than(threshold)
         assert deleted == 0
@@ -215,9 +215,7 @@ class TestDeleteRawOlderThan:
         o el data persiste sin raw asociado).
         """
         now = datetime.now(UTC)
-        old_raw_event = _insert_raw(
-            db_factory, received_at=now - timedelta(days=60)
-        )
+        old_raw_event = _insert_raw(db_factory, received_at=now - timedelta(days=60))
         _insert_data(
             db_factory,
             raw_event_id=old_raw_event,
@@ -243,9 +241,7 @@ class TestDeleteRawOlderThan:
 
 @pytest.mark.integration
 class TestDeleteSentOlderThan:
-    def test_returns_zero_when_no_rows(
-        self, sync_repo: SQLiteSyncRepository
-    ) -> None:
+    def test_returns_zero_when_no_rows(self, sync_repo: SQLiteSyncRepository) -> None:
         threshold = datetime.now(UTC) - timedelta(days=30)
         deleted = sync_repo.delete_sent_older_than(threshold)
         assert deleted == 0
@@ -258,18 +254,13 @@ class TestDeleteSentOlderThan:
         now = datetime.now(UTC)
 
         # 2 sent recientes (no se borran)
-        _insert_sync(db_factory, status=SyncStatus.SENT,
-                     last_attempt=now - timedelta(days=5))
-        _insert_sync(db_factory, status=SyncStatus.SENT,
-                     last_attempt=now - timedelta(days=29))
+        _insert_sync(db_factory, status=SyncStatus.SENT, last_attempt=now - timedelta(days=5))
+        _insert_sync(db_factory, status=SyncStatus.SENT, last_attempt=now - timedelta(days=29))
 
         # 3 sent viejos (se borran)
-        _insert_sync(db_factory, status=SyncStatus.SENT,
-                     last_attempt=now - timedelta(days=31))
-        _insert_sync(db_factory, status=SyncStatus.SENT,
-                     last_attempt=now - timedelta(days=60))
-        _insert_sync(db_factory, status=SyncStatus.SENT,
-                     last_attempt=now - timedelta(days=180))
+        _insert_sync(db_factory, status=SyncStatus.SENT, last_attempt=now - timedelta(days=31))
+        _insert_sync(db_factory, status=SyncStatus.SENT, last_attempt=now - timedelta(days=60))
+        _insert_sync(db_factory, status=SyncStatus.SENT, last_attempt=now - timedelta(days=180))
 
         threshold = now - timedelta(days=30)
         deleted = sync_repo.delete_sent_older_than(threshold)
@@ -379,10 +370,10 @@ class TestDeleteSentOlderThan:
         db_factory: SQLiteConnectionFactory,
     ) -> None:
         now = datetime.now(UTC)
-        _insert_sync(db_factory, status=SyncStatus.SENT,
-                     last_attempt=now - timedelta(days=30, seconds=1))
-        _insert_sync(db_factory, status=SyncStatus.SENT,
-                     last_attempt=now - timedelta(days=30))
+        _insert_sync(
+            db_factory, status=SyncStatus.SENT, last_attempt=now - timedelta(days=30, seconds=1)
+        )
+        _insert_sync(db_factory, status=SyncStatus.SENT, last_attempt=now - timedelta(days=30))
 
         threshold = now - timedelta(days=30)
         deleted = sync_repo.delete_sent_older_than(threshold)

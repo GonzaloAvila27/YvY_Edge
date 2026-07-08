@@ -2,6 +2,7 @@
 
 Solo testea la nueva lógica de piggyback — no repite los tests del agente.
 """
+
 from __future__ import annotations
 
 import threading
@@ -35,6 +36,7 @@ def _make_agent(trigger=None, app_config_repo=None):
     time_provider.now_utc.return_value = datetime(2026, 6, 1, 12, 0, 0, tzinfo=UTC)
 
     from yvy.domain.sync.agent_state import AgentState, SyncAgentState
+
     agent_state_repo.get_state.return_value = SyncAgentState(
         state=AgentState.HEALTHY,
         last_transition_at=datetime(2026, 6, 1, tzinfo=UTC),

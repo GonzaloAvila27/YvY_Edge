@@ -12,7 +12,9 @@ UTC = ZoneInfo("UTC")
 AR = ZoneInfo("America/Argentina/Cordoba")  # UTC-3, sin DST
 
 
-def dt(year: int, month: int, day: int, hour: int = 0, minute: int = 0, tz: ZoneInfo = UTC) -> datetime:
+def dt(
+    year: int, month: int, day: int, hour: int = 0, minute: int = 0, tz: ZoneInfo = UTC
+) -> datetime:
     return datetime(year, month, day, hour, minute, 0, tzinfo=tz)
 
 
@@ -63,14 +65,14 @@ def test_year() -> None:
 
 def test_starts_mid_night() -> None:
     """start_dt a las 22:00 → primera banda recortada desde 22:00, no desde 18:00."""
-    start = dt(2026, 6, 21, 22)   # en medio de la noche del 21
-    end = dt(2026, 6, 22, 10)     # mañana del 22, antes del inicio de la noche
+    start = dt(2026, 6, 21, 22)  # en medio de la noche del 21
+    end = dt(2026, 6, 22, 10)  # mañana del 22, antes del inicio de la noche
     bands = night_bands(start, end, UTC)
 
     assert len(bands) == 1
     b_start, b_end = bands[0]
-    assert b_start == dt(2026, 6, 21, 22)   # recortado al inicio del rango
-    assert b_end == dt(2026, 6, 22, 8)      # termina natural de la banda
+    assert b_start == dt(2026, 6, 21, 22)  # recortado al inicio del rango
+    assert b_end == dt(2026, 6, 22, 8)  # termina natural de la banda
 
 
 # ─── test_ends_mid_night ─────────────────────────────────────────────────────
@@ -79,13 +81,13 @@ def test_starts_mid_night() -> None:
 def test_ends_mid_night() -> None:
     """end_dt a las 02:00 → última banda recortada hasta 02:00, no hasta 08:00."""
     start = dt(2026, 6, 21, 12)
-    end = dt(2026, 6, 22, 2)    # en medio de la noche del 21→22
+    end = dt(2026, 6, 22, 2)  # en medio de la noche del 21→22
     bands = night_bands(start, end, UTC)
 
     assert len(bands) == 1
     b_start, b_end = bands[0]
     assert b_start == dt(2026, 6, 21, 18)  # inicio natural de la banda
-    assert b_end == dt(2026, 6, 22, 2)     # recortado al fin del rango
+    assert b_end == dt(2026, 6, 22, 2)  # recortado al fin del rango
 
 
 # ─── test_day_only ────────────────────────────────────────────────────────────

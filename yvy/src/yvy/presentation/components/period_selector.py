@@ -40,18 +40,18 @@ logger = logging.getLogger(__name__)
 _ALL_PRESETS: list[str] = ["24h", "7d", "30d", "1y", "custom"]
 
 _PRESET_LABELS: dict[str, str] = {
-    "24h":    "24h",
-    "7d":     "7d",
-    "30d":    "30d",
-    "1y":     "1y",
+    "24h": "24h",
+    "7d": "7d",
+    "30d": "30d",
+    "1y": "1y",
     "custom": "Personalizado",
 }
 
 _PRESET_DELTA: dict[str, timedelta] = {
     "24h": timedelta(days=1),
-    "7d":  timedelta(days=7),
+    "7d": timedelta(days=7),
     "30d": timedelta(days=30),
-    "1y":  timedelta(days=365),
+    "1y": timedelta(days=365),
 }
 
 
@@ -140,9 +140,16 @@ class PeriodSelector(tk.Frame):
         caja queda blanca (no reconoce "white"/SystemWindow) → texto invisible.
         """
         return tk.Entry(
-            self._custom_row, width=11, font=FONT_SMALL,
-            bg=BG_CARD, fg=TEXT_PRIMARY, relief="flat", bd=0,
-            highlightbackground=BORDER, highlightthickness=1, highlightcolor=PRIMARY,
+            self._custom_row,
+            width=11,
+            font=FONT_SMALL,
+            bg=BG_CARD,
+            fg=TEXT_PRIMARY,
+            relief="flat",
+            bd=0,
+            highlightbackground=BORDER,
+            highlightthickness=1,
+            highlightcolor=PRIMARY,
             insertbackground=TEXT_PRIMARY,
         )
 
@@ -151,9 +158,9 @@ class PeriodSelector(tk.Frame):
         top_row = tk.Frame(self, bg=BG_CARD)
         top_row.grid(row=0, column=0, sticky="w")
 
-        tk.Label(
-            top_row, text="Período:", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY
-        ).pack(side="left", padx=(0, SPACE_SM))
+        tk.Label(top_row, text="Período:", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY).pack(
+            side="left", padx=(0, SPACE_SM)
+        )
 
         single_preset = len(self._allowed_presets) == 1
 
@@ -206,9 +213,7 @@ class PeriodSelector(tk.Frame):
         self._date_error_lbl.pack(side="left")
 
         # ── Fila 1b: nota de clamp (oculto por defecto) ────────────────
-        self._clamp_lbl = tk.Label(
-            self, text="", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL
-        )
+        self._clamp_lbl = tk.Label(self, text="", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL)
 
         # Si el preset inicial es "custom", mostrar el date picker
         if self._preset_var.get() == "custom":

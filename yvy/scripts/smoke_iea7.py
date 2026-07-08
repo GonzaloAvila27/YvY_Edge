@@ -46,6 +46,7 @@ SKIP = "  [SKIP]"
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _check(label: str, ok: bool, detail: str = "") -> bool:
     marker = PASS if ok else FAIL
     line = f"{marker} {label}"
@@ -64,6 +65,7 @@ def _section(title: str) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 # Setup DB temporal con todas las migraciones
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _setup_db(tmpdir: Path) -> sqlite3.Connection:
     db_path = tmpdir / "yvy_smoke_iea7.sqlite"
@@ -84,6 +86,7 @@ def _setup_db(tmpdir: Path) -> sqlite3.Connection:
 # CHECK A: Schema
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def check_schema(conn: sqlite3.Connection) -> bool:
     _section("A · Schema y migraciones")
     ok = True
@@ -92,9 +95,15 @@ def check_schema(conn: sqlite3.Connection) -> bool:
     ok &= _check("schema_version = 12", version == 12, f"actual={version}")
 
     expected_tables = [
-        "users", "sensor_raw", "sensor_data",
-        "empirical_observation", "empirical_event",
-        "sync_queue", "audit_logs", "app_config", "app_metrics",
+        "users",
+        "sensor_raw",
+        "sensor_data",
+        "empirical_observation",
+        "empirical_event",
+        "sync_queue",
+        "audit_logs",
+        "app_config",
+        "app_metrics",
     ]
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     for t in expected_tables:
@@ -111,6 +120,7 @@ def check_schema(conn: sqlite3.Connection) -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 # CHECK B: Persistencia empírica (use cases reales)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def check_empirical(conn: sqlite3.Connection) -> bool:
     _section("B · Persistencia empírica (observaciones + eventos)")
@@ -140,9 +150,13 @@ def check_empirical(conn: sqlite3.Connection) -> bool:
 
     station_uuid = uuid.uuid4()
     actor = User(
-        id=1, user_uuid=uuid.uuid4(), username="smoke_iea7",
-        full_name="Smoke IEA7", role=Role.ALUMNO,
-        is_active=True, can_export_raw=False,
+        id=1,
+        user_uuid=uuid.uuid4(),
+        username="smoke_iea7",
+        full_name="Smoke IEA7",
+        role=Role.ALUMNO,
+        is_active=True,
+        can_export_raw=False,
     )
     conn.execute(
         "INSERT OR IGNORE INTO users "
@@ -162,12 +176,18 @@ def check_empirical(conn: sqlite3.Connection) -> bool:
 
     repo = SQLiteEmpiricalRepository(conn)
     create_obs = CreateEmpiricalObservationUseCase(
-        empirical_repo=repo, sync_repo=sync_repo, audit_repo=audit_repo,
-        app_config=app_config, time_provider=time_prov,
+        empirical_repo=repo,
+        sync_repo=sync_repo,
+        audit_repo=audit_repo,
+        app_config=app_config,
+        time_provider=time_prov,
     )
     create_evt = CreateEmpiricalEventUseCase(
-        empirical_repo=repo, sync_repo=sync_repo, audit_repo=audit_repo,
-        app_config=app_config, time_provider=time_prov,
+        empirical_repo=repo,
+        sync_repo=sync_repo,
+        audit_repo=audit_repo,
+        app_config=app_config,
+        time_provider=time_prov,
     )
 
     ok = True
@@ -221,6 +241,7 @@ def check_empirical(conn: sqlite3.Connection) -> bool:
     # Verificar payload del sync job
     call_arg = sync_repo.enqueue.call_args_list[0][0][0]
     import json
+
     payload = json.loads(call_arg.payload)
     ok &= _check("payload sync tiene 'record_id'", "record_id" in payload)
     ok &= _check("payload sync tiene 'station_uuid'", "station_uuid" in payload)
@@ -233,6 +254,7 @@ def check_empirical(conn: sqlite3.Connection) -> bool:
 # CHECK C: sync_queue acumulando pending
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def check_sync_queue(conn: sqlite3.Connection) -> bool:
     _section("C · sync_queue (status=pending, sin envíos)")
 
@@ -241,6 +263,7 @@ def check_sync_queue(conn: sqlite3.Connection) -> bool:
 
     # Enqueue un job de prueba real vía el repo
     from yvy.infrastructure.persistence.sqlite_sync_repository import SQLiteSyncRepository
+
     factory = MagicMock_factory(conn)
     sync_repo = SQLiteSyncRepository(factory)
 
@@ -255,15 +278,9 @@ def check_sync_queue(conn: sqlite3.Connection) -> bool:
     )
     sync_repo.enqueue(job)
 
-    pending = conn.execute(
-        "SELECT COUNT(*) FROM sync_queue WHERE status='pending'"
-    ).fetchone()[0]
-    sent = conn.execute(
-        "SELECT COUNT(*) FROM sync_queue WHERE status='sent'"
-    ).fetchone()[0]
-    error = conn.execute(
-        "SELECT COUNT(*) FROM sync_queue WHERE status='error'"
-    ).fetchone()[0]
+    pending = conn.execute("SELECT COUNT(*) FROM sync_queue WHERE status='pending'").fetchone()[0]
+    sent = conn.execute("SELECT COUNT(*) FROM sync_queue WHERE status='sent'").fetchone()[0]
+    error = conn.execute("SELECT COUNT(*) FROM sync_queue WHERE status='error'").fetchone()[0]
 
     ok = True
     ok &= _check("sync_queue tiene jobs pending", pending >= 1, f"n={pending}")
@@ -274,6 +291,7 @@ def check_sync_queue(conn: sqlite3.Connection) -> bool:
 
 class MagicMock_factory:
     """Adaptador mínimo para que SQLiteSyncRepository acepte conn directa."""
+
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
 
@@ -284,6 +302,7 @@ class MagicMock_factory:
 # ─────────────────────────────────────────────────────────────────────────────
 # CHECK D: Sensor live (--mode=con-sensor)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def check_sensor_live(conn: sqlite3.Connection) -> bool:
     _section("D · Sensor WH1081 live (hardware real)")
@@ -302,8 +321,9 @@ def check_sensor_live(conn: sqlite3.Connection) -> bool:
         ws = WeatherStation()
         _check("WeatherStation inicializada", True, f"ws_type={ws.ws_type}")
     except Exception as exc:
-        _check("WeatherStation inicializada", False,
-               f"{exc} → verificar Zadig/WinUSB y reconectar USB")
+        _check(
+            "WeatherStation inicializada", False, f"{exc} → verificar Zadig/WinUSB y reconectar USB"
+        )
         return False
 
     # 3. Esperar un sample live (timeout 90s)
@@ -331,13 +351,19 @@ def check_sensor_live(conn: sqlite3.Connection) -> bool:
         return False
 
     if "data" not in result:
-        ok &= _check("Sample recibido en 90s", False,
-                     "Timeout. ¿Sensor tiene batería? ¿Está en rango de radio?")
+        ok &= _check(
+            "Sample recibido en 90s",
+            False,
+            "Timeout. ¿Sensor tiene batería? ¿Está en rango de radio?",
+        )
         return False
 
     data = result["data"]
-    _check("Sample recibido del sensor", True,
-           f"idx={data.get('idx', '?')} temp_out={data.get('temp_out', '?')}")
+    _check(
+        "Sample recibido del sensor",
+        True,
+        f"idx={data.get('idx', '?')} temp_out={data.get('temp_out', '?')}",
+    )
 
     # 4. Procesar y persistir el sample via use case
     from unittest.mock import MagicMock
@@ -390,6 +416,7 @@ def check_sensor_live(conn: sqlite3.Connection) -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 # CHECK E: SensorCollectorDaemon lifecycle
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def check_daemon_lifecycle(tmpdir: Path, *, with_sensor: bool) -> bool:
     """Verifica que el daemon arranca, captura y se detiene limpiamente.
@@ -444,6 +471,7 @@ def check_daemon_lifecycle(tmpdir: Path, *, with_sensor: bool) -> bool:
             from yvy.infrastructure.pywws.live_source import (
                 PywwsLiveSource,  # type: ignore[import-not-found]
             )
+
             source = PywwsLiveSource()
         except Exception as exc:
             _check("PywwsLiveSource importable", False, str(exc))
@@ -494,16 +522,15 @@ def check_daemon_lifecycle(tmpdir: Path, *, with_sensor: bool) -> bool:
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Smoke test IEA 7 — Fase 8.6"
-    )
+    parser = argparse.ArgumentParser(description="Smoke test IEA 7 — Fase 8.6")
     parser.add_argument(
         "--mode",
         choices=["sin-sensor", "con-sensor"],
         default="sin-sensor",
         help="sin-sensor: valida DB+empírico sin hardware. "
-             "con-sensor: también valida WH1081 real.",
+        "con-sensor: también valida WH1081 real.",
     )
     args = parser.parse_args()
 

@@ -62,9 +62,7 @@ class StubCatchupSource:
 
     def read_since(self, since: datetime) -> Iterator[dict[str, Any]]:
         if since.tzinfo is None:
-            raise ValueError(
-                f"since debe ser timezone-aware. Recibido naive: {since!r}"
-            )
+            raise ValueError(f"since debe ser timezone-aware. Recibido naive: {since!r}")
 
         for slot in self._slots:
             ts_raw = slot.get("idx") or slot.get("timestamp")
@@ -229,8 +227,7 @@ class PywwsCatchupSource:
                 )
             except Exception as exc:
                 raise RuntimeError(
-                    "No se pudo inicializar WeatherStation para catchup. "
-                    "Verificá USB y driver."
+                    "No se pudo inicializar WeatherStation para catchup. " "Verificá USB y driver."
                 ) from exc
         return self._ws
 
@@ -248,9 +245,7 @@ class PywwsCatchupSource:
                 try:
                     _close()
                 except Exception as exc:
-                    logger.debug(
-                        "PywwsCatchupSource: ws.close() falló (ignorado): %s", exc
-                    )
+                    logger.debug("PywwsCatchupSource: ws.close() falló (ignorado): %s", exc)
             self._ws = None
             logger.info("PywwsCatchupSource: WeatherStation cerrada, USB liberado")
 
@@ -277,9 +272,7 @@ class PywwsCatchupSource:
             RuntimeError: si no se puede inicializar pywws o leer el fixed_block.
         """
         if since.tzinfo is None:
-            raise ValueError(
-                f"since debe ser timezone-aware. Recibido naive: {since!r}"
-            )
+            raise ValueError(f"since debe ser timezone-aware. Recibido naive: {since!r}")
 
         slots_with_ts: list[dict[str, Any]] = []
 
@@ -290,9 +283,7 @@ class PywwsCatchupSource:
             try:
                 fb = ws.get_fixed_block(unbuffered=True)
             except Exception as exc:
-                raise RuntimeError(
-                    f"No se pudo leer fixed_block de la consola: {exc}"
-                ) from exc
+                raise RuntimeError(f"No se pudo leer fixed_block de la consola: {exc}") from exc
 
             current_pos = fb.get("current_pos")
             data_count = int(fb.get("data_count", 0))
@@ -301,7 +292,8 @@ class PywwsCatchupSource:
             if current_pos is None or data_count == 0:
                 logger.warning(
                     "PywwsCatchupSource: buffer histórico vacío (data_count=%s, current_pos=%s)",
-                    data_count, current_pos,
+                    data_count,
+                    current_pos,
                 )
                 return
 
@@ -309,9 +301,9 @@ class PywwsCatchupSource:
             max_slots = min(data_count, _MAX_SLOTS_HARD_LIMIT)
             if data_count > _MAX_SLOTS_HARD_LIMIT:
                 logger.warning(
-                    "PywwsCatchupSource: data_count=%d excede hard limit, "
-                    "limitando a %d slots",
-                    data_count, _MAX_SLOTS_HARD_LIMIT,
+                    "PywwsCatchupSource: data_count=%d excede hard limit, " "limitando a %d slots",
+                    data_count,
+                    _MAX_SLOTS_HARD_LIMIT,
                 )
 
             # ── Iteración hacia atrás reconstruyendo timestamps ─────────────
@@ -327,7 +319,9 @@ class PywwsCatchupSource:
                     logger.warning(
                         "PywwsCatchupSource: error leyendo slot %d @ ptr=0x%04x: %s. "
                         "Cortando iteración.",
-                        i, ptr if isinstance(ptr, int) else 0, exc,
+                        i,
+                        ptr if isinstance(ptr, int) else 0,
+                        exc,
                     )
                     break
 
@@ -362,13 +356,15 @@ class PywwsCatchupSource:
                 except Exception as exc:
                     logger.warning(
                         "PywwsCatchupSource: dec_ptr falló tras %d slots: %s",
-                        i + 1, exc,
+                        i + 1,
+                        exc,
                     )
                     break
 
             logger.info(
                 "PywwsCatchupSource: recuperados %d slots del buffer (since=%s)",
-                len(slots_with_ts), since.isoformat(),
+                len(slots_with_ts),
+                since.isoformat(),
             )
 
         finally:

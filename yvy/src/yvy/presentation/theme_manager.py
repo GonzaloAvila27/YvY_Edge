@@ -46,41 +46,41 @@ logger = logging.getLogger(__name__)
 # ─── Paletas ──────────────────────────────────────────────────────────────────
 
 LIGHT: dict[str, str] = {
-    "bg":                "#F5F1E8",   # fondo general (BG_CREAM)
-    "surface":           "#FFFFFF",   # cards (BG_CARD)
-    "sidebar":           "#E8E2D2",   # sidebar (BG_SIDEBAR)
-    "hover":             "#DCD4C0",   # hover / item activo (BG_HOVER)
-    "header":            "#1E3A5F",   # barra superior (PRIMARY)
-    "text":              "#2B2621",   # texto principal (TEXT_PRIMARY)
-    "text_muted":        "#6B7280",   # texto secundario (TEXT_SECONDARY)
-    "text_on_dark":      "#FFFFFF",   # texto sobre fondos oscuros
-    "text_on_dark_muted":"#B0B7C0",
-    "gold":              "#C9A227",   # acento dorado (ACCENT_GOLD)
-    "olive":             "#9AA223",   # acento oliva (ACCENT_OLIVE)
-    "success":           "#7A9E1F",   # éxito / oliva luz (SUCCESS)
-    "danger":            "#C2362A",   # error (DANGER)
-    "warning":           "#C9A227",   # aviso (WARNING)
-    "border":            "#D1C9B8",   # bordes (BORDER)
-    "active_border":     "#7A9E1F",   # borde lateral item activo sidebar
+    "bg": "#F5F1E8",  # fondo general (BG_CREAM)
+    "surface": "#FFFFFF",  # cards (BG_CARD)
+    "sidebar": "#E8E2D2",  # sidebar (BG_SIDEBAR)
+    "hover": "#DCD4C0",  # hover / item activo (BG_HOVER)
+    "header": "#1E3A5F",  # barra superior (PRIMARY)
+    "text": "#2B2621",  # texto principal (TEXT_PRIMARY)
+    "text_muted": "#6B7280",  # texto secundario (TEXT_SECONDARY)
+    "text_on_dark": "#FFFFFF",  # texto sobre fondos oscuros
+    "text_on_dark_muted": "#B0B7C0",
+    "gold": "#C9A227",  # acento dorado (ACCENT_GOLD)
+    "olive": "#9AA223",  # acento oliva (ACCENT_OLIVE)
+    "success": "#7A9E1F",  # éxito / oliva luz (SUCCESS)
+    "danger": "#C2362A",  # error (DANGER)
+    "warning": "#C9A227",  # aviso (WARNING)
+    "border": "#D1C9B8",  # bordes (BORDER)
+    "active_border": "#7A9E1F",  # borde lateral item activo sidebar
 }
 
 DARK: dict[str, str] = {
-    "bg":                "#0D1621",
-    "surface":           "#1E3A5F",   # cards oscuras
-    "sidebar":           "#121C2B",
-    "hover":             "#1A3050",
-    "header":            "#0D1621",
-    "text":              "#F5F1E8",
-    "text_muted":        "#7A9BB5",
-    "text_on_dark":      "#F5F1E8",
-    "text_on_dark_muted":"#7A9BB5",
-    "gold":              "#C9A227",
-    "olive":             "#9AA223",
-    "success":           "#9AA223",
-    "danger":            "#E05050",
-    "warning":           "#C9A227",
-    "border":            "#1E3A5F",   # mismo que surface (diseño intencional)
-    "active_border":     "#C9A227",
+    "bg": "#0D1621",
+    "surface": "#1E3A5F",  # cards oscuras
+    "sidebar": "#121C2B",
+    "hover": "#1A3050",
+    "header": "#0D1621",
+    "text": "#F5F1E8",
+    "text_muted": "#7A9BB5",
+    "text_on_dark": "#F5F1E8",
+    "text_on_dark_muted": "#7A9BB5",
+    "gold": "#C9A227",
+    "olive": "#9AA223",
+    "success": "#9AA223",
+    "danger": "#E05050",
+    "warning": "#C9A227",
+    "border": "#1E3A5F",  # mismo que surface (diseño intencional)
+    "active_border": "#C9A227",
 }
 
 # ─── ThemeManager ─────────────────────────────────────────────────────────────
@@ -127,9 +127,7 @@ class ThemeManager:
             return
         try:
             path = self._data_path / _THEME_FILE
-            path.write_text(
-                json.dumps({"mode": self._mode}, indent=2), encoding="utf-8"
-            )
+            path.write_text(json.dumps({"mode": self._mode}, indent=2), encoding="utf-8")
         except Exception as exc:
             logger.warning("theme_manager.save.failed", extra={"error": str(exc)})
 
@@ -161,12 +159,12 @@ def _normalize_hex(color: str) -> str:
 # desde el hex, lo que resuelve ambigüedades cuando dos colores son iguales
 # (ej. DARK surface == DARK border == "#1E3A5F").
 
-_TAG_BG   = "_yvy_bg_key"
-_TAG_FG   = "_yvy_fg_key"
-_TAG_HLBG = "_yvy_hlbg_key"    # highlightbackground (borde de cards)
-_TAG_SEL  = "_yvy_sel_key"     # selectcolor (tk.Radiobutton)
-_TAG_ABG  = "_yvy_abg_key"     # activebackground
-_TAG_AFG  = "_yvy_afg_key"     # activeforeground
+_TAG_BG = "_yvy_bg_key"
+_TAG_FG = "_yvy_fg_key"
+_TAG_HLBG = "_yvy_hlbg_key"  # highlightbackground (borde de cards)
+_TAG_SEL = "_yvy_sel_key"  # selectcolor (tk.Radiobutton)
+_TAG_ABG = "_yvy_abg_key"  # activebackground
+_TAG_AFG = "_yvy_afg_key"  # activeforeground
 
 
 # ─── Helper de recoloreado recursivo ─────────────────────────────────────────
@@ -358,57 +356,65 @@ def update_ttk_styles(root: Any, palette: dict[str, str]) -> None:
     """Actualiza los ttk.Style para reflejar la paleta activa."""
     try:
         from tkinter import ttk
+
         style = ttk.Style(root)
-        bg    = palette["bg"]
-        surf  = palette["surface"]
-        text  = palette["text"]
+        bg = palette["bg"]
+        surf = palette["surface"]
+        text = palette["text"]
         muted = palette["text_muted"]
         border = palette["border"]
         header = palette["header"]
-        hover  = palette["hover"]
+        hover = palette["hover"]
 
-        style.configure("TFrame",           background=bg)
-        style.configure("Card.TFrame",      background=surf)
-        style.configure("Content.TFrame",   background=bg)
-        style.configure("Sidebar.TFrame",   background=palette["sidebar"])
-        style.configure("TLabel",           background=bg,   foreground=text)
-        style.configure("H1.TLabel",        background=bg,   foreground=text)
-        style.configure("H2.TLabel",        background=bg,   foreground=text)
-        style.configure("H3.TLabel",        background=bg,   foreground=text)
-        style.configure("Body.TLabel",      background=bg,   foreground=text)
-        style.configure("Secondary.TLabel", background=bg,   foreground=muted)
-        style.configure("Card.TLabel",      background=surf, foreground=text)
-        style.configure("CardH3.TLabel",    background=surf, foreground=text)
+        style.configure("TFrame", background=bg)
+        style.configure("Card.TFrame", background=surf)
+        style.configure("Content.TFrame", background=bg)
+        style.configure("Sidebar.TFrame", background=palette["sidebar"])
+        style.configure("TLabel", background=bg, foreground=text)
+        style.configure("H1.TLabel", background=bg, foreground=text)
+        style.configure("H2.TLabel", background=bg, foreground=text)
+        style.configure("H3.TLabel", background=bg, foreground=text)
+        style.configure("Body.TLabel", background=bg, foreground=text)
+        style.configure("Secondary.TLabel", background=bg, foreground=muted)
+        style.configure("Card.TLabel", background=surf, foreground=text)
+        style.configure("CardH3.TLabel", background=surf, foreground=text)
         style.configure("CardSecondary.TLabel", background=surf, foreground=muted)
-        style.configure("KPIValue.TLabel",  background=surf, foreground=text)
-        style.configure("TEntry",
-                        fieldbackground=surf, background=surf,
-                        foreground=text, bordercolor=border,
-                        lightcolor=border, darkcolor=border)
-        style.configure("TCombobox",
-                        fieldbackground=surf, background=surf,
-                        foreground=text, bordercolor=border, arrowcolor=text)
-        style.map("TCombobox",
-                  fieldbackground=[("readonly", surf)],
-                  bordercolor=[("focus", palette["gold"])])
-        style.configure("TRadiobutton",
-                        background=surf, foreground=text)
-        style.map("TRadiobutton",
-                  background=[("active", hover)],
-                  foreground=[("active", text)])
-        style.configure("TCheckbutton",
-                        background=bg, foreground=text)
-        style.map("TCheckbutton",
-                  background=[("active", hover)],
-                  foreground=[("active", text)])
-        style.configure("Treeview",
-                        background=surf, fieldbackground=surf,
-                        foreground=text, bordercolor=border)
-        style.configure("Treeview.Heading",
-                        background=bg, foreground=text)
-        style.map("Treeview",
-                  background=[("selected", header)],
-                  foreground=[("selected", palette["text_on_dark"])])
+        style.configure("KPIValue.TLabel", background=surf, foreground=text)
+        style.configure(
+            "TEntry",
+            fieldbackground=surf,
+            background=surf,
+            foreground=text,
+            bordercolor=border,
+            lightcolor=border,
+            darkcolor=border,
+        )
+        style.configure(
+            "TCombobox",
+            fieldbackground=surf,
+            background=surf,
+            foreground=text,
+            bordercolor=border,
+            arrowcolor=text,
+        )
+        style.map(
+            "TCombobox",
+            fieldbackground=[("readonly", surf)],
+            bordercolor=[("focus", palette["gold"])],
+        )
+        style.configure("TRadiobutton", background=surf, foreground=text)
+        style.map("TRadiobutton", background=[("active", hover)], foreground=[("active", text)])
+        style.configure("TCheckbutton", background=bg, foreground=text)
+        style.map("TCheckbutton", background=[("active", hover)], foreground=[("active", text)])
+        style.configure(
+            "Treeview", background=surf, fieldbackground=surf, foreground=text, bordercolor=border
+        )
+        style.configure("Treeview.Heading", background=bg, foreground=text)
+        style.map(
+            "Treeview",
+            background=[("selected", header)],
+            foreground=[("selected", palette["text_on_dark"])],
+        )
         root.option_add("*TCombobox*Listbox*Background", surf)
         root.option_add("*TCombobox*Listbox*Foreground", text)
     except Exception as exc:

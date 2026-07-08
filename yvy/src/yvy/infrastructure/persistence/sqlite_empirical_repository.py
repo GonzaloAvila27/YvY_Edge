@@ -86,9 +86,7 @@ class SQLiteEmpiricalRepository:
             logger.exception("IntegrityError al guardar observación: %s", exc)
             raise
 
-    def find_observation_by_id(
-        self, observation_id: uuid.UUID
-    ) -> EmpiricalObservation | None:
+    def find_observation_by_id(self, observation_id: uuid.UUID) -> EmpiricalObservation | None:
         row = self._conn.execute(
             "SELECT * FROM empirical_observation WHERE observation_id = ?",
             (str(observation_id),),
@@ -205,9 +203,7 @@ class SQLiteEmpiricalRepository:
         ).fetchall()
         return [self._row_to_event(r) for r in rows]
 
-    def list_events_for_observation(
-        self, observation_id: uuid.UUID
-    ) -> list[EmpiricalEvent]:
+    def list_events_for_observation(self, observation_id: uuid.UUID) -> list[EmpiricalEvent]:
         rows = self._conn.execute(
             """SELECT * FROM empirical_event
                WHERE observation_id = ?
@@ -255,20 +251,28 @@ class SQLiteEmpiricalRepository:
             temp_c=row["temp_c"],
             wind_beaufort=row["wind_beaufort"],
             wind_direction=WindDirection(row["wind_direction"]) if row["wind_direction"] else None,
-            humidity_percept=HumidityPercept(row["humidity_percept"]) if row["humidity_percept"] else None,
+            humidity_percept=HumidityPercept(row["humidity_percept"])
+            if row["humidity_percept"]
+            else None,
             sky_coverage_pct=row["sky_coverage_pct"],
             cloud_type=CloudType(row["cloud_type"]) if row["cloud_type"] else None,
             soil_state=SoilState(row["soil_state"]) if row["soil_state"] else None,
             visibility=Visibility(row["visibility"]) if row["visibility"] else None,
-            precipitation_now=PrecipitationNow(row["precipitation_now"]) if row["precipitation_now"] else None,
+            precipitation_now=PrecipitationNow(row["precipitation_now"])
+            if row["precipitation_now"]
+            else None,
             phenology_notes=row["phenology_notes"],
-            livestock_state=LivestockState(row["livestock_state"]) if row["livestock_state"] else None,
+            livestock_state=LivestockState(row["livestock_state"])
+            if row["livestock_state"]
+            else None,
             livestock_notes=row["livestock_notes"],
             general_notes=row["general_notes"],
             is_valid=bool(row["is_valid"]),
             validation_notes=row["validation_notes"],
             created_by_user_id=row["created_by_user_id"],
-            created_at_utc=datetime.fromisoformat(row["created_at_utc"]) if row["created_at_utc"] else None,
+            created_at_utc=datetime.fromisoformat(row["created_at_utc"])
+            if row["created_at_utc"]
+            else None,
         )
 
     def _row_to_event(self, row: sqlite3.Row) -> EmpiricalEvent:
@@ -283,5 +287,7 @@ class SQLiteEmpiricalRepository:
             description=row["description"],
             is_valid=bool(row["is_valid"]),
             created_by_user_id=row["created_by_user_id"],
-            created_at_utc=datetime.fromisoformat(row["created_at_utc"]) if row["created_at_utc"] else None,
+            created_at_utc=datetime.fromisoformat(row["created_at_utc"])
+            if row["created_at_utc"]
+            else None,
         )

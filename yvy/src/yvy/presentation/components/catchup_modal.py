@@ -215,9 +215,7 @@ class CatchupModal(Modal):
         date_frame.pack(anchor="w", pady=(0, SPACE_LG))
 
         # Default: hoy local - default_days_back
-        default_dt = datetime.now(tz=self._local_tz) - timedelta(
-            days=self._default_days_back
-        )
+        default_dt = datetime.now(tz=self._local_tz) - timedelta(days=self._default_days_back)
         self._day_var = tk.StringVar(value=f"{default_dt.day:02d}")
         self._month_var = tk.StringVar(value=f"{default_dt.month:02d}")
         self._year_var = tk.StringVar(value=str(default_dt.year))
@@ -384,8 +382,11 @@ class CatchupModal(Modal):
             ("Slots leídos", str(r.slots_read), TEXT_PRIMARY),
             ("Nuevos", str(r.new_in_raw), SUCCESS),
             ("Ya estaban en DB", str(r.already_present), TEXT_SECONDARY),
-            ("Errores de parsing", str(r.parse_errors),
-             DANGER if r.parse_errors > 0 else TEXT_SECONDARY),
+            (
+                "Errores de parsing",
+                str(r.parse_errors),
+                DANGER if r.parse_errors > 0 else TEXT_SECONDARY,
+            ),
         ]
         for i, (label, value, color) in enumerate(rows):
             tk.Label(
@@ -452,10 +453,7 @@ class CatchupModal(Modal):
 
         # Mensaje específico según tipo de error
         if isinstance(exc, CatchupAlreadyRunningError):
-            msg = (
-                "Ya hay una recuperación en curso. Esperá a que termine "
-                "antes de iniciar otra."
-            )
+            msg = "Ya hay una recuperación en curso. Esperá a que termine " "antes de iniciar otra."
         elif isinstance(exc, ValueError):
             msg = f"Parámetros inválidos: {exc}"
         else:
@@ -487,15 +485,9 @@ class CatchupModal(Modal):
         )
         self._controller.trigger_catchup(
             since=since_utc,
-            on_progress=lambda msg: self._safe_after(
-                lambda: self._update_progress(msg)
-            ),
-            on_done=lambda result: self._safe_after(
-                lambda: self._handle_done(result)
-            ),
-            on_error=lambda exc: self._safe_after(
-                lambda: self._handle_error(exc)
-            ),
+            on_progress=lambda msg: self._safe_after(lambda: self._update_progress(msg)),
+            on_done=lambda result: self._safe_after(lambda: self._handle_done(result)),
+            on_error=lambda exc: self._safe_after(lambda: self._handle_error(exc)),
         )
 
     def _on_execute_clicked(self) -> None:
@@ -519,15 +511,9 @@ class CatchupModal(Modal):
         # para volver al main thread.
         self._controller.trigger_catchup(
             since=since_utc,
-            on_progress=lambda msg: self._safe_after(
-                lambda: self._update_progress(msg)
-            ),
-            on_done=lambda result: self._safe_after(
-                lambda: self._handle_done(result)
-            ),
-            on_error=lambda exc: self._safe_after(
-                lambda: self._handle_error(exc)
-            ),
+            on_progress=lambda msg: self._safe_after(lambda: self._update_progress(msg)),
+            on_done=lambda result: self._safe_after(lambda: self._handle_done(result)),
+            on_error=lambda exc: self._safe_after(lambda: self._handle_error(exc)),
         )
 
     def _safe_after(self, fn) -> None:  # type: ignore[no-untyped-def]
@@ -556,12 +542,27 @@ class CatchupModal(Modal):
 
 
 _DAYS_ES = (
-    "lunes", "martes", "miércoles", "jueves",
-    "viernes", "sábado", "domingo",
+    "lunes",
+    "martes",
+    "miércoles",
+    "jueves",
+    "viernes",
+    "sábado",
+    "domingo",
 )
 _MONTHS_ES = (
-    "enero", "febrero", "marzo", "abril", "mayo", "junio",
-    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+    "enero",
+    "febrero",
+    "marzo",
+    "abril",
+    "mayo",
+    "junio",
+    "julio",
+    "agosto",
+    "septiembre",
+    "octubre",
+    "noviembre",
+    "diciembre",
 )
 
 

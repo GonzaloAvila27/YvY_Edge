@@ -71,7 +71,8 @@ def _add_update_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Instala el paquete descargado (lanza INSTALL_UPDATE.bat).",
     )
     install_p.add_argument(
-        "--yes", "-y",
+        "--yes",
+        "-y",
         action="store_true",
         help="No pedir confirmación interactiva.",
     )
@@ -115,7 +116,8 @@ def _add_rollback_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Motivo del rollback (queda en audit log).",
     )
     rollback_parser.add_argument(
-        "--yes", "-y",
+        "--yes",
+        "-y",
         action="store_true",
         help="No pedir confirmación interactiva.",
     )
@@ -262,6 +264,7 @@ def _add_queue_parser(subparsers) -> None:
 
 def _cmd_version() -> int:
     from yvy import __version__
+
     print(__version__)
     return 0
 
@@ -272,7 +275,8 @@ def _cmd_status(root: Path, no_migrate: bool) -> int:
     from yvy.cli.renderers import print_report
 
     deps = build_core_dependencies(
-        root=root, run_migrations_on_start=not no_migrate,
+        root=root,
+        run_migrations_on_start=not no_migrate,
     )
     report = compute_status(deps)
 
@@ -287,7 +291,8 @@ def _cmd_info(root: Path, no_migrate: bool) -> int:
     from yvy.cli.renderers import print_report
 
     deps = build_core_dependencies(
-        root=root, run_migrations_on_start=not no_migrate,
+        root=root,
+        run_migrations_on_start=not no_migrate,
     )
     report = compute_info(deps)
     print_report(report, title="YVY Edge — Información del nodo")
@@ -309,7 +314,8 @@ def _cmd_test_db(root: Path, no_migrate: bool) -> int:
     from yvy.cli.renderers import print_report
 
     deps = build_core_dependencies(
-        root=root, run_migrations_on_start=not no_migrate,
+        root=root,
+        run_migrations_on_start=not no_migrate,
     )
     report = test_db(deps)
     print_report(report, title="Test DB — SQLite y migraciones")
@@ -322,7 +328,8 @@ def _cmd_test_sync(root: Path, no_migrate: bool, timeout: float) -> int:
     from yvy.cli.renderers import print_report
 
     deps = build_core_dependencies(
-        root=root, run_migrations_on_start=not no_migrate,
+        root=root,
+        run_migrations_on_start=not no_migrate,
     )
     report = test_sync(deps, timeout_s=timeout)
     print_report(report, title="Test sync — Credentials + conectividad")
@@ -521,7 +528,10 @@ def _cmd_configure_sync(
 
     deps = build_core_dependencies(root=root, run_migrations_on_start=not no_migrate)
     result = configure_sync(
-        deps, creds_path=Path(creds_path), server_url=server_url, force=force,
+        deps,
+        creds_path=Path(creds_path),
+        server_url=server_url,
+        force=force,
     )
 
     if result["skipped"]:
@@ -549,7 +559,8 @@ def _cmd_check_updates(root: Path, no_migrate: bool) -> int:
     from yvy.cli.handlers import compute_check_updates
 
     deps = build_core_dependencies(
-        root=root, run_migrations_on_start=not no_migrate,
+        root=root,
+        run_migrations_on_start=not no_migrate,
     )
 
     print("Verificando actualizaciones contra YVY Core...")

@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("yvy.sync.update_checker")
 
-CHECK_INTERVAL_S: float = 21600.0    # 6 horas — fallback periódico
+CHECK_INTERVAL_S: float = 21600.0  # 6 horas — fallback periódico
 REQUEST_TIMEOUT_S: float = 10.0
 
 
@@ -96,7 +96,7 @@ class UpdateCheckerDaemon:
         if self._thread is None:
             return
         self._shutdown.set()
-        self._trigger.set()          # wake idle wait
+        self._trigger.set()  # wake idle wait
         self._thread.join(timeout=timeout_s)
         if self._thread.is_alive():
             logger.warning("update_checker.stop.timeout", extra={"timeout_s": timeout_s})
@@ -173,9 +173,7 @@ class UpdateCheckerDaemon:
         # Persiste la sync_version conocida
         self._app_config_repo.set_last_sync_version(response.sync_version)
         # Timestamp de última verificación exitosa
-        self._app_config_repo.set(
-            "update.last_checked_at", datetime.now(UTC).isoformat()
-        )
+        self._app_config_repo.set("update.last_checked_at", datetime.now(UTC).isoformat())
 
         if not response.update_available:
             # ERR-003: el server ya no ofrece update → limpiar cualquier pending

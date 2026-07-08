@@ -9,6 +9,7 @@ The canonical JSON serializer is exposed here as a vendor copy of the
 server's authoritative implementation. See ``canonical_json.py`` for
 details.
 """
+
 from yvy.infrastructure.sync.canonical_json import (
     CANONICAL_JSON_SPEC_VERSION,
     canonicalize,

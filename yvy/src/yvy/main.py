@@ -59,9 +59,7 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="yvy",
         description="YVY · Sistema meteorológico escolar offline-first",
     )
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="logging DEBUG"
-    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="logging DEBUG")
 
     subparsers = parser.add_subparsers(dest="command")
 

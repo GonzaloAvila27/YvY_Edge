@@ -35,7 +35,7 @@ from yvy.presentation.theme import (
 
 logger = logging.getLogger(__name__)
 
-_DWELL_MS = 400   # ms de hover antes de mostrar el modal
+_DWELL_MS = 400  # ms de hover antes de mostrar el modal
 
 
 class HelpButton(tk.Frame):
@@ -80,7 +80,10 @@ class HelpButton(tk.Frame):
         self._canvas.pack()
 
         self._canvas.create_oval(
-            1, 1, size - 1, size - 1,
+            1,
+            1,
+            size - 1,
+            size - 1,
             fill=PRIMARY,
             outline=PRIMARY,
         )
@@ -163,9 +166,7 @@ class HelpButton(tk.Frame):
         Útil para HelpButtons dinámicos (ej. header del gráfico).
         """
         if self._repo.get_article(new_key) is None:
-            logger.warning(
-                "HelpButton.update_article_key: key inexistente: %s", new_key
-            )
+            logger.warning("HelpButton.update_article_key: key inexistente: %s", new_key)
             return
         self._article_key = new_key
         # Cerrar modal abierto si corresponde a la key anterior

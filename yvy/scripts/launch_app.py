@@ -55,7 +55,7 @@ _LOG_FILE = _LOG_DIR / "yvy_app.log"
 _handlers: list[logging.Handler] = [
     RotatingFileHandler(
         _LOG_FILE,
-        maxBytes=2 * 1024 * 1024,   # 2 MB por archivo
+        maxBytes=2 * 1024 * 1024,  # 2 MB por archivo
         backupCount=3,
         encoding="utf-8",
     ),
@@ -125,9 +125,7 @@ STATION_CREDENTIALS_PATH = STABLE_ROOT / "data" / "station_credentials.json"
 
 def main() -> int:
     # Construir deps core vía bootstrap (compartido con CLI python -m yvy)
-    deps = build_core_dependencies(
-        root=STABLE_ROOT, migrations_dir=CODE_ROOT / "migrations"
-    )
+    deps = build_core_dependencies(root=STABLE_ROOT, migrations_dir=CODE_ROOT / "migrations")
     factory = deps.factory
 
     # ── C3: Detección post-instalación ────────────────────────────────────
@@ -187,13 +185,17 @@ def main() -> int:
             temp_uuid = str(uuid.uuid4())
             app_config_repo.set("station_uuid", temp_uuid)
             app_config_repo.set("station_uuid_is_temporary", "true")
-            _logger_main.info("[onboarding] UUID temporal: %s (el wizard lo reemplazará)", temp_uuid)
+            _logger_main.info(
+                "[onboarding] UUID temporal: %s (el wizard lo reemplazará)", temp_uuid
+            )
         _logger_main.info("[onboarding] Primera instalación — el wizard configurará la estación.")
 
     _station_uuid = StationUUID(uuid.UUID(app_config_repo.get("station_uuid")))
     _parser = PywwsPayloadParser()
 
-    login_uc = LoginUseCase(user_repo=user_repo, audit_repo=audit_repo, hasher=hasher, time_provider=clock)
+    login_uc = LoginUseCase(
+        user_repo=user_repo, audit_repo=audit_repo, hasher=hasher, time_provider=clock
+    )
     change_uc = ChangePasswordUseCase(user_repo=user_repo, audit_repo=audit_repo, hasher=hasher)
     set_active_uc = SetUserActiveUseCase(user_repo=user_repo, audit_repo=audit_repo)
     toggle_uc = ToggleExportFlagUseCase(user_repo=user_repo, audit_repo=audit_repo)
@@ -373,9 +375,7 @@ def main() -> int:
     try:
         _purged = sync_repo.purge_stale_double_encoded_empirical()
         if _purged > 0:
-            _logger_main.warning(
-                "startup: purged %d stale double-encoded empirical jobs", _purged
-            )
+            _logger_main.warning("startup: purged %d stale double-encoded empirical jobs", _purged)
     except Exception as _exc:
         _logger_main.warning("[sync] auto-purga empíricos no corrió: %s", _exc)
 
@@ -387,7 +387,9 @@ def main() -> int:
         except Exception as _exc:
             _logger_main.warning("[sync] SyncAgentDaemon no inició: %s", _exc)
     else:
-        _logger_main.info("[sync] SyncAgentDaemon NO inicializado (faltan credentials). UI sigue operativa.")
+        _logger_main.info(
+            "[sync] SyncAgentDaemon NO inicializado (faltan credentials). UI sigue operativa."
+        )
 
     if update_checker is not None:
         try:
@@ -444,18 +446,25 @@ def _load_sync_credentials(app_config_repo) -> dict | None:
         key_version = int(creds["key_version"])
         key_bytes = bytes.fromhex(creds["key_hmac_hex"])
     except (KeyError, ValueError, TypeError) as exc:
-        _logger_main.warning("[sync] Credentials JSON inválido (%s: %s). Agent deshabilitado.", type(exc).__name__, exc)
+        _logger_main.warning(
+            "[sync] Credentials JSON inválido (%s: %s). Agent deshabilitado.",
+            type(exc).__name__,
+            exc,
+        )
         return None
 
     if len(key_bytes) < 32:
-        _logger_main.warning("[sync] key_hmac_hex demasiado corto (%d bytes). Agent deshabilitado.", len(key_bytes))
+        _logger_main.warning(
+            "[sync] key_hmac_hex demasiado corto (%d bytes). Agent deshabilitado.", len(key_bytes)
+        )
         return None
 
     cfg_station = app_config_repo.get("station_uuid")
     if cfg_station and uuid.UUID(cfg_station) != station_uuid:
         _logger_main.warning(
             "[sync] station_uuid en credentials (%s) NO coincide con app_config (%s). Agent deshabilitado.",
-            station_uuid, cfg_station,
+            station_uuid,
+            cfg_station,
         )
         return None
 
@@ -506,6 +515,7 @@ def _try_build_update_checker(
     trigger,
 ) -> UpdateCheckerDaemon:
     from yvy import __version__
+
     return UpdateCheckerDaemon(
         http_client=http_client,
         app_config_repo=app_config_repo,
@@ -529,6 +539,7 @@ def _post_boot_check(app_config_repo, root: Path) -> None:
         return
 
     from yvy import __version__ as _ver
+
     to_version = app_config_repo.get_install_to_version()
     from_version = app_config_repo.get_install_from_version() or "?"
     now_iso = _dt.now(UTC).isoformat()
@@ -546,6 +557,7 @@ def _post_boot_check(app_config_repo, root: Path) -> None:
             SQLiteAuditLogRepository,
         )
         from yvy.infrastructure.updates.installer import UpdateInstaller
+
         _factory = SQLiteConnectionFactory(path=root / "data" / "yvy.sqlite")
         _audit = SQLiteAuditLogRepository(_factory)
         _installer = UpdateInstaller(
@@ -557,11 +569,14 @@ def _post_boot_check(app_config_repo, root: Path) -> None:
 
         from yvy.domain.auth.enums import AuditEventType, AuditSource
         from yvy.domain.auth.models import AuditLogEntry
-        _audit.append(AuditLogEntry(
-            event_type=AuditEventType.UPDATE_COMPLETED,
-            source=AuditSource.SYSTEM,
-            metadata={"from_version": from_version, "to_version": to_version},
-        ))
+
+        _audit.append(
+            AuditLogEntry(
+                event_type=AuditEventType.UPDATE_COMPLETED,
+                source=AuditSource.SYSTEM,
+                metadata={"from_version": from_version, "to_version": to_version},
+            )
+        )
         _logger_main.info(
             "update.install.completed",
             extra={"from": from_version, "to": to_version},
@@ -572,7 +587,9 @@ def _post_boot_check(app_config_repo, root: Path) -> None:
         detail = f"version_mismatch: expected={to_version}, actual={_ver}"
         app_config_repo.set_install_failed(detail)
         app_config_repo.set_show_result("version_mismatch")
-        _logger_main.error("update.install.version_mismatch", extra={"expected": to_version, "actual": _ver})
+        _logger_main.error(
+            "update.install.version_mismatch", extra={"expected": to_version, "actual": _ver}
+        )
 
 
 def _evaluate_stable_silently(app_config_repo, root: Path) -> None:
@@ -583,6 +600,7 @@ def _evaluate_stable_silently(app_config_repo, root: Path) -> None:
             SQLiteAuditLogRepository,
         )
         from yvy.infrastructure.updates.retention import ReleaseRetention
+
         _factory = SQLiteConnectionFactory(path=root / "data" / "yvy.sqlite")
         _audit = SQLiteAuditLogRepository(_factory)
         retention = ReleaseRetention(

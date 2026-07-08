@@ -67,7 +67,9 @@ def main() -> int:
     clock = SystemClock()
 
     create_uc = CreateUserUseCase(user_repo=user_repo, audit_repo=audit_repo, hasher=hasher)
-    login_uc = LoginUseCase(user_repo=user_repo, audit_repo=audit_repo, hasher=hasher, time_provider=clock)
+    login_uc = LoginUseCase(
+        user_repo=user_repo, audit_repo=audit_repo, hasher=hasher, time_provider=clock
+    )
     change_uc = ChangePasswordUseCase(user_repo=user_repo, audit_repo=audit_repo, hasher=hasher)
     set_active_uc = SetUserActiveUseCase(user_repo=user_repo, audit_repo=audit_repo)
     toggle_uc = ToggleExportFlagUseCase(user_repo=user_repo, audit_repo=audit_repo)
@@ -87,6 +89,7 @@ def main() -> int:
     from yvy.infrastructure.persistence.sqlite_sync_repository import (
         SQLiteSyncRepository,
     )
+
     sensor_repo = SQLiteSensorRepository(factory)
     sync_repo = SQLiteSyncRepository(factory)
     retention_uc = RunRetentionJobUseCase(
@@ -98,8 +101,11 @@ def main() -> int:
     )
 
     create_uc.execute(
-        username="director", full_name="Juan Pérez", password="director2026",
-        role=Role.SUPERADMIN, can_export_raw=True,
+        username="director",
+        full_name="Juan Pérez",
+        password="director2026",
+        role=Role.SUPERADMIN,
+        can_export_raw=True,
     )
 
     auth_controller = AuthController(login_use_case=login_uc, change_password_use_case=change_uc)
@@ -109,9 +115,12 @@ def main() -> int:
         return u.id if u else None
 
     users_controller = UsersAdminController(
-        user_repo=user_repo, create_user_uc=create_uc,
-        change_password_uc=change_uc, set_active_uc=set_active_uc,
-        toggle_export_uc=toggle_uc, actor_user_id_provider=_actor_provider,
+        user_repo=user_repo,
+        create_user_uc=create_uc,
+        change_password_uc=change_uc,
+        set_active_uc=set_active_uc,
+        toggle_export_uc=toggle_uc,
+        actor_user_id_provider=_actor_provider,
     )
 
     # HelpRepository — apunta al directorio resources/help/ del proyecto

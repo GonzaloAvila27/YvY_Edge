@@ -94,9 +94,7 @@ class ExportDataCsvUseCase:
             where_clauses.append("observed_at <= ?")
             params.append(date_to.strftime("%Y-%m-%dT%H:%M:%S.999Z"))
 
-        where_sql = (
-            " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
-        )
+        where_sql = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
         sql = f"""
             SELECT id, event_id, observed_at AS observed_at_utc, pywws_mode,
                    temp_outdoor, temp_indoor, hum_outdoor, hum_indoor,
@@ -130,15 +128,11 @@ class ExportDataCsvUseCase:
                 metadata={
                     "rows": rows_count,
                     "file_name": output_path.name,
-                    "date_from": (
-                        date_from.isoformat() if date_from else None
-                    ),
+                    "date_from": (date_from.isoformat() if date_from else None),
                     "date_to": date_to.isoformat() if date_to else None,
                 },
             )
         )
 
-        logger.info(
-            "Export sensor_data: %d filas → %s", rows_count, output_path
-        )
+        logger.info("Export sensor_data: %d filas → %s", rows_count, output_path)
         return ExportDataResult(file_path=output_path, rows_exported=rows_count)

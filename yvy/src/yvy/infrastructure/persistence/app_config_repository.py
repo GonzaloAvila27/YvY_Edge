@@ -23,9 +23,7 @@ class AppConfigRepository:
 
     def get(self, key: str) -> str | None:
         conn = self._factory.get_connection()
-        cur = conn.execute(
-            "SELECT value FROM app_config WHERE key = ?", (key,)
-        )
+        cur = conn.execute("SELECT value FROM app_config WHERE key = ?", (key,))
         row = cur.fetchone()
         return str(row[0]) if row else None
 
@@ -157,7 +155,10 @@ class AppConfigRepository:
     ) -> None:
         self.set("update_install.from_version", from_version)
         self.set("update_install.to_version", to_version)
-        self.set("update_install.requested_by", str(requested_by) if requested_by is not None else "SYSTEM")
+        self.set(
+            "update_install.requested_by",
+            str(requested_by) if requested_by is not None else "SYSTEM",
+        )
         self.set("update_install.requested_at", requested_at)
 
     def get_install_to_version(self) -> str | None:
@@ -204,6 +205,7 @@ class AppConfigRepository:
 
     def get_releases_installed(self) -> list[str]:
         import json
+
         raw = self.get("releases.installed")
         if not raw:
             return []
@@ -214,6 +216,7 @@ class AppConfigRepository:
 
     def set_releases_installed(self, versions: list[str]) -> None:
         import json
+
         self.set("releases.installed", json.dumps(versions))
 
     def get_current_release(self) -> str | None:

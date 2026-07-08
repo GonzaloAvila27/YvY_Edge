@@ -83,9 +83,7 @@ class DataView(tk.Frame):
 
         # State de filtros
         now = datetime.now(UTC)
-        self._date_to_var = tk.StringVar(
-            value=now.strftime("%Y-%m-%d")
-        )
+        self._date_to_var = tk.StringVar(value=now.strftime("%Y-%m-%d"))
         self._date_from_var = tk.StringVar(
             value=(now - timedelta(days=DEFAULT_DAYS_BACK)).strftime("%Y-%m-%d")
         )
@@ -105,7 +103,9 @@ class DataView(tk.Frame):
 
         # Header textual
         ttk.Label(
-            container, text="Mediciones", style="H1.TLabel",
+            container,
+            text="Mediciones",
+            style="H1.TLabel",
         ).pack(anchor="w")
         ttk.Label(
             container,
@@ -140,11 +140,20 @@ class DataView(tk.Frame):
         inner.pack(fill="both", expand=True)
 
         columns = (
-            "fecha", "hora", "temp_out", "hum_out",
-            "pressure", "wind", "rain", "uv",
+            "fecha",
+            "hora",
+            "temp_out",
+            "hum_out",
+            "pressure",
+            "wind",
+            "rain",
+            "uv",
         )
         self._tree = ttk.Treeview(
-            inner, columns=columns, show="headings", height=12,
+            inner,
+            columns=columns,
+            show="headings",
+            height=12,
         )
         self._tree.heading("fecha", text="Fecha")
         self._tree.heading("hora", text="Hora")
@@ -180,23 +189,31 @@ class DataView(tk.Frame):
         filters.pack(side="left")
 
         tk.Label(
-            filters, text="Desde:",
-            bg=BG_CREAM, fg=TEXT_SECONDARY, font=FONT_SMALL,
+            filters,
+            text="Desde:",
+            bg=BG_CREAM,
+            fg=TEXT_SECONDARY,
+            font=FONT_SMALL,
         ).pack(side="left", padx=(0, SPACE_SM))
         ttk.Entry(filters, textvariable=self._date_from_var, width=12).pack(
             side="left", padx=(0, SPACE_MD)
         )
 
         tk.Label(
-            filters, text="Hasta:",
-            bg=BG_CREAM, fg=TEXT_SECONDARY, font=FONT_SMALL,
+            filters,
+            text="Hasta:",
+            bg=BG_CREAM,
+            fg=TEXT_SECONDARY,
+            font=FONT_SMALL,
         ).pack(side="left", padx=(0, SPACE_SM))
         ttk.Entry(filters, textvariable=self._date_to_var, width=12).pack(
             side="left", padx=(0, SPACE_MD)
         )
 
         ttk.Button(
-            filters, text="Aplicar filtro", command=self.refresh,
+            filters,
+            text="Aplicar filtro",
+            command=self.refresh,
             style="Primary.TButton",
         ).pack(side="left")
 
@@ -310,7 +327,7 @@ class DataView(tk.Frame):
             dt = datetime.fromisoformat(observed.replace("Z", "+00:00"))
             dt_local = dt.astimezone(_TZ_AR)
             fecha_str = dt_local.strftime("%d/%m/%Y")
-            hora_str  = dt_local.strftime("%H:%M")
+            hora_str = dt_local.strftime("%H:%M")
         except (ValueError, AttributeError):
             fecha_str = observed[:10] if observed else "—"
             hora_str = observed[11:16] if len(observed) > 16 else "—"
@@ -321,7 +338,8 @@ class DataView(tk.Frame):
             wind_str = f"{wind_str} ({self._wind_dir_text(obs['wind_direction'])})"
 
         iid = self._tree.insert(
-            "", "end",
+            "",
+            "end",
             values=(
                 fecha_str,
                 hora_str,
@@ -419,7 +437,9 @@ class DataView(tk.Frame):
                     trend = "down"
 
             snapshots[spec.column] = MetricSnapshot(
-                current=current, avg_24h=avg_24, trend=trend,
+                current=current,
+                avg_24h=avg_24,
+                trend=trend,
             )
         return snapshots
 
@@ -458,6 +478,7 @@ class DataView(tk.Frame):
         def _run() -> None:
             try:
                 from pathlib import Path as _Path
+
                 result = self._import_data_uc.execute(
                     input_path=_Path(path),
                     actor_user_id=actor.id if actor else None,
@@ -473,10 +494,13 @@ class DataView(tk.Frame):
                 self.after(0, self.refresh)
             except Exception as exc:
                 logger.exception("Import sensor_data falló")
-                self.after(0, lambda exc=exc: messagebox.showerror(
-                    "Error al importar",
-                    f"No se pudo importar el archivo:\n{exc}",
-                ))
+                self.after(
+                    0,
+                    lambda exc=exc: messagebox.showerror(
+                        "Error al importar",
+                        f"No se pudo importar el archivo:\n{exc}",
+                    ),
+                )
 
         threading.Thread(target=_run, daemon=True).start()
 
@@ -504,21 +528,28 @@ class DataView(tk.Frame):
                     actor_user_id=actor.id if actor else None,
                     actor_username=actor.username if actor else None,
                 )
-                self.after(0, lambda: messagebox.showinfo(
-                    "Exportación completada",
-                    f"Se exportaron {result.rows_exported} filas a:\n{result.file_path}",
-                ))
+                self.after(
+                    0,
+                    lambda: messagebox.showinfo(
+                        "Exportación completada",
+                        f"Se exportaron {result.rows_exported} filas a:\n{result.file_path}",
+                    ),
+                )
             except Exception as exc:
                 logger.exception("Export sensor_data falló")
-                self.after(0, lambda exc=exc: messagebox.showerror(
-                    "Error",
-                    f"No se pudo exportar:\n{exc}",
-                ))
+                self.after(
+                    0,
+                    lambda exc=exc: messagebox.showerror(
+                        "Error",
+                        f"No se pudo exportar:\n{exc}",
+                    ),
+                )
 
         threading.Thread(target=_run, daemon=True).start()
 
     def apply_theme(self, palette: dict) -> None:
         from yvy.presentation.theme_manager import recolor
+
         recolor(self, palette)
         if self._carousel is not None:
             self._carousel.apply_theme(palette)
@@ -553,15 +584,21 @@ class DataView(tk.Frame):
                     actor_user_id=actor.id if actor else None,
                     actor_username=actor.username if actor else None,
                 )
-                self.after(0, lambda: messagebox.showinfo(
-                    "Exportación completada",
-                    f"Se exportaron {result.rows_exported} filas a:\n{result.file_path}",
-                ))
+                self.after(
+                    0,
+                    lambda: messagebox.showinfo(
+                        "Exportación completada",
+                        f"Se exportaron {result.rows_exported} filas a:\n{result.file_path}",
+                    ),
+                )
             except Exception as exc:
                 logger.exception("Export sensor_raw falló")
-                self.after(0, lambda exc=exc: messagebox.showerror(
-                    "Error",
-                    f"No se pudo exportar:\n{exc}",
-                ))
+                self.after(
+                    0,
+                    lambda exc=exc: messagebox.showerror(
+                        "Error",
+                        f"No se pudo exportar:\n{exc}",
+                    ),
+                )
 
         threading.Thread(target=_run, daemon=True).start()

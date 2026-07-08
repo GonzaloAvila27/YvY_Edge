@@ -164,6 +164,7 @@ def main() -> int:
         parse_errors=3,
     )
     from yvy.presentation.components.catchup_modal import _State
+
     modal._state = _State.RESULT_OK
     modal._render_state()
     app.update()
@@ -173,6 +174,7 @@ def main() -> int:
 
     # 4. Estado RESULT_ERROR
     from yvy.domain.sensor.exceptions import CatchupAlreadyRunningError
+
     modal._last_error = CatchupAlreadyRunningError("Ya hay una recuperación en curso")
     modal._state = _State.RESULT_ERROR
     modal._render_state()

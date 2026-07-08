@@ -63,21 +63,16 @@ class SetUserActiveUseCase:
 
         # Crear nueva instancia con is_active actualizado (User es frozen).
         from dataclasses import replace
+
         updated = replace(target, is_active=is_active)
         # save() necesita un password_hash; pero como no estamos cambiando
         # el password, leemos el actual para preservarlo.
         current_hash = self.user_repo.get_password_hash(target_user_id)
         if current_hash is None:
-            raise UserNotFoundError(
-                f"User id={target_user_id} sin password_hash"
-            )
+            raise UserNotFoundError(f"User id={target_user_id} sin password_hash")
         self.user_repo.save(updated, current_hash)
 
-        event = (
-            AuditEventType.USER_REACTIVATED
-            if is_active
-            else AuditEventType.USER_DEACTIVATED
-        )
+        event = AuditEventType.USER_REACTIVATED if is_active else AuditEventType.USER_DEACTIVATED
         self.audit_repo.append(
             AuditLogEntry(
                 event_type=event,
@@ -124,11 +119,11 @@ class ToggleExportFlagUseCase:
         # Política: alumnos NO pueden tener can_export_raw=True.
         if target.role == Role.ALUMNO and can_export:
             raise ValueError(
-                "Alumnos no pueden tener permiso de export_raw. "
-                "Cambiar primero el rol."
+                "Alumnos no pueden tener permiso de export_raw. " "Cambiar primero el rol."
             )
 
         from dataclasses import replace
+
         updated = replace(target, can_export_raw=can_export)
         current_hash = self.user_repo.get_password_hash(target_user_id)
         assert current_hash is not None

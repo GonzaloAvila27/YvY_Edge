@@ -151,7 +151,9 @@ class SyncController:
         status_filter: SyncStatus | None = None,
     ) -> list[SyncJob]:
         return self._sync_repo.list_recent(
-            limit=limit, status_filter=status_filter, before_id=before_id,
+            limit=limit,
+            status_filter=status_filter,
+            before_id=before_id,
         )
 
     # ─── API de escritura: catchup recovery ──────────────────────────────
@@ -169,9 +171,7 @@ class SyncController:
         inmediatamente a on_error con CatchupAlreadyRunningError.
         """
         if not self._catchup_lock.acquire(blocking=False):
-            logger.warning(
-                "trigger_catchup llamado mientras ya hay un thread corriendo"
-            )
+            logger.warning("trigger_catchup llamado mientras ya hay un thread corriendo")
             if on_error:
                 on_error(
                     CatchupAlreadyRunningError(
@@ -198,8 +198,7 @@ class SyncController:
                         paused_live = _request(timeout=120.0)
                         if not paused_live:
                             raise RuntimeError(
-                                "El live source no liberó el USB en 120 s. "
-                                "Catchup cancelado."
+                                "El live source no liberó el USB en 120 s. " "Catchup cancelado."
                             )
 
                 if on_progress:
@@ -209,8 +208,10 @@ class SyncController:
                 result = self._catchup_use_case.execute(since)
                 logger.info(
                     "Catchup completado: read=%d new=%d existed=%d errors=%d",
-                    result.slots_read, result.new_in_raw,
-                    result.already_present, result.parse_errors,
+                    result.slots_read,
+                    result.new_in_raw,
+                    result.already_present,
+                    result.parse_errors,
                 )
                 if on_done:
                     on_done(result)
@@ -228,7 +229,9 @@ class SyncController:
                 self._catchup_lock.release()
 
         thread = threading.Thread(
-            target=_run, name="catchup-recovery", daemon=True,
+            target=_run,
+            name="catchup-recovery",
+            daemon=True,
         )
         self._catchup_thread = thread
         thread.start()
@@ -349,7 +352,8 @@ class SyncController:
             "is_downloaded": is_downloaded,
             "downloaded_path": (
                 self._app_config_repo.get("update_pending.local_path")  # type: ignore[union-attr]
-                if self._app_config_repo is not None else None
+                if self._app_config_repo is not None
+                else None
             ),
         }
 
@@ -381,10 +385,7 @@ class SyncController:
 
     def is_download_running(self) -> bool:
         """True si hay una descarga en curso."""
-        return (
-            self._download_thread is not None
-            and self._download_thread.is_alive()
-        )
+        return self._download_thread is not None and self._download_thread.is_alive()
 
     def _run_download(
         self,
@@ -430,12 +431,14 @@ class SyncController:
         try:
             result = downloader.download(progress_callback=progress_callback)
             if done_callback:
-                done_callback({
-                    "ok": result.success,
-                    "error": result.error,
-                    "bytes_downloaded": result.bytes_downloaded,
-                    "dest_path": str(result.dest_path) if result.success else None,
-                })
+                done_callback(
+                    {
+                        "ok": result.success,
+                        "error": result.error,
+                        "bytes_downloaded": result.bytes_downloaded,
+                        "dest_path": str(result.dest_path) if result.success else None,
+                    }
+                )
         except Exception as exc:
             logger.exception("Error en _run_download")
             if done_callback:
@@ -458,6 +461,7 @@ class SyncController:
                 SQLiteAuditLogRepository,
             )
             from yvy.infrastructure.updates.installer import UpdateInstaller
+
             _factory = SQLiteConnectionFactory(path=self._root_path / "data" / "yvy.sqlite")
             _audit = SQLiteAuditLogRepository(_factory)
             return UpdateInstaller(
@@ -526,6 +530,7 @@ class SyncController:
                 SQLiteAuditLogRepository,
             )
             from yvy.infrastructure.updates.retention import ReleaseRetention
+
             _factory = SQLiteConnectionFactory(path=self._root_path / "data" / "yvy.sqlite")
             _audit = SQLiteAuditLogRepository(_factory)
             retention = ReleaseRetention(

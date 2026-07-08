@@ -52,14 +52,14 @@ logger = logging.getLogger(__name__)
 
 # ─── Colores de las series (independientes del theme general) ─────────────────
 
-_COLOR_TEMP     = "#1F3A5F"
+_COLOR_TEMP = "#1F3A5F"
 _COLOR_DEWPOINT = "#4A7C2A"
-_COLOR_WIND     = "#6B4C9A"
+_COLOR_WIND = "#6B4C9A"
 
-_COLOR_NIGHT    = "#2E3D5C"
-_ALPHA_NIGHT    = 0.10
+_COLOR_NIGHT = "#2E3D5C"
+_ALPHA_NIGHT = 0.10
 
-_SCATTER_SIZE   = 40
+_SCATTER_SIZE = 40
 
 
 class FrostView(tk.Frame):
@@ -117,15 +117,14 @@ class FrostView(tk.Frame):
 
             # ── Calcular series derivadas ──────────────────────────────
             dewpoints = [
-                dewpoint_c(t, h)
-                for t, h in zip(series.temp_c, series.hum_pct, strict=False)
+                dewpoint_c(t, h) for t, h in zip(series.temp_c, series.hum_pct, strict=False)
             ]
             wind_kmh = [mps_to_kmh(w) for w in series.wind_mps]
 
-            ts      = series.timestamps
-            temp_y  = [v if v is not None else float("nan") for v in series.temp_c]
-            dew_y   = [v if v is not None else float("nan") for v in dewpoints]
-            wind_y  = [v if v is not None else float("nan") for v in wind_kmh]
+            ts = series.timestamps
+            temp_y = [v if v is not None else float("nan") for v in series.temp_c]
+            dew_y = [v if v is not None else float("nan") for v in dewpoints]
+            wind_y = [v if v is not None else float("nan") for v in wind_kmh]
 
             # ── Eje Y derecho para viento ──────────────────────────────
             ax2 = ax.twinx()
@@ -138,21 +137,23 @@ class FrostView(tk.Frame):
             # ── Bandas nocturnas ───────────────────────────────────────
             for band_start, band_end in night_bands(_pr.start, _pr.end, self._tz):
                 ax.axvspan(
-                    band_start, band_end,
-                    color=_COLOR_NIGHT, alpha=_ALPHA_NIGHT, zorder=0,
+                    band_start,
+                    band_end,
+                    color=_COLOR_NIGHT,
+                    alpha=_ALPHA_NIGHT,
+                    zorder=0,
                 )
 
             # ── Series principales ─────────────────────────────────────
             ax.plot(ts, temp_y, color=_COLOR_TEMP, linewidth=1.8, zorder=3)
-            ax.plot(ts, dew_y,  color=_COLOR_DEWPOINT, linewidth=1.5,
-                    linestyle="--", zorder=3)
+            ax.plot(ts, dew_y, color=_COLOR_DEWPOINT, linewidth=1.5, linestyle="--", zorder=3)
             ax2.plot(ts, wind_y, color=_COLOR_WIND, linewidth=1.5, zorder=3)
 
             # ── Dots de probable helada ────────────────────────────────
             frost_pts: dict[FrostLevel, tuple[list, list]] = {
-                FrostLevel.ALTA:  ([], []),
+                FrostLevel.ALTA: ([], []),
                 FrostLevel.MEDIA: ([], []),
-                FrostLevel.BAJA:  ([], []),
+                FrostLevel.BAJA: ([], []),
             }
             for t_ts, t_c, d_c in zip(ts, series.temp_c, dewpoints, strict=False):
                 level = probable_frost_level(t_c, d_c)
@@ -163,25 +164,29 @@ class FrostView(tk.Frame):
             for level, (pts_ts, pts_temp) in frost_pts.items():
                 if pts_ts:
                     ax.scatter(
-                        pts_ts, pts_temp,
+                        pts_ts,
+                        pts_temp,
                         color=frost_color_hex(level),
-                        s=_SCATTER_SIZE, marker="s", zorder=5,
+                        s=_SCATTER_SIZE,
+                        marker="s",
+                        zorder=5,
                     )
 
             # ── Leyenda ────────────────────────────────────────────────
             handles: list = [
-                Line2D([0], [0], color=_COLOR_TEMP,     linewidth=1.8,
-                       label="Temperatura (°C)"),
-                Line2D([0], [0], color=_COLOR_DEWPOINT, linewidth=1.5,
-                       linestyle="--", label="Punto de rocío (°C)"),
-                Line2D([0], [0], color=_COLOR_WIND,     linewidth=1.5,
-                       label="Viento (km/h)"),
-                Patch(facecolor=frost_color_hex(FrostLevel.ALTA),
-                      label="Probable helada (alta)"),
-                Patch(facecolor=frost_color_hex(FrostLevel.MEDIA),
-                      label="Probable helada (media)"),
-                Patch(facecolor=frost_color_hex(FrostLevel.BAJA),
-                      label="Probable helada (baja)"),
+                Line2D([0], [0], color=_COLOR_TEMP, linewidth=1.8, label="Temperatura (°C)"),
+                Line2D(
+                    [0],
+                    [0],
+                    color=_COLOR_DEWPOINT,
+                    linewidth=1.5,
+                    linestyle="--",
+                    label="Punto de rocío (°C)",
+                ),
+                Line2D([0], [0], color=_COLOR_WIND, linewidth=1.5, label="Viento (km/h)"),
+                Patch(facecolor=frost_color_hex(FrostLevel.ALTA), label="Probable helada (alta)"),
+                Patch(facecolor=frost_color_hex(FrostLevel.MEDIA), label="Probable helada (media)"),
+                Patch(facecolor=frost_color_hex(FrostLevel.BAJA), label="Probable helada (baja)"),
             ]
             ax.legend(
                 handles=handles,
@@ -202,24 +207,16 @@ class FrostView(tk.Frame):
             ax.set_xlim(_pr.start, _pr.end)
 
             if duration <= timedelta(hours=24):
-                ax.xaxis.set_major_formatter(
-                    mdates.DateFormatter("%H:%M", tz=self._tz)
-                )
+                ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M", tz=self._tz))
                 ax.xaxis.set_major_locator(mdates.HourLocator(interval=4))
             elif duration <= timedelta(days=7):
-                ax.xaxis.set_major_formatter(
-                    mdates.DateFormatter("%d %b", tz=self._tz)
-                )
+                ax.xaxis.set_major_formatter(mdates.DateFormatter("%d %b", tz=self._tz))
                 ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
             elif duration <= timedelta(days=30):
-                ax.xaxis.set_major_formatter(
-                    mdates.DateFormatter("%d %b", tz=self._tz)
-                )
+                ax.xaxis.set_major_formatter(mdates.DateFormatter("%d %b", tz=self._tz))
                 ax.xaxis.set_major_locator(mdates.DayLocator(interval=5))
             else:
-                ax.xaxis.set_major_formatter(
-                    mdates.DateFormatter("%b %Y", tz=self._tz)
-                )
+                ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %Y", tz=self._tz))
                 ax.xaxis.set_major_locator(mdates.MonthLocator(interval=2))
 
             ax.tick_params(axis="x", rotation=30, colors=TEXT_SECONDARY, labelsize=10)

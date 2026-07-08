@@ -125,10 +125,10 @@ def _configure_tags(widget: tk.Text) -> None:
     from yvy.presentation.theme_manager import DARK, theme_manager
 
     is_dark = theme_manager.mode == "dark"
-    h1_fg   = DARK["gold"]        if is_dark else PRIMARY
-    text_fg = DARK["text"]        if is_dark else TEXT_PRIMARY
-    muted   = DARK["text_muted"]  if is_dark else TEXT_SECONDARY
-    bullet  = DARK["gold"]        if is_dark else PRIMARY
+    h1_fg = DARK["gold"] if is_dark else PRIMARY
+    text_fg = DARK["text"] if is_dark else TEXT_PRIMARY
+    muted = DARK["text_muted"] if is_dark else TEXT_SECONDARY
+    bullet = DARK["gold"] if is_dark else PRIMARY
 
     widget.tag_configure(
         "h1",
@@ -151,7 +151,7 @@ def _configure_tags(widget: tk.Text) -> None:
         spacing3=4,
         spacing1=2,
     )
-    widget.tag_configure("bold",   font=FONT_BODY_BOLD)
+    widget.tag_configure("bold", font=FONT_BODY_BOLD)
     widget.tag_configure("italic", font=("DejaVu Sans", 10, "italic"))
-    widget.tag_configure("bullet",    foreground=bullet, font=FONT_BODY_BOLD)
-    widget.tag_configure("separator", foreground=muted,  justify="center")
+    widget.tag_configure("bullet", foreground=bullet, font=FONT_BODY_BOLD)
+    widget.tag_configure("separator", foreground=muted, justify="center")

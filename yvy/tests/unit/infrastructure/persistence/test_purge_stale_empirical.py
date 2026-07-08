@@ -5,6 +5,7 @@ Verifica el predicado preciso: solo se borran filas empíricas
 es un str (doble-codificado). Filas bien-codificadas, sensor_reading y otros
 estados NO se tocan. Idempotente.
 """
+
 from __future__ import annotations
 
 import json

@@ -46,9 +46,7 @@ class TestEventIDPropertyIdempotence:
 
     @given(station=station_uuids(), dt=utc_datetimes_in_range())
     @settings(max_examples=200)
-    def test_idempotent_for_any_valid_input(
-        self, station: StationUUID, dt: datetime
-    ) -> None:
+    def test_idempotent_for_any_valid_input(self, station: StationUUID, dt: datetime) -> None:
         """Para cualquier (station, datetime), llamar 2 veces da el mismo resultado."""
         ts = canonicalize_to_minute_utc(dt)
         result_a = build_event_id(station, ts)
@@ -57,9 +55,7 @@ class TestEventIDPropertyIdempotence:
 
     @given(station=station_uuids(), dt=utc_datetimes_in_range())
     @settings(max_examples=200)
-    def test_result_is_always_uuid_v5(
-        self, station: StationUUID, dt: datetime
-    ) -> None:
+    def test_result_is_always_uuid_v5(self, station: StationUUID, dt: datetime) -> None:
         """Para cualquier input, el resultado es UUID v5."""
         ts = canonicalize_to_minute_utc(dt)
         result = build_event_id(station, ts)
@@ -86,9 +82,7 @@ class TestEventIDPropertyIdempotence:
         """
         # Truncamos al minuto manualmente para asegurar que estamos en el mismo minuto
         base_minute = dt.replace(second=0, microsecond=0)
-        variant = base_minute.replace(
-            second=seconds_offset, microsecond=microsecond_offset
-        )
+        variant = base_minute.replace(second=seconds_offset, microsecond=microsecond_offset)
 
         ts_base = canonicalize_to_minute_utc(base_minute)
         ts_variant = canonicalize_to_minute_utc(variant)

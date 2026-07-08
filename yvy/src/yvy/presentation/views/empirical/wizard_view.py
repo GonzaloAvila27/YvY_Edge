@@ -153,8 +153,11 @@ class EmpiricalWizardView(tk.Frame):
         ).pack(side="left", padx=SPACE_LG)
 
         self._step_label = tk.Label(
-            self._header, text="Paso 1 de 4",
-            font=FONTS["body"], bg=COLORS["primary"], fg=COLORS["text_inverse"],
+            self._header,
+            text="Paso 1 de 4",
+            font=FONTS["body"],
+            bg=COLORS["primary"],
+            fg=COLORS["text_inverse"],
         )
         self._step_label.pack(side="right", padx=SPACE_LG)
 
@@ -171,50 +174,48 @@ class EmpiricalWizardView(tk.Frame):
         body_wrap.pack(side="top", fill="both", expand=True)
 
         self._body_canvas = tk.Canvas(body_wrap, bg=COLORS["bg"], highlightthickness=0)
-        body_scroll = ttk.Scrollbar(
-            body_wrap, orient="vertical", command=self._body_canvas.yview
-        )
+        body_scroll = ttk.Scrollbar(body_wrap, orient="vertical", command=self._body_canvas.yview)
         self._body_canvas.configure(yscrollcommand=body_scroll.set)
         body_scroll.pack(side="right", fill="y")
         self._body_canvas.pack(side="left", fill="both", expand=True)
 
         self._body = tk.Frame(self._body_canvas, bg=COLORS["bg"])
-        self._body_win = self._body_canvas.create_window(
-            (0, 0), window=self._body, anchor="nw"
-        )
+        self._body_win = self._body_canvas.create_window((0, 0), window=self._body, anchor="nw")
         self._body_canvas.bind(
             "<Configure>",
             lambda e: self._body_canvas.itemconfig(self._body_win, width=e.width),
         )
         self._body.bind(
             "<Configure>",
-            lambda _: self._body_canvas.configure(
-                scrollregion=self._body_canvas.bbox("all")
-            ),
+            lambda _: self._body_canvas.configure(scrollregion=self._body_canvas.bbox("all")),
         )
         # Rueda del mouse, scoped al área del wizard (bind/unbind por hover)
         body_wrap.bind(
             "<Enter>",
             lambda _: self._body_canvas.bind_all("<MouseWheel>", self._on_mousewheel),
         )
-        body_wrap.bind(
-            "<Leave>", lambda _: self._body_canvas.unbind_all("<MouseWheel>")
-        )
+        body_wrap.bind("<Leave>", lambda _: self._body_canvas.unbind_all("<MouseWheel>"))
 
         self._btn_cancel = ttk.Button(
-            self._footer, text="Cancelar", style="Secondary.TButton",
+            self._footer,
+            text="Cancelar",
+            style="Secondary.TButton",
             command=self._handle_cancel,
         )
         self._btn_cancel.pack(side="left", padx=SPACE_LG, pady=SPACE_MD)
 
         self._btn_back = ttk.Button(
-            self._footer, text="Atrás", style="Secondary.TButton",
+            self._footer,
+            text="Atrás",
+            style="Secondary.TButton",
             command=self._go_back,
         )
         # se empaqueta dinámicamente en _render_step
 
         self._btn_next = ttk.Button(
-            self._footer, text="Siguiente", style="Primary.TButton",
+            self._footer,
+            text="Siguiente",
+            style="Primary.TButton",
             command=self._go_next,
         )
         self._btn_next.pack(side="right", padx=SPACE_LG, pady=SPACE_MD)
@@ -223,6 +224,7 @@ class EmpiricalWizardView(tk.Frame):
         """Aplica la paleta dada a todos los widgets del wizard."""
         self._last_palette: dict | None = palette
         from yvy.presentation.theme_manager import recolor
+
         recolor(self, palette)
 
     def _render_step(self) -> None:
@@ -258,14 +260,13 @@ class EmpiricalWizardView(tk.Frame):
         lp = getattr(self, "_last_palette", None)
         if lp is not None:
             from yvy.presentation.theme_manager import recolor
+
             recolor(self._body, lp)
 
         # Cada step arranca desde el tope del scroll
         self._body_canvas.yview_moveto(0)
         self.after_idle(
-            lambda: self._body_canvas.configure(
-                scrollregion=self._body_canvas.bbox("all")
-            )
+            lambda: self._body_canvas.configure(scrollregion=self._body_canvas.bbox("all"))
         )
 
     def _on_mousewheel(self, event) -> None:
@@ -292,14 +293,25 @@ class EmpiricalWizardView(tk.Frame):
         )
 
     def _field_header(
-        self, parent, text, article_key, *,
-        font=FONT_FORM_LABEL, fg=TEXT_PRIMARY, pady=(0, FORM_LABEL_MB),
+        self,
+        parent,
+        text,
+        article_key,
+        *,
+        font=FONT_FORM_LABEL,
+        fg=TEXT_PRIMARY,
+        pady=(0, FORM_LABEL_MB),
     ):  # type: ignore[no-untyped-def]
         """Fila 'label + [?]' para encabezar un campo. Reemplaza un tk.Label simple."""
         hdr = tk.Frame(parent, bg=COLORS["bg"])
         hdr.pack(anchor="w", pady=pady)
         tk.Label(
-            hdr, text=text, font=font, bg=COLORS["bg"], fg=fg, anchor="w",
+            hdr,
+            text=text,
+            font=font,
+            bg=COLORS["bg"],
+            fg=fg,
+            anchor="w",
         ).pack(side="left")
         hb = self._help_btn(hdr, article_key)
         if hb is not None:
@@ -317,15 +329,22 @@ class EmpiricalWizardView(tk.Frame):
         tk.Label(
             container,
             text="Cuándo y quién observa",
-            font=FONTS["heading"], bg=COLORS["bg"], fg=COLORS["text"],
+            font=FONTS["heading"],
+            bg=COLORS["bg"],
+            fg=COLORS["text"],
         ).pack(anchor="w", pady=(0, SPACE_MD))
 
         tk.Label(
             container,
-            text=("Indicá la fecha y hora del momento de observación.\n"
-                  "Si estás cargando una observación retrospectiva, podés elegir hasta 7 días atrás."),
-            font=FONTS["body"], bg=COLORS["bg"], fg=COLORS["text_muted"],
-            justify="left", wraplength=600,
+            text=(
+                "Indicá la fecha y hora del momento de observación.\n"
+                "Si estás cargando una observación retrospectiva, podés elegir hasta 7 días atrás."
+            ),
+            font=FONTS["body"],
+            bg=COLORS["bg"],
+            fg=COLORS["text_muted"],
+            justify="left",
+            wraplength=600,
         ).pack(anchor="w", pady=(0, SPACE_LG))
 
         # Grid de 2 columnas: etiqueta (col 0, ancho fijo) | inputs (col 1)
@@ -338,43 +357,69 @@ class EmpiricalWizardView(tk.Frame):
         today = datetime.now(_TZ_AR).date()
         seven_days_ago = today - timedelta(days=7)
         d = self._state["observed_date"]
-        self._day_var   = tk.StringVar(value=f"{d.day:02d}")
+        self._day_var = tk.StringVar(value=f"{d.day:02d}")
         self._month_var = tk.StringVar(value=f"{d.month:02d}")
-        self._year_var  = tk.StringVar(value=f"{d.year}")
+        self._year_var = tk.StringVar(value=f"{d.year}")
 
         # ── Fila 0: Fecha ─────────────────────────────────────────────────
         tk.Label(
-            form, text="Fecha",
-            font=FONTS["body"], bg=COLORS["bg"], fg=COLORS["text"], anchor="e",
+            form,
+            text="Fecha",
+            font=FONTS["body"],
+            bg=COLORS["bg"],
+            fg=COLORS["text"],
+            anchor="e",
         ).grid(row=0, column=0, sticky="e", pady=SPACE_SM, padx=(0, SPACE_MD))
 
         date_inputs = tk.Frame(form, bg=COLORS["bg"])
         date_inputs.grid(row=0, column=1, sticky="w", pady=SPACE_SM)
-        ttk.Spinbox(date_inputs, from_=1, to=31, textvariable=self._day_var, width=4).pack(side="left")
+        ttk.Spinbox(date_inputs, from_=1, to=31, textvariable=self._day_var, width=4).pack(
+            side="left"
+        )
         tk.Label(date_inputs, text="/", bg=COLORS["bg"], padx=SPACE_XS).pack(side="left")
-        ttk.Spinbox(date_inputs, from_=1, to=12, textvariable=self._month_var, width=4).pack(side="left")
+        ttk.Spinbox(date_inputs, from_=1, to=12, textvariable=self._month_var, width=4).pack(
+            side="left"
+        )
         tk.Label(date_inputs, text="/", bg=COLORS["bg"], padx=SPACE_XS).pack(side="left")
-        ttk.Spinbox(date_inputs, from_=seven_days_ago.year, to=today.year, textvariable=self._year_var, width=6).pack(side="left")
+        ttk.Spinbox(
+            date_inputs,
+            from_=seven_days_ago.year,
+            to=today.year,
+            textvariable=self._year_var,
+            width=6,
+        ).pack(side="left")
 
         # ── Fila 1: Hora ──────────────────────────────────────────────────
         tk.Label(
-            form, text="Hora",
-            font=FONTS["body"], bg=COLORS["bg"], fg=COLORS["text"], anchor="e",
+            form,
+            text="Hora",
+            font=FONTS["body"],
+            bg=COLORS["bg"],
+            fg=COLORS["text"],
+            anchor="e",
         ).grid(row=1, column=0, sticky="e", pady=SPACE_SM, padx=(0, SPACE_MD))
 
-        self._hour_var   = tk.StringVar(value=f"{self._state['observed_hour']:02d}")
+        self._hour_var = tk.StringVar(value=f"{self._state['observed_hour']:02d}")
         self._minute_var = tk.StringVar(value=f"{self._state['observed_minute']:02d}")
 
         time_inputs = tk.Frame(form, bg=COLORS["bg"])
         time_inputs.grid(row=1, column=1, sticky="w", pady=SPACE_SM)
-        ttk.Spinbox(time_inputs, from_=0, to=23, textvariable=self._hour_var, width=4).pack(side="left")
+        ttk.Spinbox(time_inputs, from_=0, to=23, textvariable=self._hour_var, width=4).pack(
+            side="left"
+        )
         tk.Label(time_inputs, text=":", bg=COLORS["bg"], padx=SPACE_XS).pack(side="left")
-        ttk.Spinbox(time_inputs, from_=0, to=59, textvariable=self._minute_var, width=4).pack(side="left")
+        ttk.Spinbox(time_inputs, from_=0, to=59, textvariable=self._minute_var, width=4).pack(
+            side="left"
+        )
 
         # ── Fila 2: Observador (read-only) ────────────────────────────────
         tk.Label(
-            form, text="Observador",
-            font=FONTS["body"], bg=COLORS["bg"], fg=COLORS["text"], anchor="e",
+            form,
+            text="Observador",
+            font=FONTS["body"],
+            bg=COLORS["bg"],
+            fg=COLORS["text"],
+            anchor="e",
         ).grid(row=2, column=0, sticky="e", pady=(SPACE_LG, 0), padx=(0, SPACE_MD))
 
         obs_value = tk.Frame(form, bg=COLORS["bg"])
@@ -382,12 +427,16 @@ class EmpiricalWizardView(tk.Frame):
         tk.Label(
             obs_value,
             text=f"{self._current_user.full_name}",
-            font=FONTS["body_bold"], bg=COLORS["bg"], fg=ACCENT_GOLD,
+            font=FONTS["body_bold"],
+            bg=COLORS["bg"],
+            fg=ACCENT_GOLD,
         ).pack(side="left")
         tk.Label(
             obs_value,
             text=f"({self._current_user.username})",
-            font=FONTS["body"], bg=COLORS["bg"], fg=COLORS["text_muted"],
+            font=FONTS["body"],
+            bg=COLORS["bg"],
+            fg=COLORS["text_muted"],
         ).pack(side="left", padx=(SPACE_SM, 0))
 
     # ════════════════════════════════════════════════════════════════════
@@ -406,18 +455,25 @@ class EmpiricalWizardView(tk.Frame):
         """
         outer = tk.Frame(self._body, bg=COLORS["bg"])
         outer.pack(
-            padx=FORM_PADDING_H, pady=FORM_PADDING_V,
-            fill="both", expand=True,
+            padx=FORM_PADDING_H,
+            pady=FORM_PADDING_V,
+            fill="both",
+            expand=True,
         )
 
         tk.Label(
-            outer, text="Mediciones cuantitativas",
-            font=FONTS["heading"], bg=COLORS["bg"], fg=COLORS["text"],
+            outer,
+            text="Mediciones cuantitativas",
+            font=FONTS["heading"],
+            bg=COLORS["bg"],
+            fg=COLORS["text"],
         ).pack(anchor="w", pady=(0, SPACE_MD))
         tk.Label(
             outer,
             text="Valores leídos de los instrumentos (pluviómetro, termómetro, etc).",
-            font=FONTS["body"], bg=COLORS["bg"], fg=COLORS["text_muted"],
+            font=FONTS["body"],
+            bg=COLORS["bg"],
+            fg=COLORS["text_muted"],
         ).pack(anchor="w", pady=(0, FORM_ROW_GAP))
 
         # ── Grid 2 columnas ─────────────────────────────────────────────
@@ -433,7 +489,9 @@ class EmpiricalWizardView(tk.Frame):
         self._temp_var = tk.StringVar(value=str(self._state["temp_c"] or ""))
 
         self._place_numeric_field(
-            grid, row=0, col=0,
+            grid,
+            row=0,
+            col=0,
             label="Lluvia (mm)",
             var=self._rain_var,
             hint="Pluviómetro manual",
@@ -441,7 +499,9 @@ class EmpiricalWizardView(tk.Frame):
             article_key="glosario_lluvia_uv",
         )
         self._place_numeric_field(
-            grid, row=0, col=1,
+            grid,
+            row=0,
+            col=1,
             label="Temperatura (°C)",
             var=self._temp_var,
             hint="Termómetro de máx/mín",
@@ -452,13 +512,14 @@ class EmpiricalWizardView(tk.Frame):
         # ── Fila 1: Viento Beaufort (span 2, full-width) ─────────────────
         beau_cell = tk.Frame(grid, bg=COLORS["bg"])
         beau_cell.grid(
-            row=1, column=0, columnspan=2,
-            sticky="ew", pady=(FORM_ROW_GAP, 0),
+            row=1,
+            column=0,
+            columnspan=2,
+            sticky="ew",
+            pady=(FORM_ROW_GAP, 0),
         )
         self._field_header(beau_cell, "Viento (Beaufort 0-12)", "glosario_beaufort")
-        self._beaufort_var = tk.StringVar(
-            value=str(self._state["wind_beaufort"] or "")
-        )
+        self._beaufort_var = tk.StringVar(value=str(self._state["wind_beaufort"] or ""))
         ttk.Combobox(
             beau_cell,
             textvariable=self._beaufort_var,
@@ -469,8 +530,11 @@ class EmpiricalWizardView(tk.Frame):
         # ── Fila 2: Dirección viento — 8 radio buttons distribuidos ──────
         wind_cell = tk.Frame(grid, bg=COLORS["bg"])
         wind_cell.grid(
-            row=2, column=0, columnspan=2,
-            sticky="ew", pady=(FORM_ROW_GAP, 0),
+            row=2,
+            column=0,
+            columnspan=2,
+            sticky="ew",
+            pady=(FORM_ROW_GAP, 0),
         )
         self._field_header(wind_cell, "Dirección del viento", "glosario_viento")
 
@@ -481,8 +545,7 @@ class EmpiricalWizardView(tk.Frame):
         for i, d in enumerate(WindDirection):
             radio_wind.columnconfigure(i, weight=1)
         self._wind_dir_var = tk.StringVar(
-            value=self._state["wind_direction"].value
-            if self._state["wind_direction"] else ""
+            value=self._state["wind_direction"].value if self._state["wind_direction"] else ""
         )
         for i, d in enumerate(WindDirection):
             ttk.Radiobutton(
@@ -495,16 +558,18 @@ class EmpiricalWizardView(tk.Frame):
         # ── Fila 3: Humedad percibida — 4 radio buttons ───────────────────
         hum_cell = tk.Frame(grid, bg=COLORS["bg"])
         hum_cell.grid(
-            row=3, column=0, columnspan=2,
-            sticky="ew", pady=(FORM_ROW_GAP, 0),
+            row=3,
+            column=0,
+            columnspan=2,
+            sticky="ew",
+            pady=(FORM_ROW_GAP, 0),
         )
         self._field_header(hum_cell, "Humedad percibida", "glosario_humedad")
 
         radio_hum = tk.Frame(hum_cell, bg=COLORS["bg"])
         radio_hum.pack(fill="x")
         self._humidity_var = tk.StringVar(
-            value=self._state["humidity_percept"].value
-            if self._state["humidity_percept"] else ""
+            value=self._state["humidity_percept"].value if self._state["humidity_percept"] else ""
         )
         for h in HumidityPercept:
             ttk.Radiobutton(
@@ -533,9 +598,12 @@ class EmpiricalWizardView(tk.Frame):
             self._field_header(cell, label, article_key)
         else:
             tk.Label(
-                cell, text=label,
-                font=FONT_FORM_LABEL, bg=COLORS["bg"],
-                fg=TEXT_PRIMARY, anchor="w",
+                cell,
+                text=label,
+                font=FONT_FORM_LABEL,
+                bg=COLORS["bg"],
+                fg=TEXT_PRIMARY,
+                anchor="w",
             ).pack(anchor="w", pady=(0, FORM_LABEL_MB))
 
         vcmd = (self.register(_validate_numeric_input), "%P")
@@ -552,12 +620,15 @@ class EmpiricalWizardView(tk.Frame):
             highlightbackground=BORDER,
             highlightthickness=1,
             highlightcolor=PRIMARY,
-        ).pack(fill="x", ipady=7)   # ipady=7 → altura ≈ FORM_INPUT_HEIGHT (34px)
+        ).pack(fill="x", ipady=7)  # ipady=7 → altura ≈ FORM_INPUT_HEIGHT (34px)
 
         tk.Label(
-            cell, text=hint,
-            font=FONT_SMALL, bg=COLORS["bg"],
-            fg=TEXT_SECONDARY, anchor="w",
+            cell,
+            text=hint,
+            font=FONT_SMALL,
+            bg=COLORS["bg"],
+            fg=TEXT_SECONDARY,
+            anchor="w",
         ).pack(anchor="w", pady=(FORM_LABEL_MB, 0))
 
     # ════════════════════════════════════════════════════════════════════
@@ -582,8 +653,11 @@ class EmpiricalWizardView(tk.Frame):
         inner.pack(padx=FORM_PADDING_H, pady=FORM_PADDING_V, fill="both", expand=True)
 
         tk.Label(
-            inner, text="Observaciones a simple vista",
-            font=FONTS["heading"], bg=COLORS["bg"], fg=COLORS["text"],
+            inner,
+            text="Observaciones a simple vista",
+            font=FONTS["heading"],
+            bg=COLORS["bg"],
+            fg=COLORS["text"],
         ).pack(anchor="w", pady=(0, SPACE_MD))
 
         # ── Grid 2 columnas ──────────────────────────────────────────────
@@ -595,16 +669,16 @@ class EmpiricalWizardView(tk.Frame):
         grid.columnconfigure(1, weight=1, uniform="col")
 
         half_gap = FORM_COL_GAP // 2
-        _rg = FORM_ROW_GAP    # alias local para legibilidad
+        _rg = FORM_ROW_GAP  # alias local para legibilidad
 
         # ── Fila 0: Cobertura del cielo (span 2, radios en línea) ────────
         self._sky_var = tk.StringVar(
             value=str(self._state["sky_coverage_pct"])
-            if self._state["sky_coverage_pct"] is not None else ""
+            if self._state["sky_coverage_pct"] is not None
+            else ""
         )
         sky_cell = tk.Frame(grid, bg=COLORS["bg"])
-        sky_cell.grid(row=0, column=0, columnspan=2, sticky="ew",
-                      pady=(0, _rg))
+        sky_cell.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, _rg))
 
         self._field_header(sky_cell, "Cobertura del cielo", "glosario_cobertura_cielo")
 
@@ -612,8 +686,10 @@ class EmpiricalWizardView(tk.Frame):
         sky_radios.pack(anchor="w")
         for pct in [0, 25, 50, 75, 100]:
             ttk.Radiobutton(
-                sky_radios, text=f"{pct}%",
-                variable=self._sky_var, value=str(pct),
+                sky_radios,
+                text=f"{pct}%",
+                variable=self._sky_var,
+                value=str(pct),
             ).pack(side="left", padx=FORM_COL_GAP)
 
         # ── Fila 1 col 0: Tipo de nubes — 6 radios verticales ────────────
@@ -621,86 +697,111 @@ class EmpiricalWizardView(tk.Frame):
             value=self._state["cloud_type"].value if self._state["cloud_type"] else ""
         )
         cloud_lf = tk.LabelFrame(
-            grid, text="Tipo de nubes predominantes",
-            bg=COLORS["bg"], padx=SPACE_SM, pady=SPACE_SM,
+            grid,
+            text="Tipo de nubes predominantes",
+            bg=COLORS["bg"],
+            padx=SPACE_SM,
+            pady=SPACE_SM,
         )
-        cloud_lf.grid(row=1, column=0, sticky="nsew",
-                      padx=(0, half_gap), pady=(0, _rg))
+        cloud_lf.grid(row=1, column=0, sticky="nsew", padx=(0, half_gap), pady=(0, _rg))
         # El título de un LabelFrame no admite widgets → [?] adentro, arriba.
         _cloud_help = self._help_btn(cloud_lf, "glosario_nubes")
         if _cloud_help is not None:
             _cloud_help.pack(anchor="e")
         for ct in CloudType:
             ttk.Radiobutton(
-                cloud_lf, text=CLOUD_TYPE_DESCRIPTIONS[ct],
-                variable=self._cloud_var, value=ct.value,
+                cloud_lf,
+                text=CLOUD_TYPE_DESCRIPTIONS[ct],
+                variable=self._cloud_var,
+                value=ct.value,
             ).pack(anchor="w", pady=2)
 
         # ── Fila 1 col 1: Suelo + Visibilidad + Precipitación apilados ───
         right_col = tk.Frame(grid, bg=COLORS["bg"])
-        right_col.grid(row=1, column=1, sticky="nsew",
-                       padx=(half_gap, 0), pady=(0, _rg))
+        right_col.grid(row=1, column=1, sticky="nsew", padx=(half_gap, 0), pady=(0, _rg))
 
         self._soil_var = tk.StringVar(
             value=self._state["soil_state"].value if self._state["soil_state"] else ""
         )
         soil_lf = tk.LabelFrame(
-            right_col, text="Estado del suelo",
-            bg=COLORS["bg"], padx=SPACE_SM, pady=SPACE_SM,
+            right_col,
+            text="Estado del suelo",
+            bg=COLORS["bg"],
+            padx=SPACE_SM,
+            pady=SPACE_SM,
         )
         soil_lf.pack(fill="x", pady=(0, SPACE_SM))
         for s in SoilState:
             ttk.Radiobutton(
-                soil_lf, text=s.value.capitalize(),
-                variable=self._soil_var, value=s.value,
+                soil_lf,
+                text=s.value.capitalize(),
+                variable=self._soil_var,
+                value=s.value,
             ).pack(side="left", padx=SPACE_SM)
 
         self._vis_var = tk.StringVar(
             value=self._state["visibility"].value if self._state["visibility"] else ""
         )
         vis_lf = tk.LabelFrame(
-            right_col, text="Visibilidad",
-            bg=COLORS["bg"], padx=SPACE_SM, pady=SPACE_SM,
+            right_col,
+            text="Visibilidad",
+            bg=COLORS["bg"],
+            padx=SPACE_SM,
+            pady=SPACE_SM,
         )
         vis_lf.pack(fill="x", pady=(0, SPACE_SM))
         for v in Visibility:
             ttk.Radiobutton(
-                vis_lf, text=v.value.capitalize(),
-                variable=self._vis_var, value=v.value,
+                vis_lf,
+                text=v.value.capitalize(),
+                variable=self._vis_var,
+                value=v.value,
             ).pack(side="left", padx=SPACE_SM)
 
         self._precip_var = tk.StringVar(
-            value=self._state["precipitation_now"].value
-            if self._state["precipitation_now"] else ""
+            value=self._state["precipitation_now"].value if self._state["precipitation_now"] else ""
         )
         precip_lf = tk.LabelFrame(
-            right_col, text="Precipitación al momento",
-            bg=COLORS["bg"], padx=SPACE_SM, pady=SPACE_SM,
+            right_col,
+            text="Precipitación al momento",
+            bg=COLORS["bg"],
+            padx=SPACE_SM,
+            pady=SPACE_SM,
         )
         precip_lf.pack(fill="x")
         for p in PrecipitationNow:
             ttk.Radiobutton(
-                precip_lf, text=p.value.replace("_", " ").capitalize(),
-                variable=self._precip_var, value=p.value,
+                precip_lf,
+                text=p.value.replace("_", " ").capitalize(),
+                variable=self._precip_var,
+                value=p.value,
             ).pack(side="left", padx=SPACE_SM)
 
         # ── Fila 2: Fenología (span 2) ────────────────────────────────────
         pheno_cell = tk.Frame(grid, bg=COLORS["bg"])
-        pheno_cell.grid(row=2, column=0, columnspan=2, sticky="ew",
-                        pady=(0, _rg))
+        pheno_cell.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(0, _rg))
 
         tk.Label(
-            pheno_cell, text="Fenología de cultivos (texto libre):",
-            font=FONT_FORM_LABEL, bg=COLORS["bg"], fg=TEXT_PRIMARY, anchor="w",
+            pheno_cell,
+            text="Fenología de cultivos (texto libre):",
+            font=FONT_FORM_LABEL,
+            bg=COLORS["bg"],
+            fg=TEXT_PRIMARY,
+            anchor="w",
         ).pack(anchor="w", pady=(0, FORM_LABEL_MB))
 
         # Altura en líneas: FORM_TEXTAREA_HEIGHT / altura_línea_aprox
         _textarea_rows = max(3, FORM_TEXTAREA_HEIGHT // 20)
         self._phenology_text = tk.Text(
-            pheno_cell, height=_textarea_rows,
+            pheno_cell,
+            height=_textarea_rows,
             font=FONTS["body"],
-            bg=BG_CARD, fg=TEXT_PRIMARY, relief="flat", bd=0,
-            highlightbackground=BORDER, highlightthickness=1,
+            bg=BG_CARD,
+            fg=TEXT_PRIMARY,
+            relief="flat",
+            bd=0,
+            highlightbackground=BORDER,
+            highlightthickness=1,
             highlightcolor=PRIMARY,
         )
         self._phenology_text.pack(fill="x")
@@ -709,35 +810,46 @@ class EmpiricalWizardView(tk.Frame):
 
         # ── Fila 3 col 0: Estado del ganado — 4 radios horizontales ───────
         self._livestock_var = tk.StringVar(
-            value=self._state["livestock_state"].value
-            if self._state["livestock_state"] else ""
+            value=self._state["livestock_state"].value if self._state["livestock_state"] else ""
         )
         livestock_lf = tk.LabelFrame(
-            grid, text="Estado del ganado",
-            bg=COLORS["bg"], padx=SPACE_SM, pady=SPACE_SM,
+            grid,
+            text="Estado del ganado",
+            bg=COLORS["bg"],
+            padx=SPACE_SM,
+            pady=SPACE_SM,
         )
-        livestock_lf.grid(row=3, column=0, sticky="nsew",
-                          padx=(0, half_gap))
+        livestock_lf.grid(row=3, column=0, sticky="nsew", padx=(0, half_gap))
         for ls in LivestockState:
             ttk.Radiobutton(
-                livestock_lf, text=ls.value.capitalize(),
-                variable=self._livestock_var, value=ls.value,
+                livestock_lf,
+                text=ls.value.capitalize(),
+                variable=self._livestock_var,
+                value=ls.value,
             ).pack(side="left", padx=SPACE_SM)
 
         # ── Fila 3 col 1: Observaciones del ganado ────────────────────────
         notes_cell = tk.Frame(grid, bg=COLORS["bg"])
-        notes_cell.grid(row=3, column=1, sticky="nsew",
-                        padx=(half_gap, 0))
+        notes_cell.grid(row=3, column=1, sticky="nsew", padx=(half_gap, 0))
 
         tk.Label(
-            notes_cell, text="Observaciones del ganado:",
-            font=FONT_FORM_LABEL, bg=COLORS["bg"], fg=TEXT_PRIMARY, anchor="w",
+            notes_cell,
+            text="Observaciones del ganado:",
+            font=FONT_FORM_LABEL,
+            bg=COLORS["bg"],
+            fg=TEXT_PRIMARY,
+            anchor="w",
         ).pack(anchor="w", pady=(0, FORM_LABEL_MB))
         self._livestock_notes_text = tk.Text(
-            notes_cell, height=3,
+            notes_cell,
+            height=3,
             font=FONTS["body"],
-            bg=BG_CARD, fg=TEXT_PRIMARY, relief="flat", bd=0,
-            highlightbackground=BORDER, highlightthickness=1,
+            bg=BG_CARD,
+            fg=TEXT_PRIMARY,
+            relief="flat",
+            bd=0,
+            highlightbackground=BORDER,
+            highlightthickness=1,
             highlightcolor=PRIMARY,
         )
         self._livestock_notes_text.pack(fill="x", expand=True)
@@ -753,19 +865,34 @@ class EmpiricalWizardView(tk.Frame):
         container.pack(padx=SPACE_LG, pady=SPACE_LG, fill="both", expand=True)
 
         tk.Label(
-            container, text="Comentarios generales y eventos puntuales",
-            font=FONTS["heading"], bg=COLORS["bg"], fg=COLORS["text"],
+            container,
+            text="Comentarios generales y eventos puntuales",
+            font=FONTS["heading"],
+            bg=COLORS["bg"],
+            fg=COLORS["text"],
         ).pack(anchor="w", pady=(0, SPACE_MD))
 
         # Comentarios generales
-        tk.Label(container, text="Comentarios generales (opcional):", font=FONTS["body_bold"], bg=COLORS["bg"]).pack(anchor="w")
+        tk.Label(
+            container,
+            text="Comentarios generales (opcional):",
+            font=FONTS["body_bold"],
+            bg=COLORS["bg"],
+        ).pack(anchor="w")
         # bg/fg explícitos: sin ellos, en dark mode recolor() pinta el fg claro
         # pero la caja queda blanca (no reconoce "white"/SystemWindow) → texto
         # invisible. Mismo styling que los Text del step 3.
         self._general_notes_text = tk.Text(
-            container, height=4, font=FONTS["body"],
-            bg=BG_CARD, fg=TEXT_PRIMARY, relief="flat", bd=0,
-            highlightbackground=BORDER, highlightthickness=1, highlightcolor=PRIMARY,
+            container,
+            height=4,
+            font=FONTS["body"],
+            bg=BG_CARD,
+            fg=TEXT_PRIMARY,
+            relief="flat",
+            bd=0,
+            highlightbackground=BORDER,
+            highlightthickness=1,
+            highlightcolor=PRIMARY,
             insertbackground=TEXT_PRIMARY,
         )
         self._general_notes_text.pack(anchor="w", fill="x", pady=(SPACE_SM, SPACE_LG))
@@ -776,13 +903,20 @@ class EmpiricalWizardView(tk.Frame):
         events_frame = tk.LabelFrame(
             container,
             text="Eventos puntuales del día (helada, granizo, viento fuerte, etc.)",
-            bg=COLORS["bg"], padx=SPACE_SM, pady=SPACE_SM,
+            bg=COLORS["bg"],
+            padx=SPACE_SM,
+            pady=SPACE_SM,
         )
         events_frame.pack(anchor="w", fill="x", pady=SPACE_SM)
 
         if not self._state["events_added"]:
-            tk.Label(events_frame, text="No hay eventos puntuales cargados todavía.",
-                     font=FONTS["body"], bg=COLORS["bg"], fg=COLORS["text_muted"]).pack(anchor="w")
+            tk.Label(
+                events_frame,
+                text="No hay eventos puntuales cargados todavía.",
+                font=FONTS["body"],
+                bg=COLORS["bg"],
+                fg=COLORS["text_muted"],
+            ).pack(anchor="w")
         else:
             for evt in self._state["events_added"]:
                 label = f"• {evt.event_type.value}"
@@ -790,10 +924,13 @@ class EmpiricalWizardView(tk.Frame):
                     label += f" desde {evt.started_at_local}"
                 if evt.ended_at_local:
                     label += f" hasta {evt.ended_at_local}"
-                tk.Label(events_frame, text=label, font=FONTS["body"], bg=COLORS["bg"]).pack(anchor="w")
+                tk.Label(events_frame, text=label, font=FONTS["body"], bg=COLORS["bg"]).pack(
+                    anchor="w"
+                )
 
         ttk.Button(
-            events_frame, text="+ Agregar evento puntual",
+            events_frame,
+            text="+ Agregar evento puntual",
             style="Secondary.TButton",
             command=self._open_event_modal,
         ).pack(anchor="w", pady=SPACE_SM)
@@ -801,11 +938,16 @@ class EmpiricalWizardView(tk.Frame):
         # Aviso de revisión
         tk.Label(
             container,
-            text=("Al confirmar, la observación se guarda en YVY y se prepara para sincronizar con el servidor "
-                  "cuando haya conexión. No se puede editar después; si te equivocaste, cargá una observación "
-                  "nueva con los datos correctos."),
-            font=FONTS["small"], bg=COLORS["bg"], fg=COLORS["text_muted"],
-            wraplength=700, justify="left",
+            text=(
+                "Al confirmar, la observación se guarda en YVY y se prepara para sincronizar con el servidor "
+                "cuando haya conexión. No se puede editar después; si te equivocaste, cargá una observación "
+                "nueva con los datos correctos."
+            ),
+            font=FONTS["small"],
+            bg=COLORS["bg"],
+            fg=COLORS["text_muted"],
+            wraplength=700,
+            justify="left",
         ).pack(anchor="w", pady=(SPACE_LG, 0))
 
     # ════════════════════════════════════════════════════════════════════
@@ -867,18 +1009,36 @@ class EmpiricalWizardView(tk.Frame):
                 # Beaufort viene del combo como "0 · Calma — ..."; tomamos el primer número
                 bf_str = self._beaufort_var.get()
                 self._state["wind_beaufort"] = int(bf_str.split(" ")[0]) if bf_str else None
-                self._state["wind_direction"] = WindDirection(self._wind_dir_var.get()) if self._wind_dir_var.get() else None
-                self._state["humidity_percept"] = HumidityPercept(self._humidity_var.get()) if self._humidity_var.get() else None
+                self._state["wind_direction"] = (
+                    WindDirection(self._wind_dir_var.get()) if self._wind_dir_var.get() else None
+                )
+                self._state["humidity_percept"] = (
+                    HumidityPercept(self._humidity_var.get()) if self._humidity_var.get() else None
+                )
 
             elif self._current_step == 2:
-                self._state["sky_coverage_pct"] = int(self._sky_var.get()) if self._sky_var.get() else None
-                self._state["cloud_type"] = CloudType(self._cloud_var.get()) if self._cloud_var.get() else None
-                self._state["soil_state"] = SoilState(self._soil_var.get()) if self._soil_var.get() else None
-                self._state["visibility"] = Visibility(self._vis_var.get()) if self._vis_var.get() else None
-                self._state["precipitation_now"] = PrecipitationNow(self._precip_var.get()) if self._precip_var.get() else None
+                self._state["sky_coverage_pct"] = (
+                    int(self._sky_var.get()) if self._sky_var.get() else None
+                )
+                self._state["cloud_type"] = (
+                    CloudType(self._cloud_var.get()) if self._cloud_var.get() else None
+                )
+                self._state["soil_state"] = (
+                    SoilState(self._soil_var.get()) if self._soil_var.get() else None
+                )
+                self._state["visibility"] = (
+                    Visibility(self._vis_var.get()) if self._vis_var.get() else None
+                )
+                self._state["precipitation_now"] = (
+                    PrecipitationNow(self._precip_var.get()) if self._precip_var.get() else None
+                )
                 self._state["phenology_notes"] = self._phenology_text.get("1.0", "end").strip()
-                self._state["livestock_state"] = LivestockState(self._livestock_var.get()) if self._livestock_var.get() else None
-                self._state["livestock_notes"] = self._livestock_notes_text.get("1.0", "end").strip()
+                self._state["livestock_state"] = (
+                    LivestockState(self._livestock_var.get()) if self._livestock_var.get() else None
+                )
+                self._state["livestock_notes"] = self._livestock_notes_text.get(
+                    "1.0", "end"
+                ).strip()
 
             elif self._current_step == 3:
                 self._state["general_notes"] = self._general_notes_text.get("1.0", "end").strip()
@@ -913,8 +1073,11 @@ class EmpiricalWizardView(tk.Frame):
         """Construye el CreateObservationInput y lo envía al controller."""
         d = self._state["observed_date"]
         local_dt = datetime(
-            d.year, d.month, d.day,
-            self._state["observed_hour"], self._state["observed_minute"],
+            d.year,
+            d.month,
+            d.day,
+            self._state["observed_hour"],
+            self._state["observed_minute"],
             tzinfo=_TZ_AR,
         )
         utc_dt = local_dt.astimezone(tz=ZoneInfo("UTC"))
@@ -943,8 +1106,12 @@ class EmpiricalWizardView(tk.Frame):
         callbacks = CreateObservationCallbacks(
             on_success=lambda r: self.after(0, lambda: self._handle_success(r)),
             on_warnings=lambda r: self.after(0, lambda: self._handle_warnings(r)),
-            on_validation_error=lambda msg: self.after(0, lambda: messagebox.showerror("Error de validación", msg)),
-            on_unexpected_error=lambda e: self.after(0, lambda: messagebox.showerror("Error inesperado", str(e))),
+            on_validation_error=lambda msg: self.after(
+                0, lambda: messagebox.showerror("Error de validación", msg)
+            ),
+            on_unexpected_error=lambda e: self.after(
+                0, lambda: messagebox.showerror("Error inesperado", str(e))
+            ),
         )
 
         self._controller.create_observation(input_data, callbacks)
@@ -968,12 +1135,8 @@ class EmpiricalWizardView(tk.Frame):
         - Campos críticos FALTANTES: no invalidan la carga; se ofrece guardar
           de todos modos (la observación queda completa-parcial pero válida).
         """
-        range_warnings = [
-            w for w in result.quality_warnings if w.endswith("_out_of_range")
-        ]
-        missing_warnings = [
-            w for w in result.quality_warnings if not w.endswith("_out_of_range")
-        ]
+        range_warnings = [w for w in result.quality_warnings if w.endswith("_out_of_range")]
+        missing_warnings = [w for w in result.quality_warnings if not w.endswith("_out_of_range")]
 
         # 1) Fuera de rango → bloquear, guiar a corregir o dejar vacío
         if range_warnings:
@@ -990,9 +1153,7 @@ class EmpiricalWizardView(tk.Frame):
         # 2) Solo faltan campos críticos → permitir guardar igual
         if missing_warnings:
             labels = [_FIELD_LABELS_ES.get(w, w) for w in missing_warnings]
-            msg = "Faltan algunos datos:\n\n" + "\n".join(
-                f"• {label}" for label in labels
-            )
+            msg = "Faltan algunos datos:\n\n" + "\n".join(f"• {label}" for label in labels)
             msg += "\n\n¿Querés guardar la observación de todos modos?"
             if messagebox.askyesno("Datos faltantes", msg):
                 self._submit_observation(with_confirmation=True)

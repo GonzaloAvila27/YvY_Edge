@@ -79,7 +79,13 @@ class TestPermissions:
         u = _make_user(role=Role.SUPERADMIN, is_active=False)
         assert not Permissions.can_login(u)
         assert not Permissions.can_manage_users(u)
-        assert not Permissions.can_export_raw(u, ) if False else True  # placeholder
+        assert (
+            not Permissions.can_export_raw(
+                u,
+            )
+            if False
+            else True
+        )  # placeholder
 
     def test_alumno_can_load_and_view_dashboard(self) -> None:
         u = _make_user(role=Role.ALUMNO)

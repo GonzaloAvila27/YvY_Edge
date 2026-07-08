@@ -13,6 +13,7 @@ Path convention: this file lives at ``tests/integration/test_migration_v13.py``
 and assumes ``migrations/`` is at the repo root (sibling of ``src/`` and
 ``tests/``). If the layout differs, adjust ``_MIGRATIONS_DIR``.
 """
+
 from __future__ import annotations
 
 import json
@@ -123,9 +124,21 @@ class TestDataPreservation:
 
     def test_old_column_values_unchanged(self, db_at_v12: sqlite3.Connection) -> None:
         _seed_representative_jobs(db_at_v12)
-        old_cols = ["id", "event_id", "station_uuid", "entity_type", "entity_db_id",
-                    "payload", "payload_version", "status", "attempts", "retry_after",
-                    "last_attempt", "error_msg", "created_at"]
+        old_cols = [
+            "id",
+            "event_id",
+            "station_uuid",
+            "entity_type",
+            "entity_db_id",
+            "payload",
+            "payload_version",
+            "status",
+            "attempts",
+            "retry_after",
+            "last_attempt",
+            "error_msg",
+            "created_at",
+        ]
         pre_rows = db_at_v12.execute(
             f"SELECT {','.join(old_cols)} FROM sync_queue ORDER BY id"
         ).fetchall()
@@ -135,9 +148,9 @@ class TestDataPreservation:
         ).fetchall()
         for pre, post in zip(pre_rows, post_rows, strict=False):
             for col in old_cols:
-                assert pre[col] == post[col], (
-                    f"Drift in id={pre['id']} col={col}: pre={pre[col]!r} post={post[col]!r}"
-                )
+                assert (
+                    pre[col] == post[col]
+                ), f"Drift in id={pre['id']} col={col}: pre={pre[col]!r} post={post[col]!r}"
 
     def test_legacy_empirical_record_preserved(self, db_at_v12: sqlite3.Connection) -> None:
         """Legacy entity_type='empirical_record' rows must NOT be deleted."""
@@ -195,18 +208,24 @@ class TestNewColumns:
         rows in 'sending' with claimed_at older than now - lease."""
         _apply_sql(db_at_v12, _MIGRATION_V13)
         # Seed one zombie (claimed_at far in the past)
-        db_at_v12.execute("""
+        db_at_v12.execute(
+            """
             INSERT INTO sync_queue (event_id, station_uuid, entity_type, payload,
                                     status, claimed_at)
             VALUES (?, ?, 'sensor_reading', '{}', 'sending', '2020-01-01T00:00:00.000Z')
-        """, (str(uuid.uuid4()), _STATION_UUID))
+        """,
+            (str(uuid.uuid4()), _STATION_UUID),
+        )
         # And one healthy sending (recent claim)
-        db_at_v12.execute("""
+        db_at_v12.execute(
+            """
             INSERT INTO sync_queue (event_id, station_uuid, entity_type, payload,
                                     status, claimed_at)
             VALUES (?, ?, 'sensor_reading', '{}', 'sending',
                     strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-        """, (str(uuid.uuid4()), _STATION_UUID))
+        """,
+            (str(uuid.uuid4()), _STATION_UUID),
+        )
         db_at_v12.commit()
 
         # Reaper resets zombies older than 120s
@@ -398,16 +417,18 @@ class TestSyncAgentState:
     def test_state_enum_enforced(self, db_at_v12: sqlite3.Connection) -> None:
         _apply_sql(db_at_v12, _MIGRATION_V13)
         with pytest.raises(sqlite3.IntegrityError):
-            db_at_v12.execute(
-                "UPDATE sync_agent_state SET state = 'invalid_state' WHERE id = 1"
-            )
+            db_at_v12.execute("UPDATE sync_agent_state SET state = 'invalid_state' WHERE id = 1")
 
     def test_all_valid_states_accepted(self, db_at_v12: sqlite3.Connection) -> None:
         """All 6 documented states are accepted by the CHECK."""
         _apply_sql(db_at_v12, _MIGRATION_V13)
         valid_states = [
-            "healthy", "degraded", "auth_error_latched",
-            "clock_error_latched", "disconnected", "paused",
+            "healthy",
+            "degraded",
+            "auth_error_latched",
+            "clock_error_latched",
+            "disconnected",
+            "paused",
         ]
         for state in valid_states:
             db_at_v12.execute(
@@ -425,7 +446,5 @@ class TestSyncAgentState:
             SET clock_offset_seconds = 0.347, updated_at = '2026-05-23T12:00:00.000Z'
             WHERE id = 1
         """)
-        row = db_at_v12.execute(
-            "SELECT clock_offset_seconds FROM sync_agent_state"
-        ).fetchone()
+        row = db_at_v12.execute("SELECT clock_offset_seconds FROM sync_agent_state").fetchone()
         assert abs(row["clock_offset_seconds"] - 0.347) < 1e-9

@@ -36,8 +36,7 @@ logger = logging.getLogger(__name__)
 
 # UUID válido pattern: 8-4-4-4-12 hex, case insensitive.
 _UUID_RE = re.compile(
-    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
-    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-" r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
 
 # UUIDs "default" que devuelven algunos firmwares mal configurados.

@@ -71,9 +71,9 @@ def probable_frost_level(
 
 
 _FROST_COLORS: dict[FrostLevel, str] = {
-    FrostLevel.ALTA:  "#D4A017",
+    FrostLevel.ALTA: "#D4A017",
     FrostLevel.MEDIA: "#7C7B3E",
-    FrostLevel.BAJA:  "#5B8FA8",
+    FrostLevel.BAJA: "#5B8FA8",
 }
 
 

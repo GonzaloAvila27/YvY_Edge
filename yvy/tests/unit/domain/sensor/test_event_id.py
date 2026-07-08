@@ -40,18 +40,14 @@ class TestBuildEventIDDeterminism:
     """Propiedad central: misma entrada → mismo UUID v5."""
 
     def test_same_inputs_produce_same_event_id(self, station: StationUUID) -> None:
-        ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
-        )
+        ts = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC))
         result_a = build_event_id(station, ts)
         result_b = build_event_id(station, ts)
         assert result_a == result_b
 
     def test_idempotent_over_many_calls(self, station: StationUUID) -> None:
         """Llamar 1000 veces siempre da el mismo UUID."""
-        ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
-        )
+        ts = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC))
         first = build_event_id(station, ts)
         for _ in range(1000):
             assert build_event_id(station, ts) == first
@@ -60,12 +56,8 @@ class TestBuildEventIDDeterminism:
         self, station: StationUUID
     ) -> None:
         """14:32:17 y 14:32:53 son la misma observación física."""
-        ts1 = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 17, tzinfo=UTC)
-        )
-        ts2 = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 53, tzinfo=UTC)
-        )
+        ts1 = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 17, tzinfo=UTC))
+        ts2 = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 53, tzinfo=UTC))
         assert build_event_id(station, ts1) == build_event_id(station, ts2)
 
     def test_idempotency_across_timezones(self, station: StationUUID) -> None:
@@ -86,44 +78,24 @@ class TestBuildEventIDDistinction:
     def test_different_stations_produce_different_event_ids(
         self, station: StationUUID, other_station: StationUUID
     ) -> None:
-        ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
-        )
+        ts = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC))
         eid_a = build_event_id(station, ts)
         eid_b = build_event_id(other_station, ts)
         assert eid_a != eid_b
 
-    def test_different_minutes_produce_different_event_ids(
-        self, station: StationUUID
-    ) -> None:
-        ts1 = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
-        )
-        ts2 = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 33, 0, tzinfo=UTC)
-        )
+    def test_different_minutes_produce_different_event_ids(self, station: StationUUID) -> None:
+        ts1 = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC))
+        ts2 = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 33, 0, tzinfo=UTC))
         assert build_event_id(station, ts1) != build_event_id(station, ts2)
 
-    def test_different_hours_produce_different_event_ids(
-        self, station: StationUUID
-    ) -> None:
-        ts1 = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
-        )
-        ts2 = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 15, 32, 0, tzinfo=UTC)
-        )
+    def test_different_hours_produce_different_event_ids(self, station: StationUUID) -> None:
+        ts1 = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC))
+        ts2 = canonicalize_to_minute_utc(datetime(2026, 4, 26, 15, 32, 0, tzinfo=UTC))
         assert build_event_id(station, ts1) != build_event_id(station, ts2)
 
-    def test_different_days_produce_different_event_ids(
-        self, station: StationUUID
-    ) -> None:
-        ts1 = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
-        )
-        ts2 = canonicalize_to_minute_utc(
-            datetime(2026, 4, 27, 14, 32, 0, tzinfo=UTC)
-        )
+    def test_different_days_produce_different_event_ids(self, station: StationUUID) -> None:
+        ts1 = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC))
+        ts2 = canonicalize_to_minute_utc(datetime(2026, 4, 27, 14, 32, 0, tzinfo=UTC))
         assert build_event_id(station, ts1) != build_event_id(station, ts2)
 
 
@@ -132,16 +104,12 @@ class TestBuildEventIDStructure:
     """El resultado tiene la estructura correcta."""
 
     def test_returns_event_id_instance(self, station: StationUUID) -> None:
-        ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
-        )
+        ts = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC))
         result = build_event_id(station, ts)
         assert isinstance(result, EventID)
 
     def test_uuid_version_is_5(self, station: StationUUID) -> None:
-        ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
-        )
+        ts = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC))
         result = build_event_id(station, ts)
         assert result.value.version == 5
 
@@ -149,9 +117,7 @@ class TestBuildEventIDStructure:
         """El UUID v5 generado debe ser reproducible con uuid5(NS, input)."""
         from uuid import uuid5
 
-        ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
-        )
+        ts = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC))
         result = build_event_id(station, ts)
 
         expected_input = f"{station}|{ts.iso_format}"
@@ -171,9 +137,7 @@ class TestBuildEventIDKnownValues:
 
     def test_known_value_1(self) -> None:
         station = StationUUID.from_str("12345678-1234-4123-8123-123456789012")
-        ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
-        )
+        ts = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC))
         result = build_event_id(station, ts)
         # Este valor está fijado para detectar cambios accidentales del algoritmo.
         # Si necesitás regenerarlo, primero asegurate que el cambio sea intencional.
@@ -187,9 +151,7 @@ class TestBuildEventIDKnownValues:
 
     def test_known_value_with_different_minute(self) -> None:
         station = StationUUID.from_str("12345678-1234-4123-8123-123456789012")
-        ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 33, 0, tzinfo=UTC)
-        )
+        ts = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 33, 0, tzinfo=UTC))
         result = build_event_id(station, ts)
         from uuid import uuid5
 
@@ -213,14 +175,10 @@ class TestLiveCatchupIdempotence:
         station = StationUUID(value=uuid4())
 
         # Path live: timestamp con segundos y microsegundos exactos
-        ts_live = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 17, 543_212, tzinfo=UTC)
-        )
+        ts_live = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 17, 543_212, tzinfo=UTC))
 
         # Path catchup: mismo minuto pero pywws devuelve solo precisión de minuto
-        ts_catchup = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
-        )
+        ts_catchup = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC))
 
         eid_live = build_event_id(station, ts_live)
         eid_catchup = build_event_id(station, ts_catchup)
@@ -241,12 +199,10 @@ class TestLiveCatchupIdempotence:
 
         # 60 timestamps dentro del mismo minuto
         base = datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC)
-        timestamps = [
-            canonicalize_to_minute_utc(base.replace(second=s)) for s in range(60)
-        ]
+        timestamps = [canonicalize_to_minute_utc(base.replace(second=s)) for s in range(60)]
 
         event_ids = {build_event_id(station, ts) for ts in timestamps}
 
-        assert len(event_ids) == 1, (
-            f"Se esperaba 1 event_id (mismo minuto), se obtuvieron {len(event_ids)}"
-        )
+        assert (
+            len(event_ids) == 1
+        ), f"Se esperaba 1 event_id (mismo minuto), se obtuvieron {len(event_ids)}"

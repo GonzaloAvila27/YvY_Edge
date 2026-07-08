@@ -139,7 +139,8 @@ class HelpModal(tk.Toplevel):
                 "<Enter>",
                 lambda _e, lbl=expand_lbl: lbl.configure(
                     font=(FONT_SMALL[0], FONT_SMALL[1], "underline")
-                    if isinstance(FONT_SMALL, tuple) else FONT_SMALL
+                    if isinstance(FONT_SMALL, tuple)
+                    else FONT_SMALL
                 ),
             )
             expand_lbl.bind(
@@ -260,10 +261,10 @@ class HelpModal(tk.Toplevel):
             wh = self.winfo_screenheight()
 
         margin = 6
-        win_left  = wx + margin
+        win_left = wx + margin
         win_right = wx + ww - margin
-        win_top   = wy + margin
-        win_bot   = wy + wh - margin
+        win_top = wy + margin
+        win_bot = wy + wh - margin
 
         if anchor_widget is not None:
             try:

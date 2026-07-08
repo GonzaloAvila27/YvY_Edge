@@ -177,15 +177,15 @@ class MockUser:
 
 
 _SIDEBAR_ITEMS: list[SidebarItem] = [
-    SidebarItem(key="inicio",     label="Inicio",        icon_name="inicio"),
-    SidebarItem(key="formulario", label="Cuaderno",      icon_name="Cuaderno"),
-    SidebarItem(key="dashboard",  label="Observatorio",  icon_name="observatorio"),
-    SidebarItem(key="sync",       label="Enlace",        icon_name="enlace",        alumno_hidden=True),
-    SidebarItem(key="ayuda",      label="Pizarra",       icon_name="pizarra"),
-    SidebarItem(key="usuarios",   label="Usuarios",      icon_name="usuarios",      admin_only=True),
-    SidebarItem(key="logs",       label="Bitácora",      icon_name="bitacora",      admin_only=True),
-    SidebarItem(key="datos",      label="Mediciones",    icon_name="mediciones",    admin_only=True),
-    SidebarItem(key="config",     label="Configuración", icon_name="configuracion", admin_only=True),
+    SidebarItem(key="inicio", label="Inicio", icon_name="inicio"),
+    SidebarItem(key="formulario", label="Cuaderno", icon_name="Cuaderno"),
+    SidebarItem(key="dashboard", label="Observatorio", icon_name="observatorio"),
+    SidebarItem(key="sync", label="Enlace", icon_name="enlace", alumno_hidden=True),
+    SidebarItem(key="ayuda", label="Pizarra", icon_name="pizarra"),
+    SidebarItem(key="usuarios", label="Usuarios", icon_name="usuarios", admin_only=True),
+    SidebarItem(key="logs", label="Bitácora", icon_name="bitacora", admin_only=True),
+    SidebarItem(key="datos", label="Mediciones", icon_name="mediciones", admin_only=True),
+    SidebarItem(key="config", label="Configuración", icon_name="configuracion", admin_only=True),
 ]
 
 
@@ -241,15 +241,18 @@ class MainApplication(tk.Tk):
         self.minsize(min(WINDOW_MIN_WIDTH, _sw), min(WINDOW_MIN_HEIGHT, _sh - _margin))
 
         from yvy.config.paths import RESOURCES_DIR
+
         _ico = RESOURCES_DIR / "yvy.ico"
         if _ico.exists():
             self.iconbitmap(str(_ico))
 
         # Cargar tema guardado ANTES de aplicar ttk styles
         from yvy.presentation.theme_manager import theme_manager, update_ttk_styles
+
         if app_config_repo is not None:
             try:
                 from yvy.config.paths import DATA_DIR
+
                 theme_manager.load(DATA_DIR)
             except Exception as exc:
                 logger.warning("No se pudo cargar el tema guardado, se usa default: %s", exc)
@@ -281,6 +284,7 @@ class MainApplication(tk.Tk):
 
         # Use case de indicadores derivados (sin dependencia de DB propia)
         from yvy.application.use_cases.compute_derived import ComputeDerivedUseCase
+
         self._compute_derived_uc = (
             ComputeDerivedUseCase() if self._query_sensor_aggregated_uc is not None else None
         )
@@ -381,9 +385,9 @@ class MainApplication(tk.Tk):
 
     def show_onboarding(self) -> None:
         """Wizard de onboarding (primera vez)."""
-        assert self._onboarding_use_case is not None, (
-            "show_onboarding requiere onboarding_use_case inyectado"
-        )
+        assert (
+            self._onboarding_use_case is not None
+        ), "show_onboarding requiere onboarding_use_case inyectado"
 
         if self._login_view is not None:
             self._login_view.destroy()
@@ -522,6 +526,7 @@ class MainApplication(tk.Tk):
             return
 
         from tkinter import messagebox
+
         to_ver = self._app_config_repo.get("update_install.to_version") or "nueva versión"
         from_ver = self._app_config_repo.get("update_install.from_version") or "anterior"
         error_detail = self._app_config_repo.get("update_install.error_detail") or ""
@@ -592,6 +597,7 @@ class MainApplication(tk.Tk):
             return
 
         from yvy.presentation.components.catchup_modal import CatchupModal
+
         CatchupModal(
             parent=self,
             controller=self._sync_controller,
@@ -615,9 +621,9 @@ class MainApplication(tk.Tk):
         from datetime import UTC, datetime, timedelta
 
         MAX_BUFFER_DAYS = 14
-        GAP_THRESHOLD_S  = 600   # 10 minutos
+        GAP_THRESHOLD_S = 600  # 10 minutos
 
-        now_utc   = datetime.now(UTC)
+        now_utc = datetime.now(UTC)
         max_since = now_utc - timedelta(days=MAX_BUFFER_DAYS)
 
         # Consultar último registro válido
@@ -643,8 +649,8 @@ class MainApplication(tk.Tk):
         if gap_s < GAP_THRESHOLD_S:
             return None, None  # Datos frescos — no hay nada que recuperar
 
-        since_utc   = max(last_ts_utc, max_since)
-        last_local  = last_ts_utc.astimezone(self._local_tz)
+        since_utc = max(last_ts_utc, max_since)
+        last_local = last_ts_utc.astimezone(self._local_tz)
         return since_utc, last_local
 
     # ─── Polling de estado del header ───────────────────────────────────
@@ -705,9 +711,7 @@ class MainApplication(tk.Tk):
         # ── Alerta de update (campana roja parpadeante) ──────────────────
         try:
             update_info = self._sync_controller.get_update_info()
-            has_alert = bool(
-                update_info.get("pending") and update_info.get("is_downloaded")
-            )
+            has_alert = bool(update_info.get("pending") and update_info.get("is_downloaded"))
             self._header.set_update_alert(has_alert)
         except Exception as exc:
             logger.debug("No se pudo actualizar la alerta de update en header (ignorado): %s", exc)
@@ -732,6 +736,7 @@ class MainApplication(tk.Tk):
     def _user_is_alumno(user: User | MockUser) -> bool:
         if isinstance(user, User):
             from yvy.domain.auth.enums import Role
+
             return user.role == Role.ALUMNO
         return user.role.lower() == "alumno"
 
@@ -740,6 +745,7 @@ class MainApplication(tk.Tk):
     def _toggle_theme(self) -> None:
         """Cambia entre light/dark y propaga a todos los componentes."""
         from yvy.presentation.theme_manager import theme_manager, update_ttk_styles
+
         theme_manager.toggle()
         palette = theme_manager.palette
         update_ttk_styles(self, palette)
@@ -774,12 +780,14 @@ class MainApplication(tk.Tk):
                 # Best-effort para vistas sin apply_theme explícito
                 try:
                     from yvy.presentation.theme_manager import recolor
+
                     recolor(view, palette)
                 except Exception as exc:
                     logger.debug("recolor best-effort falló en vista (ignorado): %s", exc)
         # Propagar a vistas activas no cacheadas (ej. EmpiricalWizardView)
         if self._content is not None:
             from yvy.presentation.theme_manager import recolor
+
             for child in self._content.winfo_children():
                 if child not in cached and hasattr(child, "apply_theme"):
                     try:
@@ -832,6 +840,7 @@ class MainApplication(tk.Tk):
                     self._header.set_theme_toggle_enabled(True)
             else:
                 from tkinter import messagebox
+
                 salir = messagebox.askyesno(
                     "Carga en progreso",
                     "Hay una carga de formulario en progreso.\n\n"
@@ -854,6 +863,7 @@ class MainApplication(tk.Tk):
             self._view_cache[key] = view
             # Si la vista se construye después de un cambio de tema, aplicar paleta
             from yvy.presentation.theme_manager import recolor, theme_manager
+
             if theme_manager.mode == "dark":
                 palette = theme_manager.palette
                 if hasattr(view, "apply_theme"):
@@ -887,7 +897,8 @@ class MainApplication(tk.Tk):
                 query_sensor_aggregated_uc=self._query_sensor_aggregated_uc,
                 current_user=self._current_user,
                 station_uuid=self._app_config_repo.get("station_uuid")
-                if self._app_config_repo is not None else None,
+                if self._app_config_repo is not None
+                else None,
                 compute_derived_uc=self._compute_derived_uc,
                 help_repository=self._help_repository,
                 open_pizarra=self.open_pizarra if self._pizarra is not None else None,
@@ -902,7 +913,8 @@ class MainApplication(tk.Tk):
                 query_sensor_aggregated_uc=self._query_sensor_aggregated_uc,
                 current_user=self._current_user,
                 station_uuid=self._app_config_repo.get("station_uuid")
-                if self._app_config_repo is not None else None,
+                if self._app_config_repo is not None
+                else None,
                 compute_derived_uc=self._compute_derived_uc,
                 help_repository=self._help_repository,
                 open_pizarra=self.open_pizarra if self._pizarra is not None else None,
@@ -942,9 +954,7 @@ class MainApplication(tk.Tk):
             and self._db_factory is not None
         ):
             current_user = (
-                self._auth_controller.current_user
-                if self._auth_controller is not None
-                else None
+                self._auth_controller.current_user if self._auth_controller is not None else None
             )
             return DataView(
                 self._content,
@@ -957,9 +967,7 @@ class MainApplication(tk.Tk):
 
         if key == "formulario" and self._empirical_controller is not None:
             current_user = (
-                self._auth_controller.current_user
-                if self._auth_controller is not None
-                else None
+                self._auth_controller.current_user if self._auth_controller is not None else None
             )
             if isinstance(current_user, User):
                 return EmpiricalListView(
@@ -974,12 +982,10 @@ class MainApplication(tk.Tk):
             is_superadmin = False
             user_role = "alumno"
             user_id = 0
-            if (
-                self._auth_controller is not None
-                and self._auth_controller.current_user is not None
-            ):
+            if self._auth_controller is not None and self._auth_controller.current_user is not None:
                 u = self._auth_controller.current_user
                 from yvy.domain.auth.enums import Role
+
                 is_superadmin = u.role == Role.SUPERADMIN
                 user_role = u.role.value
                 user_id = u.id
@@ -1015,9 +1021,7 @@ class MainApplication(tk.Tk):
         if self._content is None or self._empirical_controller is None:
             return
         current_user = (
-            self._auth_controller.current_user
-            if self._auth_controller is not None
-            else None
+            self._auth_controller.current_user if self._auth_controller is not None else None
         )
         if not isinstance(current_user, User):
             return
@@ -1041,6 +1045,7 @@ class MainApplication(tk.Tk):
             self._sidebar.set_active("formulario")
         # Aplicar dark mode si está activo al momento de abrir el wizard
         from yvy.presentation.theme_manager import theme_manager
+
         if theme_manager.mode == "dark":
             wizard.apply_theme(theme_manager.palette)
 
@@ -1089,6 +1094,7 @@ class MainApplication(tk.Tk):
 
         # Fallback: modal simple
         from tkinter import messagebox
+
         messagebox.showerror("Error de inicio de sesión", message)
 
     def _on_notifications(self) -> None:
@@ -1109,8 +1115,7 @@ class MainApplication(tk.Tk):
 
         releases = self._sync_controller.get_releases_on_disk()
         releases_simple = [
-            {"version": r["version"], "states": r.get("states", [])}
-            for r in releases
+            {"version": r["version"], "states": r.get("states", [])} for r in releases
         ]
 
         def _prevalidate():
@@ -1120,6 +1125,7 @@ class MainApplication(tk.Tk):
             self._show_install_transition()
 
         from yvy.presentation.components.update_modal import UpdateModal
+
         UpdateModal(
             self,
             update_info=update_info,
@@ -1144,14 +1150,36 @@ class MainApplication(tk.Tk):
 
         frame = tk.Frame(overlay, bg=BG_CARD, padx=SPACE_2XL, pady=SPACE_2XL)
         frame.pack(fill="both", expand=True)
-        tk.Label(frame, text="Instalando actualización...", bg=BG_CARD, fg=TEXT_PRIMARY, font=FONT_BODY_BOLD).pack(pady=(0, SPACE_MD))
-        tk.Label(frame, text="El sistema se va a cerrar y reiniciar automáticamente.", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY).pack()
-        tk.Label(frame, text="NO apagues la computadora.", bg=BG_CARD, fg=DANGER, font=FONT_BODY_BOLD).pack(pady=SPACE_SM)
-        tk.Label(frame, text="Esto puede tomar 2-3 minutos.", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY).pack()
+        tk.Label(
+            frame,
+            text="Instalando actualización...",
+            bg=BG_CARD,
+            fg=TEXT_PRIMARY,
+            font=FONT_BODY_BOLD,
+        ).pack(pady=(0, SPACE_MD))
+        tk.Label(
+            frame,
+            text="El sistema se va a cerrar y reiniciar automáticamente.",
+            bg=BG_CARD,
+            fg=TEXT_SECONDARY,
+            font=FONT_BODY,
+        ).pack()
+        tk.Label(
+            frame, text="NO apagues la computadora.", bg=BG_CARD, fg=DANGER, font=FONT_BODY_BOLD
+        ).pack(pady=SPACE_SM)
+        tk.Label(
+            frame,
+            text="Esto puede tomar 2-3 minutos.",
+            bg=BG_CARD,
+            fg=TEXT_SECONDARY,
+            font=FONT_BODY,
+        ).pack()
         overlay.update_idletasks()
         # Centrar
         w, h = overlay.winfo_width(), overlay.winfo_height()
-        overlay.geometry(f"+{(overlay.winfo_screenwidth()-w)//2}+{(overlay.winfo_screenheight()-h)//2}")
+        overlay.geometry(
+            f"+{(overlay.winfo_screenwidth()-w)//2}+{(overlay.winfo_screenheight()-h)//2}"
+        )
 
         # Lanzar el bat después de 1s para que la UI se muestre
         def _do_install() -> None:
@@ -1162,6 +1190,7 @@ class MainApplication(tk.Tk):
             if not ok:
                 overlay.destroy()
                 from tkinter import messagebox
+
                 messagebox.showerror("Error", "No se pudo iniciar la instalación.")
 
         self.after(1000, _do_install)

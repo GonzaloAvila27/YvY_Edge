@@ -2,6 +2,7 @@
 
 Usa respx para mockear el servidor. Sin red real, sin disco permanente.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -34,9 +35,7 @@ class TestDownloadSuccess:
         expected_sha = _sha256(payload)
 
         with respx.mock:
-            respx.get(_PACKAGE_URL).mock(
-                return_value=Response(200, content=payload)
-            )
+            respx.get(_PACKAGE_URL).mock(return_value=Response(200, content=payload))
             client = _make_client()
             dest = tmp_path / "yvy-edge-0.9.6.tar.gz"
             result = client.download_update_package(

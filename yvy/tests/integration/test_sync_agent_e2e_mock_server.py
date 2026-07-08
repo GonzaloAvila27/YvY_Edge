@@ -41,6 +41,7 @@ If a test fails on first run, the failure should point at the exact
 mismatch. Fix the test (not the agent) unless the agent's behavior
 is wrong.
 """
+
 from __future__ import annotations
 
 import json
@@ -170,10 +171,14 @@ def _enqueue_pending_job(
     payload: dict | None = None,
 ) -> tuple[int, UUID]:
     eid = event_id or uuid4()
-    pld = payload if payload is not None else {
-        "observed_at_utc": "2026-05-29T17:00:00.000Z",
-        "observer_id": "u",
-    }
+    pld = (
+        payload
+        if payload is not None
+        else {
+            "observed_at_utc": "2026-05-29T17:00:00.000Z",
+            "observer_id": "u",
+        }
+    )
     cur = conn.execute(
         """
         INSERT INTO sync_queue (
@@ -200,9 +205,7 @@ def _success_response(
 ):
     """Build a server-shaped JSON response."""
     server_time = server_time or _NOW
-    server_time_iso = (
-        server_time.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-    )
+    server_time_iso = server_time.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
     return httpx.Response(
         status_code=status_code,
         json={
@@ -215,7 +218,10 @@ def _success_response(
 
 
 def _error_response(
-    status_code: int, error_class: str, error_msg: str, **extra,
+    status_code: int,
+    error_class: str,
+    error_msg: str,
+    **extra,
 ):
     body = {"error": error_msg, "error_class": error_class}
     body.update(extra)
@@ -255,7 +261,10 @@ class TestSuccessPath:
 
     @respx.mock
     def test_send_success_marks_job_sent(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         daemon, sync_repo, agent_state_repo, _ = daemon_setup
         job_id, _ = _enqueue_pending_job(conn)
@@ -274,7 +283,10 @@ class TestSuccessPath:
 
     @respx.mock
     def test_send_duplicate_marks_job_duplicate(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         """Server idempotency: was_duplicate=true → status='duplicate'."""
         daemon, sync_repo, agent_state_repo, _ = daemon_setup
@@ -292,15 +304,18 @@ class TestSuccessPath:
 
     @respx.mock
     def test_envelope_sent_with_correct_shape(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         """Verify the actual envelope POSTed to server has correct fields."""
         daemon, _, _, _ = daemon_setup
         _, event_id = _enqueue_pending_job(conn)
 
-        route = respx.post(
-            f"{_SERVER_URL}/api/v1/ingest/observation"
-        ).mock(return_value=_success_response())
+        route = respx.post(f"{_SERVER_URL}/api/v1/ingest/observation").mock(
+            return_value=_success_response()
+        )
 
         daemon._iterate_once()
 
@@ -319,15 +334,18 @@ class TestSuccessPath:
 
     @respx.mock
     def test_entity_type_dispatches_to_correct_endpoint(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         """sensor_reading → /ingest/sensor, observation → /ingest/observation."""
         daemon, _, _, _ = daemon_setup
         _enqueue_pending_job(conn, entity_type=EntityType.SENSOR_READING)
 
-        sensor_route = respx.post(
-            f"{_SERVER_URL}/api/v1/ingest/sensor"
-        ).mock(return_value=_success_response())
+        sensor_route = respx.post(f"{_SERVER_URL}/api/v1/ingest/sensor").mock(
+            return_value=_success_response()
+        )
 
         daemon._iterate_once()
 
@@ -335,7 +353,10 @@ class TestSuccessPath:
 
     @respx.mock
     def test_process_multiple_jobs_sequentially(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         """Multiple pending jobs are processed FIFO across iterations."""
         daemon, _, _, _ = daemon_setup
@@ -361,7 +382,10 @@ class TestServerErrorRetry:
 
     @respx.mock
     def test_500_marks_transient_failure(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         daemon, _, agent_state_repo, _ = daemon_setup
         job_id, _ = _enqueue_pending_job(conn)
@@ -383,7 +407,10 @@ class TestServerErrorRetry:
 
     @respx.mock
     def test_retry_respects_next_retry_at(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         """Job is NOT claimed before next_retry_at."""
         daemon, sync_repo, _, _ = daemon_setup
@@ -408,7 +435,10 @@ class TestServerErrorRetry:
 
     @respx.mock
     def test_retry_succeeds_after_backoff_window(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         """First attempt fails, second attempt (after time advance) succeeds."""
         daemon, _, _, _ = daemon_setup
@@ -442,7 +472,10 @@ class TestAuthLatch:
 
     @respx.mock
     def test_401_latches_agent(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         daemon, _, agent_state_repo, _ = daemon_setup
         job_id, _ = _enqueue_pending_job(conn)
@@ -459,7 +492,10 @@ class TestAuthLatch:
 
     @respx.mock
     def test_latched_agent_does_not_claim_new_jobs(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         """Once latched, subsequent iterations don't even claim."""
         daemon, _, _, _ = daemon_setup
@@ -488,7 +524,10 @@ class TestNetworkErrorRecovery:
 
     @respx.mock
     def test_connect_error_transitions_to_disconnected(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         daemon, _, agent_state_repo, _ = daemon_setup
         job_id, _ = _enqueue_pending_job(conn)
@@ -505,7 +544,10 @@ class TestNetworkErrorRecovery:
 
     @respx.mock
     def test_success_after_disconnect_returns_healthy(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         daemon, _, agent_state_repo, _ = daemon_setup
         job_id, _ = _enqueue_pending_job(conn)
@@ -533,7 +575,9 @@ class TestDegradedTransition:
 
     @respx.mock
     def test_three_500s_transitions_to_degraded(
-        self, conn, time_provider,
+        self,
+        conn,
+        time_provider,
     ) -> None:
         """3 consecutive 500 errors should land in DEGRADED.
 
@@ -541,7 +585,8 @@ class TestDegradedTransition:
         SyncAgentConfig default.
         """
         daemon, _, agent_state_repo, _ = _build_daemon(
-            conn, time_provider,
+            conn,
+            time_provider,
             config_overrides={"CONSECUTIVE_ERRORS_THRESHOLD": 3},
         )
         for _ in range(3):
@@ -558,10 +603,13 @@ class TestDegradedTransition:
 
     @respx.mock
     def test_success_recovers_degraded_to_healthy(
-        self, conn, time_provider,
+        self,
+        conn,
+        time_provider,
     ) -> None:
         daemon, _, agent_state_repo, _ = _build_daemon(
-            conn, time_provider,
+            conn,
+            time_provider,
             config_overrides={"CONSECUTIVE_ERRORS_THRESHOLD": 3},
         )
         for _ in range(4):
@@ -596,7 +644,10 @@ class TestClockRecalibration:
 
     @respx.mock
     def test_offset_persisted_on_large_skew(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         daemon, _, agent_state_repo, _ = daemon_setup
         _enqueue_pending_job(conn)
@@ -615,7 +666,10 @@ class TestClockRecalibration:
 
     @respx.mock
     def test_subsequent_envelope_uses_corrected_offset(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         """After first calibration, the second envelope's sent_at_utc
         should be edge_time + offset."""
@@ -639,8 +693,7 @@ class TestClockRecalibration:
         # sent_at_utc should be close to the server's time (within 1s)
         diff = abs((sent_at2 - server_time).total_seconds())
         assert diff < 1.0, (
-            f"sent_at_utc {sent_at2} not aligned with server {server_time}; "
-            f"diff={diff}s"
+            f"sent_at_utc {sent_at2} not aligned with server {server_time}; " f"diff={diff}s"
         )
 
 
@@ -652,7 +705,10 @@ class TestZombieRecovery:
 
     @respx.mock
     def test_zombie_rescued_and_reclaimed(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         """Manually insert a stuck 'sending' job → reaper rescues → next
         iteration claims it → success."""
@@ -688,7 +744,10 @@ class TestZombieRecovery:
 
     @respx.mock
     def test_recent_sending_not_rescued(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         """Job claimed 30s ago (well within lease) should NOT be rescued."""
         daemon, _, _, _ = daemon_setup
@@ -723,7 +782,10 @@ class TestSkipLegacyEntityTypes:
 
     @respx.mock
     def test_empirical_record_skipped(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         daemon, _, _, _ = daemon_setup
         # Insert legacy job
@@ -741,15 +803,20 @@ class TestSkipLegacyEntityTypes:
 
     @respx.mock
     def test_mixed_queue_processes_supported_skips_legacy(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         """Cola con mix de legacy + supported — solo supported se procesa."""
         daemon, _, _, _ = daemon_setup
         legacy_id, _ = _enqueue_pending_job(
-            conn, entity_type=EntityType.EMPIRICAL_RECORD,
+            conn,
+            entity_type=EntityType.EMPIRICAL_RECORD,
         )
         supported_id, _ = _enqueue_pending_job(
-            conn, entity_type=EntityType.EMPIRICAL_OBSERVATION,
+            conn,
+            entity_type=EntityType.EMPIRICAL_OBSERVATION,
         )
 
         respx.post(f"{_SERVER_URL}/api/v1/ingest/observation").mock(
@@ -772,14 +839,19 @@ class TestSchemaErrorPermanent:
 
     @respx.mock
     def test_400_schema_marks_permanent(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         daemon, _, agent_state_repo, _ = daemon_setup
         job_id, _ = _enqueue_pending_job(conn)
 
         respx.post(f"{_SERVER_URL}/api/v1/ingest/observation").mock(
             return_value=_error_response(
-                400, "SCHEMA", "rain_mm must be >= 0",
+                400,
+                "SCHEMA",
+                "rain_mm must be >= 0",
             )
         )
 
@@ -794,7 +866,10 @@ class TestSchemaErrorPermanent:
 
     @respx.mock
     def test_error_status_not_reclaimed(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         """Job with status='error' must not be claimed again."""
         daemon, _, _, _ = daemon_setup
@@ -824,7 +899,10 @@ class TestPauseResume:
 
     @respx.mock
     def test_paused_agent_does_not_process(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         daemon, _, agent_state_repo, _ = daemon_setup
         _enqueue_pending_job(conn)
@@ -838,7 +916,10 @@ class TestPauseResume:
 
     @respx.mock
     def test_resume_returns_to_healthy_and_processes(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         daemon, _, agent_state_repo, _ = daemon_setup
         job_id, _ = _enqueue_pending_job(conn)
@@ -865,7 +946,10 @@ class TestBacklogDetection:
     """If many pending jobs at startup, log as backlog_recovery mode."""
 
     def test_backlog_mode_set_when_above_threshold(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         daemon, _, _, _ = daemon_setup
         # Insert 60 pending jobs (default threshold 50)
@@ -877,7 +961,10 @@ class TestBacklogDetection:
         assert daemon._in_backlog_mode is True
 
     def test_steady_state_below_threshold(
-        self, conn, time_provider, daemon_setup,
+        self,
+        conn,
+        time_provider,
+        daemon_setup,
     ) -> None:
         daemon, _, _, _ = daemon_setup
         _enqueue_pending_job(conn)  # only 1 pending

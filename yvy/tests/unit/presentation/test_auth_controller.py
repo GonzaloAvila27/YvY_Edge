@@ -62,9 +62,7 @@ class TestLogin:
         assert controller.is_authenticated
         login_uc.execute.assert_called_once_with("alice", "pass")
 
-    def test_strips_username(
-        self, controller: AuthController, login_uc: MagicMock
-    ) -> None:
+    def test_strips_username(self, controller: AuthController, login_uc: MagicMock) -> None:
         login_uc.execute.return_value = _make_user()
         controller.login("  alice  ", "pass")
         login_uc.execute.assert_called_once_with("alice", "pass")
@@ -102,9 +100,7 @@ class TestLogin:
 
 
 class TestLogout:
-    def test_clears_current_user(
-        self, controller: AuthController, login_uc: MagicMock
-    ) -> None:
+    def test_clears_current_user(self, controller: AuthController, login_uc: MagicMock) -> None:
         login_uc.execute.return_value = _make_user()
         controller.login("alice", "pass")
         assert controller.is_authenticated
@@ -114,9 +110,7 @@ class TestLogout:
         assert controller.current_user is None
         assert controller.is_authenticated is False
 
-    def test_logout_when_not_authenticated_is_idempotent(
-        self, controller: AuthController
-    ) -> None:
+    def test_logout_when_not_authenticated_is_idempotent(self, controller: AuthController) -> None:
         controller.logout()  # No raises
         controller.logout()
         assert controller.current_user is None
@@ -142,8 +136,6 @@ class TestChangeOwnPassword:
             actor_user_id=42,
         )
 
-    def test_raises_when_not_authenticated(
-        self, controller: AuthController
-    ) -> None:
+    def test_raises_when_not_authenticated(self, controller: AuthController) -> None:
         with pytest.raises(InvalidCredentialsError, match="No hay sesión"):
             controller.change_own_password("old", "new")
