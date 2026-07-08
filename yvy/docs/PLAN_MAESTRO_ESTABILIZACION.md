@@ -241,17 +241,21 @@ INI-5 ── espera trigger externo (sin release asignado)
 | 1.4.1 | Confirmar con el autor uso real de `rescue`; redirigir `[tool.poetry.scripts]` al CLI y reducir `main.py` a shim de delegación (no borrar en el mismo PR) | S |
 | 1.4.2 | (Release siguiente) eliminar `main.py` si nada lo reclamó | S |
 
-## INI-1 · Épica 1.5 — Adopción de ruff como gate (hallazgo 2026-07)
-> **Descubierto ejecutando 1.1.1:** `ruff check .` reporta **~400 errores** en el
-> repo Edge → ruff **no gatea en CI** (confirma peer review §3.4 "quality gates
-> invertidos"). Ídem el Core tuvo esta deuda. No urgente (la suite es el gate
-> real hoy), pero mientras no se adopte, el linter no protege nada.
+## INI-1 · Épica 1.5 — Adopción de ruff como gate ✅ (hallazgo 2026-07)
+> **Descubierto ejecutando 1.1.1:** `ruff check .` reportaba **~400 errores** en el
+> repo Edge → ruff **no gateaba en CI** (confirma peer review §3.4 "quality gates
+> invertidos"). **RESUELTO: de ~400 → 0, con gate en CI.**
+>
+> **Hallazgo de valor derivado:** ruff (F821) destapó **5 bugs reales** — `exc`
+> referenciado en `lambda` diferido (`self.after(0, lambda: ...{exc})`); Python
+> borra la var del `except` al salir del bloque y el lambda corre después → el
+> mensaje de error nunca se mostraba (import/export/retención mudos). Fix `3ac51b3`.
 
-| # | Tarea | Tamaño |
-|---|---|---|
-| 1.5.1 | `ruff check --fix` (247 autofixables) + `ruff format` en 1 PR aislado; revisar diff a ojo (no debe cambiar comportamiento); suite verde | M |
-| 1.5.2 | Restantes no-autofixables: arreglar o agregar a `per-file-ignores`/`ignore` con justificación por regla (baseline explícito, no barrer bajo la alfombra) | M |
-| 1.5.3 | Activar `ruff check .` + `ruff format --check` como job bloqueante en CI (que hoy no existe/no gatea en Edge) | S |
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 1.5.1 | autofix seguro (268 fixes) + `ruff format` (230 archivos) + ignore RUF-español | M | ✅ `f2c31f1`+`36680e2` |
+| 1.5.2 | Restantes a cero: fixes reales (F841 dead code, B023, B904, E741, B007) + baseline de ignores justificado por regla | M | ✅ `63f862a` |
+| 1.5.3 | `.github/workflows/ci.yml`: `ruff check` + `ruff format --check` como job bloqueante (el repo NO tenía CI) | S | ✅ `053b373` |
 
 ## INI-2 · Épica 2.1 — Utilidades canónicas
 | # | Tarea | Tamaño |
@@ -448,6 +452,11 @@ el mismo release. Mitigación: la tabla §7 es contrato; un release = un caráct
 | 2026-07-03 | `stab/ini-1-higiene` `9e26711` | 1.2.2 (telemetría UI) | ~26 except-pass one-shot de UI → debug; theme_manager (14, loop caliente) excluido por diseño + documentado. 1069 passed. |
 | 2026-07-03 | `stab/ini-1-higiene` `e037fb8` | 1.1.2 (H9 TimeoutError) | `class TimeoutError`→`HttpTimeoutError` + alias de compat; migrados src+tests; builtin de test_sync_controller intacto. 1069 passed. |
 | 2026-07-03 | `stab/ini-1-higiene` `676762b` | 1.1.3 (canon v13 · H4-prep) | Documenta v13 como fuente de verdad en `SyncJob` + tabla legacy→v13 + plan de retiro. Solo doc. |
+| 2026-07-03 | `stab/ini-1-higiene` `6a860c5` | (aparte) diagnóstico web LAN | `docs/DIAGNOSTICO_WEB_LAN.md` — relevamiento solo-lectura para el adaptador Flask+waitress. |
+| 2026-07-03 | `stab/ini-1-higiene` `3ac51b3` | 1.5 (bugs F821) | **5 bugs reales** de `exc` en lambdas diferidos → NameError en handlers de error. + F811 dead import. |
+| 2026-07-03 | `stab/ini-1-higiene` `f2c31f1`+`36680e2` | 1.5.1 (autofix+format) | 268 autofixes + `ruff format` (230 files) + ignore RUF-español. 1060/1069 passed. |
+| 2026-07-03 | `stab/ini-1-higiene` `63f862a` | 1.5.2 (ruff a cero) | Fixes (F841/B023/B904/E741/B007) + baseline de ignores justificado. ~400→0. 1069 passed. |
+| 2026-07-03 | `stab/ini-1-higiene` `053b373` | 1.5.3 (CI gate) | `.github/workflows/ci.yml` con ruff bloqueante (el repo no tenía CI). |
 
 ---
 *Plan de ingeniería — sin código, sin nuevas auditorías. Basado íntegramente en los
