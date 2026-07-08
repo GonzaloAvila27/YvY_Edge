@@ -9,7 +9,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -44,7 +44,7 @@ def _take(path: str) -> None:
 
 def _seed(factory: SQLiteConnectionFactory) -> None:
     conn = factory.get_connection()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     station = "12345678-1234-4123-8123-123456789012"
     rows = [
         ("sent", now - timedelta(minutes=5), 1),

@@ -6,7 +6,7 @@ import logging
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Protocol
+from typing import Any
 
 from yvy.application.ports.time_provider import TimeProvider
 from yvy.domain.auth.enums import AuditEventType, AuditSource

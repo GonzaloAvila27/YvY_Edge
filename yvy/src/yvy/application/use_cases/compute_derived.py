@@ -191,7 +191,7 @@ def daily_thermal_amplitude(
         Tupla (dates, amplitudes) ordenada por fecha.
     """
     day_buckets: dict[date, list[float]] = {}
-    for ts, val in zip(timestamps, temps):
+    for ts, val in zip(timestamps, temps, strict=False):
         if val is None:
             continue
         d = ts.date() if ts.tzinfo is None else ts.astimezone().date()

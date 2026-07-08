@@ -30,7 +30,6 @@ import pytest
 from yvy.infrastructure.sync.canonical_json import canonicalize
 from yvy.infrastructure.sync.hmac_signer import sign_envelope
 
-
 # A 32-byte key with a fixed value for reproducibility.
 _KEY = bytes.fromhex(
     "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"

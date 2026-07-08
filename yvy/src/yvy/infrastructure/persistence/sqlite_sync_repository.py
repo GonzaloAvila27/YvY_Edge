@@ -25,7 +25,6 @@ from yvy.domain.sync.enums import EntityType, SyncStatus
 from yvy.domain.sync.models import SyncJob
 from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
 
-
 # Columnas que el row mapper espera. Todas las queries SELECT deben
 # respetar este orden. RETURNING también lo sigue.
 _SELECT_COLUMNS = """

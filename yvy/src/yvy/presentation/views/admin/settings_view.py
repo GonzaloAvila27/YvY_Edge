@@ -14,11 +14,8 @@ import logging
 import threading
 import tkinter as tk
 from tkinter import messagebox, ttk
-from typing import Callable
 
 from yvy.application.use_cases.admin.update_retention_policy import (
-    KEY_RAW_DAYS,
-    KEY_SYNC_SENT_DAYS,
     UpdateRetentionPolicyUseCase,
 )
 from yvy.application.use_cases.retention.run_retention_job import (
@@ -30,7 +27,6 @@ from yvy.presentation.theme import (
     BG_CREAM,
     BORDER,
     DANGER,
-    FONT_BODY,
     FONT_BODY_BOLD,
     FONT_SMALL,
     SPACE_LG,

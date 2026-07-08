@@ -9,12 +9,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from yvy.domain.auth.enums import AuditEventType
 from yvy.infrastructure.persistence.app_config_repository import AppConfigRepository
 from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
 from yvy.infrastructure.persistence.sqlite_audit_log_repository import SQLiteAuditLogRepository
 from yvy.infrastructure.updates.installer import UpdateInstaller
-
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 

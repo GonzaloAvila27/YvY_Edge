@@ -199,8 +199,8 @@ def main() -> int:
     app.update()
     _take(f"{out_dir}/27_help_modal_contextual.png")
 
-    print(f"✓ Smoke Fase 8 OK")
-    print(f"  Total artículos help: 13")
+    print("✓ Smoke Fase 8 OK")
+    print("  Total artículos help: 13")
     app.destroy()
     return 0
 

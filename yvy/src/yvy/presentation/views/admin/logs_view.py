@@ -17,13 +17,10 @@ from yvy.presentation.theme import (
     BG_CARD,
     BG_CREAM,
     BORDER,
-    FONT_BODY_BOLD,
     FONT_SMALL,
     SPACE_LG,
-    SPACE_MD,
     SPACE_SM,
     SPACE_XL,
-    TEXT_PRIMARY,
     TEXT_SECONDARY,
 )
 

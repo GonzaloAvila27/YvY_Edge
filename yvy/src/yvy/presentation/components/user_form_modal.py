@@ -20,8 +20,8 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
+from collections.abc import Callable
 from tkinter import messagebox, ttk
-from typing import Callable
 
 from yvy.domain.auth.enums import Role
 from yvy.domain.auth.exceptions import AuthError
@@ -30,11 +30,7 @@ from yvy.presentation.controllers.users_admin_controller import UsersAdminContro
 from yvy.presentation.theme import (
     BG_CARD,
     BG_CREAM,
-    BORDER,
-    DANGER,
-    FONT_BODY,
     FONT_BODY_BOLD,
-    FONT_H2,
     FONT_SMALL,
     PRIMARY,
     SPACE_LG,

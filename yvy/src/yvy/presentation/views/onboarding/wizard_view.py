@@ -19,9 +19,9 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from tkinter import messagebox, ttk
-from typing import Callable
 
 from yvy.application.use_cases.auth.complete_onboarding import (
     AdminCreationData,

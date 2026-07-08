@@ -624,7 +624,7 @@ class HttpClient:
         """Close the underlying ``httpx.Client`` and its connection pool."""
         self._client.close()
 
-    def __enter__(self) -> "HttpClient":
+    def __enter__(self) -> HttpClient:
         return self
 
     def __exit__(self, *_exc_info: object) -> None:

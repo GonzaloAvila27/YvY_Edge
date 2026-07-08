@@ -200,7 +200,7 @@ class EmpiricalListView(tk.Frame):
         days = int(days_str)
         return datetime.now(_TZ_AR) - timedelta(days=days)
 
-    def _on_row_double_click(self, _event) -> None:  # noqa: ANN001
+    def _on_row_double_click(self, _event) -> None:
         self._open_detail_for_selected()
 
     def _open_detail_for_selected(self) -> None:

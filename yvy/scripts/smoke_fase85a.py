@@ -23,7 +23,7 @@ import sqlite3
 import sys
 import tempfile
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -37,19 +37,30 @@ def main() -> int:
     logger.info("=" * 70)
 
     from yvy.application.use_cases.empirical.create_empirical_event import (
-        CreateEmpiricalEventUseCase, CreateEventInput,
+        CreateEmpiricalEventUseCase,
+        CreateEventInput,
     )
     from yvy.application.use_cases.empirical.create_empirical_observation import (
-        CreateEmpiricalObservationUseCase, CreateObservationInput,
+        CreateEmpiricalObservationUseCase,
+        CreateObservationInput,
     )
     from yvy.application.use_cases.empirical.list_get_observations import (
-        GetObservationDetailsUseCase, ListEmpiricalObservationsUseCase, ListObservationsFilters,
+        GetObservationDetailsUseCase,
+        ListEmpiricalObservationsUseCase,
+        ListObservationsFilters,
     )
     from yvy.domain.auth.enums import Role
     from yvy.domain.auth.models import User
     from yvy.domain.empirical.enums import (
-        CloudType, EventType, HailSize, HumidityPercept, SoilState, Visibility,
-        WindDirection, PrecipitationNow, LivestockState,
+        CloudType,
+        EventType,
+        HailSize,
+        HumidityPercept,
+        LivestockState,
+        PrecipitationNow,
+        SoilState,
+        Visibility,
+        WindDirection,
     )
     from yvy.infrastructure.persistence.sqlite_empirical_repository import (
         SQLiteEmpiricalRepository,

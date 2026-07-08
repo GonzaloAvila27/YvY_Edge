@@ -10,7 +10,6 @@ Audit: ``EXPORT_DATA``.
 from __future__ import annotations
 
 import csv
-import io
 import logging
 from dataclasses import dataclass
 from datetime import datetime

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -24,7 +24,6 @@ from yvy.domain.empirical.models import EmpiricalEvent, EmpiricalObservation
 from yvy.infrastructure.persistence.sqlite_empirical_repository import (
     SQLiteEmpiricalRepository,
 )
-
 
 # ════════════════════════════════════════════════════════════════════════
 # Fixtures

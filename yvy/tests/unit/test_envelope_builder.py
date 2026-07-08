@@ -30,7 +30,6 @@ from yvy.infrastructure.sync.envelope_builder import (
 )
 from yvy.infrastructure.sync.hmac_signer import sign_envelope
 
-
 _EVENT_ID = UUID("11111111-1111-4111-8111-111111111111")
 _STATION_UUID = UUID("22222222-2222-4222-8222-222222222222")
 _KEY = bytes.fromhex("a1" * 32)

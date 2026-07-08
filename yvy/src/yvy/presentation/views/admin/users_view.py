@@ -38,19 +38,11 @@ from yvy.presentation.theme import (
     BG_CARD,
     BG_CREAM,
     BORDER,
-    DANGER,
-    FONT_BODY,
     FONT_BODY_BOLD,
-    FONT_H1,
-    FONT_SMALL,
     SPACE_LG,
-    SPACE_MD,
     SPACE_SM,
     SPACE_XL,
-    SUCCESS,
-    TEXT_PRIMARY,
     TEXT_SECONDARY,
-    WARNING,
 )
 
 logger = logging.getLogger(__name__)

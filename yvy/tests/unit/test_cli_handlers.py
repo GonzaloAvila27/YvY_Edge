@@ -15,11 +15,8 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
-import pytest
-
 from yvy.bootstrap import CoreDependencies
 from yvy.domain.sync.enums import SyncStatus
-
 
 # ─── Fakes mínimas ───────────────────────────────────────────────────────
 
@@ -299,6 +296,7 @@ class TestTestSync:
 
     def test_fails_when_key_too_short(self, tmp_path: Path) -> None:
         import json as _json
+
         from yvy.cli.handlers import test_sync
         (tmp_path / "data").mkdir()
         (tmp_path / "data" / "station_credentials.json").write_text(_json.dumps({
@@ -314,6 +312,7 @@ class TestTestSync:
 
     def test_fails_when_server_url_missing(self, tmp_path: Path) -> None:
         import json as _json
+
         from yvy.cli.handlers import test_sync
         (tmp_path / "data").mkdir()
         (tmp_path / "data" / "station_credentials.json").write_text(_json.dumps({
@@ -328,6 +327,7 @@ class TestTestSync:
 
     def test_uuid_mismatch_aborts(self, tmp_path: Path) -> None:
         import json as _json
+
         from yvy.cli.handlers import test_sync
         cred_uuid = uuid4()
         app_uuid = uuid4()
@@ -350,7 +350,9 @@ class TestTestSync:
         self, tmp_path: Path, monkeypatch
     ) -> None:
         import json as _json
+
         import httpx
+
         from yvy.cli.handlers import test_sync
 
         cred_uuid = uuid4()
@@ -393,6 +395,7 @@ class TestTestSync:
         self, tmp_path: Path, monkeypatch
     ) -> None:
         import json as _json
+
         from yvy.cli.handlers import test_sync
 
         cred_uuid = uuid4()
@@ -600,8 +603,9 @@ class TestConfigureSync:
         assert result["reason"] == "creds_not_found"
 
     def test_invalid_credentials_errors(self, tmp_path: Path) -> None:
-        from yvy.cli.handlers import configure_sync
         import json
+
+        from yvy.cli.handlers import configure_sync
         deps = _build_deps(tmp_path)
         src = tmp_path / "bad.json"
         src.write_text(json.dumps({

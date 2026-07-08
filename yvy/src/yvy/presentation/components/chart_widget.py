@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import logging
 import threading
+import tkinter as tk
 from collections.abc import Callable
 from tkinter import ttk
-import tkinter as tk
 
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg

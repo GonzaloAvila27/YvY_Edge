@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 _LOGO_PATH  = Path(__file__).resolve().parents[4] / "resources" / "logo.png"
 _ICONS_DIR  = Path(__file__).resolve().parents[4] / "resources" / "ICONS"
 # Tamaño del logo en el header (cabe en 60px de alto con padding 10px vertical)
-_LOGO_W, _LOGO_H = 200, 50 
+_LOGO_W, _LOGO_H = 200, 50
 
 class Header(tk.Frame):
     """Barra superior de la app autenticada.
@@ -434,7 +434,7 @@ class Header(tk.Frame):
 # ─── Helper de carga de logo ──────────────────────────────────────────────────
 
 
-def _load_logo(path: Path, width: int, height: int) -> "tk.PhotoImage | None":
+def _load_logo(path: Path, width: int, height: int) -> tk.PhotoImage | None:
     """Carga un PNG y lo escala a (width, height). Retorna None si falla.
 
     Usa Pillow si está disponible (escalado de calidad); fallback a

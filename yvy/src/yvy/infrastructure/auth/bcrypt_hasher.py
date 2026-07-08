@@ -17,7 +17,6 @@ import bcrypt
 
 from yvy.domain.auth.exceptions import WeakPasswordError
 
-
 # Cost factor de bcrypt. 2**12 = 4096 iteraciones internas.
 BCRYPT_ROUNDS = 12
 

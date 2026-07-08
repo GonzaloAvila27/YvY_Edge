@@ -74,16 +74,15 @@ from yvy.domain.sync.enums import EntityType, SyncStatus
 from yvy.domain.sync.models import SyncJob
 from yvy.domain.sync.repository import SyncRepository
 from yvy.infrastructure.sync.clock_offset import (
-    RecalibrationReason,
     apply_offset,
     compute_recalibration,
 )
 from yvy.infrastructure.sync.envelope_builder import build_and_sign_envelope
 from yvy.infrastructure.sync.http_client import (
     HttpClient,
+    HttpTimeoutError,
     MalformedResponseError,
     NetworkError,
-    HttpTimeoutError,
     SendError,
     SendResult,
 )

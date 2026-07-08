@@ -11,11 +11,11 @@ No se abren ventanas. Usa backend Agg (sin display).
 
 from __future__ import annotations
 
-import os
 from datetime import UTC, date, datetime, timedelta
 from unittest.mock import MagicMock
 
 import matplotlib
+
 matplotlib.use("Agg")  # debe estar antes de cualquier import matplotlib.pyplot
 
 import pytest

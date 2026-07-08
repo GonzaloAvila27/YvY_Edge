@@ -288,7 +288,6 @@ def _cmd_hero_rescue(
 
     from yvy.domain.auth.enums import AuditEventType, AuditSource
     from yvy.domain.auth.exceptions import (
-        UserNotFoundError,
         WeakPasswordError,
     )
     from yvy.domain.auth.models import (

@@ -53,7 +53,7 @@ class RainDailyChart(BaseChart):
 
         # Etiquetas de valor sobre cada barra si el período es corto
         if len(rain.dates) < _MAX_DAYS_WITH_LABELS:
-            for rect, val in zip(bars, rain.mm):
+            for rect, val in zip(bars, rain.mm, strict=False):
                 if val > 0:
                     ax.text(
                         rect.get_x() + rect.get_width() / 2,

@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
-from datetime import datetime
 from tkinter import messagebox, ttk
 from zoneinfo import ZoneInfo
 
@@ -21,7 +20,7 @@ from yvy.presentation.controllers.empirical_controller import (
     CreateEventCallbacks,
     EmpiricalController,
 )
-from yvy.presentation.theme import COLORS, FONTS, SPACE_LG, SPACE_MD, SPACE_SM
+from yvy.presentation.theme import FONTS, SPACE_LG, SPACE_MD, SPACE_SM
 from yvy.presentation.theme_manager import theme_manager
 
 logger = logging.getLogger(__name__)

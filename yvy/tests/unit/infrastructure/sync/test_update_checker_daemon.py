@@ -6,11 +6,8 @@ from __future__ import annotations
 
 import threading
 import time
-from datetime import UTC, datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from uuid import UUID
-
-import pytest
 
 from yvy.infrastructure.sync.http_client import (
     AuthError,

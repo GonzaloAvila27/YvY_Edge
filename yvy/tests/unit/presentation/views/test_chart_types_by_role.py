@@ -1,11 +1,10 @@
 """Tests para allowed_chart_labels_for_role (Fix 5.1 — filtrado por rol)."""
 
 from yvy.presentation.views.dashboard_admin import (
-    _FROST_LABEL,
     _CHART_LABELS,
+    _FROST_LABEL,
     allowed_chart_labels_for_role,
 )
-
 
 # ─── Alumno ───────────────────────────────────────────────────────────────────
 

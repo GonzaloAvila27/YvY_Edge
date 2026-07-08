@@ -289,7 +289,7 @@ class LoginView(tk.Frame):
 # ─── Helper ───────────────────────────────────────────────────────────────────
 
 
-def _load_logo(path: Path, width: int, height: int) -> "tk.PhotoImage | None":
+def _load_logo(path: Path, width: int, height: int) -> tk.PhotoImage | None:
     """Carga PNG y escala a (width, height). None si falla o no existe."""
     if not path.exists():
         return None

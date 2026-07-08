@@ -15,7 +15,6 @@ import os
 import sys
 from enum import Enum
 
-
 # ─── Detección del entorno ────────────────────────────────────────────────
 
 

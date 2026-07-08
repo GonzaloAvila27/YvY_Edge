@@ -1,4 +1,4 @@
-"""Diagnóstica la diferencia entre sensor_data y sync_queue.
+r"""Diagnóstica la diferencia entre sensor_data y sync_queue.
 
 Uso:
     python scripts/diagnostico_sync_gap.py --db path/to/yvy.sqlite

@@ -5,14 +5,13 @@ Usa respx para mockear el servidor. Sin red real, sin disco permanente.
 from __future__ import annotations
 
 import hashlib
-from pathlib import Path
 from uuid import UUID
 
 import pytest
 import respx
 from httpx import Response
 
-from yvy.infrastructure.sync.http_client import DownloadResult, HttpClient
+from yvy.infrastructure.sync.http_client import HttpClient
 
 _UUID = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 _KEY = bytes.fromhex("b" * 64)

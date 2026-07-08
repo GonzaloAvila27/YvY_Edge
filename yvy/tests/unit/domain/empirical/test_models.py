@@ -13,11 +13,6 @@ from yvy.domain.empirical.enums import (
     CloudType,
     EventType,
     HailSize,
-    HumidityPercept,
-    LivestockState,
-    PrecipitationNow,
-    SoilState,
-    Visibility,
     WindDirection,
 )
 from yvy.domain.empirical.exceptions import (
@@ -33,7 +28,6 @@ from yvy.domain.empirical.models import (
     validate_event_date_window,
     validate_observation_date_window,
 )
-
 
 # ════════════════════════════════════════════════════════════════════════
 # Helpers de construcción de fixtures
@@ -82,7 +76,7 @@ class TestEnums:
         assert len(list(HailSize)) == 5
 
     def test_sky_coverage_discrete_values(self):
-        assert SKY_COVERAGE_VALUES == frozenset({0, 25, 50, 75, 100})
+        assert frozenset({0, 25, 50, 75, 100}) == SKY_COVERAGE_VALUES
 
     def test_beaufort_descriptions_cover_0_to_12(self):
         assert set(BEAUFORT_DESCRIPTIONS.keys()) == set(range(0, 13))

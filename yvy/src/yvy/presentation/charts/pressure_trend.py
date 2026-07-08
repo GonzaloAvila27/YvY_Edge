@@ -90,7 +90,7 @@ class PressureTrendChart(BaseChart):
         bar_ts    = []
         bar_vals  = []
         bar_colors = []
-        for ts, d in zip(pres_series.timestamps, deltas):
+        for ts, d in zip(pres_series.timestamps, deltas, strict=False):
             if d is not None:
                 bar_ts.append(ts)
                 bar_vals.append(d)
@@ -124,7 +124,7 @@ class PressureTrendChart(BaseChart):
             fall_ts    = []
             fall_start = []
             fall_end   = []
-            for ts, d, v in zip(pres_series.timestamps, deltas, pres_series.values):
+            for ts, d, v in zip(pres_series.timestamps, deltas, pres_series.values, strict=False):
                 if d is not None and d < 0 and v is not None:
                     fall_ts.append(ts)
                     fall_start.append(pres_min)

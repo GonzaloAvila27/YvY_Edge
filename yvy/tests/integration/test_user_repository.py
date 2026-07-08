@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -123,7 +123,7 @@ class TestUpdate:
         u = _new_user()
         new_id = user_repo.save(u, "h")
 
-        when = datetime(2026, 5, 1, 10, 30, 0, tzinfo=timezone.utc)
+        when = datetime(2026, 5, 1, 10, 30, 0, tzinfo=UTC)
         user_repo.update_last_login(new_id, when)
 
         found = user_repo.find_by_id(new_id)

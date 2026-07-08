@@ -64,9 +64,8 @@ to *write* it down.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from enum import StrEnum
-
 
 # Default threshold below which offset changes are NOT persisted to DB.
 # Sub-second drift is normal; persisting every response would churn the

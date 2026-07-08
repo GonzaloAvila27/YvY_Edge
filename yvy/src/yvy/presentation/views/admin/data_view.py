@@ -26,7 +26,7 @@ import logging
 import statistics
 import threading
 import tkinter as tk
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Any
@@ -47,14 +47,11 @@ from yvy.presentation.theme import (
     BG_CARD,
     BG_CREAM,
     BORDER,
-    FONT_BODY,
-    FONT_BODY_BOLD,
     FONT_SMALL,
     SPACE_LG,
     SPACE_MD,
     SPACE_SM,
     SPACE_XL,
-    TEXT_PRIMARY,
     TEXT_SECONDARY,
 )
 
@@ -85,7 +82,7 @@ class DataView(tk.Frame):
         self._current_user = current_user
 
         # State de filtros
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         self._date_to_var = tk.StringVar(
             value=now.strftime("%Y-%m-%d")
         )
@@ -257,15 +254,15 @@ class DataView(tk.Frame):
 
         # Forzar re-render del carrusel con datos actualizados
         if self._carousel is not None:
-            self._carousel._render_current()  # noqa: SLF001 — mismo módulo conceptual
+            self._carousel._render_current()
 
     def _parse_date_filters(self) -> tuple[datetime | None, datetime | None]:
         try:
             d_from = datetime.strptime(self._date_from_var.get(), "%Y-%m-%d").replace(
-                tzinfo=timezone.utc,
+                tzinfo=UTC,
             )
             d_to_raw = datetime.strptime(self._date_to_var.get(), "%Y-%m-%d").replace(
-                tzinfo=timezone.utc,
+                tzinfo=UTC,
             )
             # date_to inclusive: extender al final del día
             d_to = d_to_raw + timedelta(hours=23, minutes=59, seconds=59)
@@ -378,7 +375,7 @@ class DataView(tk.Frame):
         latest = cur.fetchone()
 
         # Avg últimas 24hs
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         last_24h = now - timedelta(hours=24)
         prev_24h_start = now - timedelta(hours=48)
 

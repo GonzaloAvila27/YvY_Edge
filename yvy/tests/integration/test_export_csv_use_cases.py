@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import csv
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -26,7 +26,7 @@ def _seed_sensor_data(
     """Inserta sensor_data con valores variados (no usa el repo para
     poder controlar timestamps a piacere)."""
     if base_dt is None:
-        base_dt = datetime(2026, 4, 1, 10, 0, 0, tzinfo=timezone.utc)
+        base_dt = datetime(2026, 4, 1, 10, 0, 0, tzinfo=UTC)
 
     conn = factory.get_connection()
     for i in range(count):
@@ -64,7 +64,7 @@ def _seed_sensor_raw(
 ) -> None:
     """Inserta sensor_raw con payloads JSON variados."""
     if base_dt is None:
-        base_dt = datetime(2026, 4, 1, 10, 0, 0, tzinfo=timezone.utc)
+        base_dt = datetime(2026, 4, 1, 10, 0, 0, tzinfo=UTC)
     conn = factory.get_connection()
     for i in range(count):
         received = base_dt.replace(hour=10 + i)
@@ -141,8 +141,8 @@ class TestExportDataCsv:
         out = tmp_path / "filtered.csv"
         result = export_data_uc.execute(
             output_path=out,
-            date_from=datetime(2026, 4, 1, 11, 0, 0, tzinfo=timezone.utc),
-            date_to=datetime(2026, 4, 1, 12, 0, 0, tzinfo=timezone.utc),
+            date_from=datetime(2026, 4, 1, 11, 0, 0, tzinfo=UTC),
+            date_to=datetime(2026, 4, 1, 12, 0, 0, tzinfo=UTC),
         )
         # Debería capturar 11:00 y 12:00 (2 entries)
         assert result.rows_exported == 2

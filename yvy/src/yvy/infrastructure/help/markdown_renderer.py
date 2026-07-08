@@ -122,7 +122,7 @@ def _configure_tags(widget: tk.Text) -> None:
         TEXT_PRIMARY,
         TEXT_SECONDARY,
     )
-    from yvy.presentation.theme_manager import theme_manager, DARK
+    from yvy.presentation.theme_manager import DARK, theme_manager
 
     is_dark = theme_manager.mode == "dark"
     h1_fg   = DARK["gold"]        if is_dark else PRIMARY

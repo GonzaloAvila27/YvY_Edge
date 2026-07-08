@@ -18,7 +18,7 @@ empieza a procesar los slots (INSERT a DB), el USB ya está libre.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 import pytest
 

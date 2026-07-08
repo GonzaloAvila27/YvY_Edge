@@ -27,7 +27,6 @@ from yvy.infrastructure.sync.canonical_json import (
     canonicalize,
 )
 
-
 # ─── Sanity: spec version constant ───────────────────────────────────────
 
 

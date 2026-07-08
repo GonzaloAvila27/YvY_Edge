@@ -13,7 +13,6 @@ from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
 from yvy.infrastructure.persistence.sqlite_audit_log_repository import SQLiteAuditLogRepository
 from yvy.infrastructure.updates.installer import UpdateInstaller
 
-
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 

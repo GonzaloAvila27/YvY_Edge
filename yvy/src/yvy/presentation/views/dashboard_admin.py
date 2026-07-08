@@ -27,20 +27,17 @@ from __future__ import annotations
 
 import logging
 import threading
+import tkinter as tk
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta, tzinfo
-from zoneinfo import ZoneInfo
 from pathlib import Path
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 from typing import TYPE_CHECKING, Any
-
-import tkinter as tk
-from tkinter import ttk
+from zoneinfo import ZoneInfo
 
 from yvy.presentation.charts import SENSOR_CHARTS
 from yvy.presentation.components.chart_widget import ChartWidget
-from yvy.presentation.views.observatorio.frost_view import FrostView
 from yvy.presentation.components.help_button import HelpButton
 from yvy.presentation.components.period_selector import PeriodSelector
 from yvy.presentation.theme import (
@@ -61,12 +58,12 @@ from yvy.presentation.theme import (
     TEXT_PRIMARY,
     TEXT_SECONDARY,
 )
+from yvy.presentation.views.observatorio.frost_view import FrostView
 
 if TYPE_CHECKING:
     from yvy.application.use_cases.admin.export_data_csv import ExportDataCsvUseCase
     from yvy.application.use_cases.compute_derived import (
         ComputeDerivedUseCase,
-        CurrentDerivedValues,
     )
     from yvy.application.use_cases.query_sensor_aggregated import (
         QuerySensorAggregatedUseCase,

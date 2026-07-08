@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-
 import pytest
 
 from yvy.application.use_cases.admin.list_audit_logs import ListAuditLogsUseCase

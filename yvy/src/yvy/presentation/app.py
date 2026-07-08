@@ -27,16 +27,14 @@ from __future__ import annotations
 import logging
 import threading
 import tkinter as tk
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import tzinfo
 from tkinter import ttk
-import uuid
 from typing import TYPE_CHECKING, Final
-from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from yvy.domain.auth.enums import Role
 from yvy.domain.auth.exceptions import (
     InvalidCredentialsError,
     UserInactiveError,
@@ -48,7 +46,6 @@ from yvy.presentation.components.pizarra_yvy import PizarraYvY
 from yvy.presentation.theme import (
     BG_CARD,
     BG_CREAM,
-    BORDER,
     DANGER,
     FONT_BODY,
     FONT_BODY_BOLD,
@@ -573,7 +570,7 @@ class MainApplication(tk.Tk):
         if since_utc is None:
             return  # Gap insignificante — no molestar
 
-        from datetime import UTC, datetime, timedelta
+        from datetime import UTC, datetime
         from tkinter import messagebox
 
         if last_ts_local is not None:
@@ -856,7 +853,7 @@ class MainApplication(tk.Tk):
             view = self._build_view(key)
             self._view_cache[key] = view
             # Si la vista se construye después de un cambio de tema, aplicar paleta
-            from yvy.presentation.theme_manager import theme_manager, recolor
+            from yvy.presentation.theme_manager import recolor, theme_manager
             if theme_manager.mode == "dark":
                 palette = theme_manager.palette
                 if hasattr(view, "apply_theme"):

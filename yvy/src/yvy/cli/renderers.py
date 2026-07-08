@@ -13,11 +13,9 @@ from yvy.cli.formatting import (
     Status,
     arrow_note,
     bold,
-    dim,
     header,
     row,
 )
-
 
 _STATUS_MAP = {
     "ok": Status.OK,

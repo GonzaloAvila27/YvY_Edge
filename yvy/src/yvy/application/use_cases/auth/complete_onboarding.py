@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -134,7 +134,7 @@ class CompleteOnboardingUseCase:
             secondary_id = secondary.id
 
         # 4. Marcar onboarding completado
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         self.app_config_repo.set(KEY_ONBOARDING_COMPLETED_AT, now_iso)  # type: ignore[attr-defined]
 
         # 5. Audit

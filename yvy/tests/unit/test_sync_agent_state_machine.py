@@ -20,7 +20,6 @@ from yvy.domain.sync.agent_state import (
     is_processing,
 )
 
-
 # ─── Transitions from HEALTHY ────────────────────────────────────────────
 
 

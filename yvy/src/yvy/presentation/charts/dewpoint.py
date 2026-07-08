@@ -67,7 +67,7 @@ class DewpointChart(BaseChart):
 
         # ── 2. Alinear timestamps ─────────────────────────────────────
         hum_by_ts: dict[float, float] = {}
-        for ts, val in zip(hum_series.timestamps, hum_series.values):
+        for ts, val in zip(hum_series.timestamps, hum_series.values, strict=False):
             if val is not None:
                 hum_by_ts[ts.timestamp()] = val
 
@@ -76,7 +76,7 @@ class DewpointChart(BaseChart):
         temps       = []
         dewpoints   = []
 
-        for ts, t_val in zip(temp_series.timestamps, temp_series.values):
+        for ts, t_val in zip(temp_series.timestamps, temp_series.values, strict=False):
             if t_val is None:
                 continue
             epoch = ts.timestamp()
@@ -117,7 +117,7 @@ class DewpointChart(BaseChart):
         # ── 6. Riesgo de niebla ───────────────────────────────────────
         fog_ts  = []
         fog_dps = []
-        for ts, t, dp in zip(aligned_ts, temps, dewpoints):
+        for ts, t, dp in zip(aligned_ts, temps, dewpoints, strict=False):
             if abs(t - dp) < _FOG_MARGIN_C:
                 fog_ts.append(ts)
                 fog_dps.append(dp)

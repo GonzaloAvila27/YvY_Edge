@@ -76,10 +76,11 @@ class TestHelpButtonDwell:
         btn.destroy()
 
     def test_update_article_key_changes_key(self, root, repo) -> None:
-        from yvy.presentation.components.help_button import HelpButton
+        import unittest.mock as mock
+
         # Add a second article to the repo
         from yvy.infrastructure.help.help_repository import HelpArticle
-        import unittest.mock as mock
+        from yvy.presentation.components.help_button import HelpButton
         btn = HelpButton(root, help_repository=repo, article_key="vpd")
         # Monkeypatch get_article to return something for "other_key"
         with mock.patch.object(repo, "get_article", return_value=HelpArticle(

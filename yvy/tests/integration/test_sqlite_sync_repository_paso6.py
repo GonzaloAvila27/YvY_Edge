@@ -40,9 +40,8 @@ class _FakeFactory:
         return self._conn
 
 
-from yvy.domain.sync.enums import EntityType, SyncStatus
+from yvy.domain.sync.enums import EntityType
 from yvy.infrastructure.persistence.sqlite_sync_repository import SQLiteSyncRepository
-
 
 # ─── Constants ───────────────────────────────────────────────────────────
 

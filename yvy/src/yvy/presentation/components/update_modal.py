@@ -9,20 +9,16 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
+from collections.abc import Callable
 from tkinter import messagebox, ttk
-from typing import Callable
 
 from yvy.presentation.theme import (
-    ACCENT_GOLD,
     BG_CARD,
     BG_CREAM,
     BORDER,
-    DANGER,
-    FONT_BODY,
     FONT_BODY_BOLD,
     FONT_SMALL,
     FONT_TINY,
-    PRIMARY,
     SPACE_LG,
     SPACE_MD,
     SPACE_SM,

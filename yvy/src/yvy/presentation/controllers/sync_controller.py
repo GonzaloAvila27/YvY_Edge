@@ -454,7 +454,9 @@ class SyncController:
             return None
         try:
             from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
-            from yvy.infrastructure.persistence.sqlite_audit_log_repository import SQLiteAuditLogRepository
+            from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
+                SQLiteAuditLogRepository,
+            )
             from yvy.infrastructure.updates.installer import UpdateInstaller
             _factory = SQLiteConnectionFactory(path=self._root_path / "data" / "yvy.sqlite")
             _audit = SQLiteAuditLogRepository(_factory)
@@ -520,7 +522,9 @@ class SyncController:
             return False
         try:
             from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
-            from yvy.infrastructure.persistence.sqlite_audit_log_repository import SQLiteAuditLogRepository
+            from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
+                SQLiteAuditLogRepository,
+            )
             from yvy.infrastructure.updates.retention import ReleaseRetention
             _factory = SQLiteConnectionFactory(path=self._root_path / "data" / "yvy.sqlite")
             _audit = SQLiteAuditLogRepository(_factory)

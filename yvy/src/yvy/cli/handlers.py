@@ -31,7 +31,7 @@ from __future__ import annotations
 import json
 import logging
 import shutil
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -263,9 +263,7 @@ def compute_status(deps: CoreDependencies) -> dict[str, Any]:
         sent = counts.get(SyncStatus.SENT, 0)
         error = counts.get(SyncStatus.ERROR, 0)
 
-        if error > 0:
-            queue_status = "warn"
-        elif pending > 100:
+        if error > 0 or pending > 100:
             queue_status = "warn"
         else:
             queue_status = "ok"
@@ -441,7 +439,7 @@ def test_sensor() -> dict[str, Any]:
 
     # 2. pyusb
     try:
-        import usb.core  # noqa: F401
+        import usb.core
         checks.append({
             "name": "pyusb",
             "status": "ok",
@@ -672,6 +670,7 @@ def test_sync(deps: CoreDependencies, *, timeout_s: float = 5.0) -> dict[str, An
     """
     import json as _json
     from uuid import UUID
+
     import httpx
 
     checks: list[dict[str, Any]] = []
@@ -887,6 +886,7 @@ def compute_check_updates(deps: CoreDependencies) -> dict[str, Any]:
     """
     import json as _json
     from uuid import UUID
+
     from yvy import __version__
 
     creds_path = deps.root / "data" / "station_credentials.json"
@@ -931,8 +931,12 @@ def compute_check_updates(deps: CoreDependencies) -> dict[str, Any]:
         }
 
     from yvy.infrastructure.sync.http_client import (
-        HttpClient, AuthError, StationNotFoundError, NetworkError,
-        MalformedResponseError, SendError,
+        AuthError,
+        HttpClient,
+        MalformedResponseError,
+        NetworkError,
+        SendError,
+        StationNotFoundError,
     )
 
     http_client = HttpClient(server_url=server_url, verify=True)
@@ -1009,10 +1013,10 @@ def compute_check_updates(deps: CoreDependencies) -> dict[str, Any]:
 def compute_update_status(deps: CoreDependencies) -> dict[str, Any]:
     """Estado del sistema de updates: versión, slots, releases, pending."""
     from yvy import __version__
-    from yvy.infrastructure.updates.installer import UpdateInstaller
     from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
         SQLiteAuditLogRepository,
     )
+    from yvy.infrastructure.updates.installer import UpdateInstaller
 
     checks: list[dict[str, Any]] = []
     audit_repo = SQLiteAuditLogRepository(deps.factory)
@@ -1130,10 +1134,10 @@ def execute_update_install(deps: CoreDependencies) -> dict[str, Any]:
         launched: bool
         error: str | None
     """
-    from yvy.infrastructure.updates.installer import UpdateInstaller
     from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
         SQLiteAuditLogRepository,
     )
+    from yvy.infrastructure.updates.installer import UpdateInstaller
 
     audit_repo = SQLiteAuditLogRepository(deps.factory)
     installer = UpdateInstaller(
@@ -1188,10 +1192,10 @@ def execute_rollback(
         to_version: str
         reason: str | None
     """
-    from yvy.infrastructure.updates.installer import UpdateInstaller
     from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
         SQLiteAuditLogRepository,
     )
+    from yvy.infrastructure.updates.installer import UpdateInstaller
 
     audit_repo = SQLiteAuditLogRepository(deps.factory)
     installer = UpdateInstaller(
@@ -1227,10 +1231,10 @@ def execute_mark_stable(
         version: str
         error: str | None
     """
-    from yvy.infrastructure.updates.retention import ReleaseRetention
     from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
         SQLiteAuditLogRepository,
     )
+    from yvy.infrastructure.updates.retention import ReleaseRetention
 
     releases_dir = deps.root / "releases"
     audit_repo = SQLiteAuditLogRepository(deps.factory)

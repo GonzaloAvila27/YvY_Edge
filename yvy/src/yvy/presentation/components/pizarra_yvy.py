@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
-from tkinter import ttk
 from collections.abc import Callable
+from tkinter import ttk
 
 from yvy.infrastructure.help.help_repository import HelpArticle, HelpRepository
 from yvy.infrastructure.help.markdown_renderer import apply_markdown

@@ -144,7 +144,7 @@ def main() -> int:
     assert user_repo.find_by_username("director") is not None
     assert app_config_repo.get("station_uuid") is not None
 
-    print(f"✓ Wizard E2E OK")
+    print("✓ Wizard E2E OK")
     print(f"  station_uuid: {app_config_repo.get('station_uuid')}")
     print(f"  hardware_fingerprint: {app_config_repo.get('hardware_fingerprint')}")
     print(f"  Audit entries: {len(audit_repo.list_recent(limit=20))}")

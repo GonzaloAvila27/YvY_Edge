@@ -92,7 +92,7 @@ class ThermalAmplitudeChart(BaseChart):
         bars = ax.bar(x, amplitudes, color=colors, width=0.6, zorder=2)
 
         # ── 5. Etiquetas de valor sobre barras ────────────────────────
-        for rect, val in zip(bars, amplitudes):
+        for rect, val in zip(bars, amplitudes, strict=False):
             ax.text(
                 rect.get_x() + rect.get_width() / 2,
                 rect.get_height() + 0.1,

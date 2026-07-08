@@ -25,8 +25,8 @@ from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
-from yvy.application.use_cases.compute_derived import dewpoint_c
 from yvy.application.queries.unit_conversion import mps_to_kmh
+from yvy.application.use_cases.compute_derived import dewpoint_c
 from yvy.domain.observatorio.frost_detection import (
     FrostLevel,
     frost_color_hex,
@@ -34,8 +34,7 @@ from yvy.domain.observatorio.frost_detection import (
 )
 from yvy.domain.observatorio.night_periods import night_bands
 from yvy.domain.observatorio.period_range import PeriodRange
-from yvy.presentation.components.chart_widget import ChartWidget, NoDataError
-from yvy.presentation.components.chart_widget import apply_yvy_style
+from yvy.presentation.components.chart_widget import ChartWidget, NoDataError, apply_yvy_style
 from yvy.presentation.theme import (
     BG_CARD,
     BORDER,
@@ -119,7 +118,7 @@ class FrostView(tk.Frame):
             # ── Calcular series derivadas ──────────────────────────────
             dewpoints = [
                 dewpoint_c(t, h)
-                for t, h in zip(series.temp_c, series.hum_pct)
+                for t, h in zip(series.temp_c, series.hum_pct, strict=False)
             ]
             wind_kmh = [mps_to_kmh(w) for w in series.wind_mps]
 
@@ -155,7 +154,7 @@ class FrostView(tk.Frame):
                 FrostLevel.MEDIA: ([], []),
                 FrostLevel.BAJA:  ([], []),
             }
-            for t_ts, t_c, d_c in zip(ts, series.temp_c, dewpoints):
+            for t_ts, t_c, d_c in zip(ts, series.temp_c, dewpoints, strict=False):
                 level = probable_frost_level(t_c, d_c)
                 if level is not None:
                     frost_pts[level][0].append(t_ts)

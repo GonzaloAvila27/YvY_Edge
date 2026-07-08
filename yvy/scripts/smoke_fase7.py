@@ -8,7 +8,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -59,7 +59,7 @@ def _take(path: str) -> None:
 def _seed_observations(factory: SQLiteConnectionFactory, count: int = 50) -> None:
     """Seedea sensor_data realista para que el carrusel muestre datos."""
     conn = factory.get_connection()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     # Genera observaciones cada 30 minutos hacia atrás
     for i in range(count):
         observed = now - timedelta(minutes=30 * i)
@@ -267,9 +267,9 @@ def main() -> int:
     app.update()
     _take(f"{out_dir}/23_data_detail_modal.png")
 
-    print(f"✓ Smoke Fase 7 OK")
+    print("✓ Smoke Fase 7 OK")
     print(f"  Total users: {len(user_repo.list_all())}")
-    print(f"  Total observaciones: 50")
+    print("  Total observaciones: 50")
     print(f"  Total audit entries: {len(audit_repo.list_recent(limit=100))}")
     app.destroy()
     return 0

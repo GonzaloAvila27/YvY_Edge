@@ -5,10 +5,8 @@ DB real en memoria (SQLite) para app_config_repo.
 """
 from __future__ import annotations
 
-import sqlite3
 import threading
 import time
-from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 

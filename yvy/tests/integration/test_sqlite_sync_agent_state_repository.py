@@ -7,10 +7,9 @@ fields without disturbing unrelated columns.
 from __future__ import annotations
 
 import sqlite3
-import sys
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 
@@ -31,7 +30,6 @@ from yvy.domain.sync.agent_state import AgentState
 from yvy.infrastructure.persistence.sqlite_sync_agent_state_repository import (
     SQLiteSyncAgentStateRepository,
 )
-
 
 # ─── Setup helpers ───────────────────────────────────────────────────────
 

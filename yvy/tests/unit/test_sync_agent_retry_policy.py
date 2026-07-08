@@ -15,17 +15,13 @@ Verified properties:
 """
 from __future__ import annotations
 
-import random
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
-
-import pytest
 
 from yvy.infrastructure.sync.sync_agent import (
     SyncAgentConfig,
     SyncAgentDaemon,
 )
-
 
 # ─── Test fixtures (minimal daemon) ──────────────────────────────────────
 

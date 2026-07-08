@@ -11,14 +11,11 @@ the mock".
 """
 from __future__ import annotations
 
-import threading
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
-
-import pytest
 
 from yvy.domain.sync.agent_state import (
     AgentState,
@@ -30,16 +27,16 @@ from yvy.infrastructure.sync.http_client import (
     MalformedResponseError,
     NetworkError,
     SendResult,
+)
+from yvy.infrastructure.sync.http_client import (
     TimeoutError as HttpTimeoutError,
 )
 from yvy.infrastructure.sync.sync_agent import (
+    _ENDPOINT_BY_ENTITY_TYPE,
     FailureClass,
     SyncAgentConfig,
     SyncAgentDaemon,
-    _ENDPOINT_BY_ENTITY_TYPE,
-    _SUPPORTED_ENTITY_TYPES,
 )
-
 
 # ─── Fixtures and fakes ──────────────────────────────────────────────────
 

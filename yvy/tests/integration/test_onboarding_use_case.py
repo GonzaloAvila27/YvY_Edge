@@ -5,13 +5,12 @@ from __future__ import annotations
 import pytest
 
 from yvy.application.use_cases.auth.complete_onboarding import (
-    AdminCreationData,
-    CompleteOnboardingUseCase,
     KEY_CUE,
     KEY_HARDWARE_FINGERPRINT,
-    KEY_ONBOARDING_COMPLETED_AT,
     KEY_SCHOOL_NAME,
     KEY_STATION_UUID,
+    AdminCreationData,
+    CompleteOnboardingUseCase,
     OnboardingData,
 )
 from yvy.application.use_cases.auth.create_user import CreateUserUseCase

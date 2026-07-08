@@ -41,9 +41,9 @@ def smoke_live(num_samples: int, station_uuid: uuid.UUID) -> int:
     logger.info("SMOKE LIVE · capturando %d samples del sensor", num_samples)
     logger.info("=" * 70)
 
+    from yvy.domain.shared.value_objects import StationUUID
     from yvy.infrastructure.pywws.live_source import PywwsLiveSource
     from yvy.infrastructure.pywws.parser import PywwsPayloadParser
-    from yvy.domain.shared.value_objects import StationUUID
 
     source = PywwsLiveSource()
     parser = PywwsPayloadParser()
@@ -104,9 +104,9 @@ def smoke_catchup(hours_back: float, station_uuid: uuid.UUID) -> int:
     logger.info("SMOKE CATCHUP · recuperando últimas %.1fh del buffer", hours_back)
     logger.info("=" * 70)
 
+    from yvy.domain.shared.value_objects import StationUUID
     from yvy.infrastructure.pywws.catchup_source import PywwsCatchupSource
     from yvy.infrastructure.pywws.parser import PywwsPayloadParser
-    from yvy.domain.shared.value_objects import StationUUID
     from yvy.infrastructure.system.clock import SystemClock
 
     source = PywwsCatchupSource(clock=SystemClock())

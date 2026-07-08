@@ -12,7 +12,7 @@ from matplotlib.figure import Figure
 from yvy.application.use_cases.compute_derived import vpd_kpa, vpd_zone
 from yvy.presentation.charts.base import BaseChart, format_xaxis, format_xaxis_range
 from yvy.presentation.components.chart_widget import NoDataError, apply_yvy_style
-from yvy.presentation.theme import ACCENT_GOLD, BG_CARD, BORDER, TEXT_PRIMARY
+from yvy.presentation.theme import ACCENT_GOLD, BG_CARD, BORDER
 
 if TYPE_CHECKING:
     from yvy.application.use_cases.query_sensor_aggregated import (
@@ -67,7 +67,7 @@ class VpdChart(BaseChart):
         # ── 2. Alinear timestamps: dict merge dentro de ±60 s ─────────
         # Construir mapa {ts_epoch_redondeado → (temp, hum)}
         hum_by_ts: dict[float, float] = {}
-        for ts, val in zip(hum_series.timestamps, hum_series.values):
+        for ts, val in zip(hum_series.timestamps, hum_series.values, strict=False):
             if val is not None:
                 hum_by_ts[ts.timestamp()] = val
 
@@ -76,7 +76,7 @@ class VpdChart(BaseChart):
         aligned_ts = []
         aligned_vpd = []
 
-        for ts, t_val in zip(temp_series.timestamps, temp_series.values):
+        for ts, t_val in zip(temp_series.timestamps, temp_series.values, strict=False):
             if t_val is None:
                 continue
             epoch = ts.timestamp()

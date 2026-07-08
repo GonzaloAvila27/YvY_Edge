@@ -126,7 +126,7 @@ if pyusb_ok:
     try:
         dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID)
         if dev is not None:
-            print(f"  [OK] Sensor WH1080/WH1081 encontrado")
+            print("  [OK] Sensor WH1080/WH1081 encontrado")
             try:
                 print(f"       Fabricante : {dev.manufacturer}")
                 print(f"       Producto   : {dev.product}")

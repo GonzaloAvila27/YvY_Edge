@@ -10,7 +10,6 @@ from uuid import UUID
 from yvy.domain.auth.enums import AuditEventType, AuditSource, Role
 from yvy.domain.auth.exceptions import WeakPasswordError
 
-
 # Requisitos mínimos de password.
 MIN_PASSWORD_LENGTH = 8
 MIN_USERNAME_LENGTH = 3

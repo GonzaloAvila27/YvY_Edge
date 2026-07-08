@@ -7,16 +7,13 @@ toma screenshot, cierra.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import subprocess
 import sys
 import tempfile
 import time
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from yvy.application.use_cases.auth.change_password import ChangePasswordUseCase

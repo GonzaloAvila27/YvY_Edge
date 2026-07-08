@@ -54,7 +54,7 @@ import pytest
 import respx
 
 from yvy.domain.sync.agent_state import AgentState
-from yvy.domain.sync.enums import EntityType, SyncStatus
+from yvy.domain.sync.enums import EntityType
 from yvy.infrastructure.persistence.sqlite_sync_agent_state_repository import (
     SQLiteSyncAgentStateRepository,
 )
@@ -64,7 +64,6 @@ from yvy.infrastructure.sync.sync_agent import (
     SyncAgentConfig,
     SyncAgentDaemon,
 )
-
 
 # ─── Setup ───────────────────────────────────────────────────────────────
 

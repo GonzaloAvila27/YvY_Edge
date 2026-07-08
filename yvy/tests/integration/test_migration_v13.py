@@ -133,7 +133,7 @@ class TestDataPreservation:
         post_rows = db_at_v12.execute(
             f"SELECT {','.join(old_cols)} FROM sync_queue ORDER BY id"
         ).fetchall()
-        for pre, post in zip(pre_rows, post_rows):
+        for pre, post in zip(pre_rows, post_rows, strict=False):
             for col in old_cols:
                 assert pre[col] == post[col], (
                     f"Drift in id={pre['id']} col={col}: pre={pre[col]!r} post={post[col]!r}"

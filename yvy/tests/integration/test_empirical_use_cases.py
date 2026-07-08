@@ -30,7 +30,6 @@ from yvy.application.use_cases.empirical.list_get_observations import (
 from yvy.domain.auth.enums import AuditEventType, Role
 from yvy.domain.auth.models import User
 from yvy.domain.empirical.enums import (
-    CloudType,
     EventType,
     HailSize,
     WindDirection,
@@ -42,7 +41,6 @@ from yvy.domain.empirical.exceptions import (
 from yvy.infrastructure.persistence.sqlite_empirical_repository import (
     SQLiteEmpiricalRepository,
 )
-
 
 # ════════════════════════════════════════════════════════════════════════
 # Fixtures

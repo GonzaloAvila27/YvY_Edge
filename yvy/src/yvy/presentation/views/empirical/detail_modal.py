@@ -15,7 +15,7 @@ from yvy.domain.empirical.enums import (
     BEAUFORT_DESCRIPTIONS,
     CLOUD_TYPE_DESCRIPTIONS,
 )
-from yvy.domain.empirical.models import EmpiricalEvent, EmpiricalObservation
+from yvy.domain.empirical.models import EmpiricalEvent
 from yvy.presentation.controllers.empirical_controller import EmpiricalController
 from yvy.presentation.theme import COLORS, FONTS, SPACE_LG, SPACE_MD, SPACE_SM
 
@@ -218,7 +218,7 @@ def _parse_validation_flags(notes: str) -> list[str]:
     return flags
 
 
-def _fmt(value) -> str:  # noqa: ANN001
+def _fmt(value) -> str:
     if value is None:
         return "—"
     if isinstance(value, float):

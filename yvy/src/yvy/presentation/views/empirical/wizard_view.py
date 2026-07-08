@@ -36,6 +36,7 @@ from yvy.domain.empirical.enums import (
     Visibility,
     WindDirection,
 )
+from yvy.presentation.components.help_button import HelpButton
 from yvy.presentation.controllers.empirical_controller import (
     CreateObservationCallbacks,
     EmpiricalController,
@@ -45,10 +46,10 @@ from yvy.presentation.theme import (
     BG_CARD,
     BORDER,
     COLORS,
-    FONTS,
     FONT_FORM_INPUT,
     FONT_FORM_LABEL,
     FONT_SMALL,
+    FONTS,
     FORM_COL_GAP,
     FORM_LABEL_MB,
     FORM_PADDING_H,
@@ -63,7 +64,6 @@ from yvy.presentation.theme import (
     TEXT_PRIMARY,
     TEXT_SECONDARY,
 )
-from yvy.presentation.components.help_button import HelpButton
 from yvy.presentation.views.empirical.event_form_modal import EmpiricalEventFormModal
 
 logger = logging.getLogger(__name__)
@@ -268,7 +268,7 @@ class EmpiricalWizardView(tk.Frame):
             )
         )
 
-    def _on_mousewheel(self, event) -> None:  # noqa: ANN001
+    def _on_mousewheel(self, event) -> None:
         """Scroll del body con la rueda del mouse (Windows: delta múltiplo de 120)."""
         self._body_canvas.yview_scroll(int(-event.delta / 120), "units")
 
@@ -903,7 +903,7 @@ class EmpiricalWizardView(tk.Frame):
             on_created=self._on_event_added,
         )
 
-    def _on_event_added(self, event) -> None:  # noqa: ANN001
+    def _on_event_added(self, event) -> None:
         """Callback cuando se agrega un evento exitosamente."""
         self._capture_current_step()  # preservar general_notes antes de re-render
         self._state["events_added"].append(event)

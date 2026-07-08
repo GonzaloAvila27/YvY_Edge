@@ -118,15 +118,21 @@ def check_empirical(conn: sqlite3.Connection) -> bool:
     from unittest.mock import MagicMock
 
     from yvy.application.use_cases.empirical.create_empirical_event import (
-        CreateEmpiricalEventUseCase, CreateEventInput,
+        CreateEmpiricalEventUseCase,
+        CreateEventInput,
     )
     from yvy.application.use_cases.empirical.create_empirical_observation import (
-        CreateEmpiricalObservationUseCase, CreateObservationInput,
+        CreateEmpiricalObservationUseCase,
+        CreateObservationInput,
     )
     from yvy.domain.auth.enums import Role
     from yvy.domain.auth.models import User
     from yvy.domain.empirical.enums import (
-        EventType, HailSize, SoilState, Visibility, WindDirection,
+        EventType,
+        HailSize,
+        SoilState,
+        Visibility,
+        WindDirection,
     )
     from yvy.infrastructure.persistence.sqlite_empirical_repository import (
         SQLiteEmpiricalRepository,
@@ -232,10 +238,9 @@ def check_sync_queue(conn: sqlite3.Connection) -> bool:
 
     from yvy.domain.sync.enums import EntityType, SyncStatus
     from yvy.domain.sync.models import SyncJob
-    from yvy.infrastructure.persistence.sqlite_sync_repository import SQLiteSyncRepository
 
     # Enqueue un job de prueba real vía el repo
-    from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
+    from yvy.infrastructure.persistence.sqlite_sync_repository import SQLiteSyncRepository
     factory = MagicMock_factory(conn)
     sync_repo = SQLiteSyncRepository(factory)
 
@@ -302,8 +307,8 @@ def check_sensor_live(conn: sqlite3.Connection) -> bool:
         return False
 
     # 3. Esperar un sample live (timeout 90s)
-    print(f"  Esperando sample del sensor (hasta 90 segundos)...")
-    print(f"  El WH1081 transmite cada ~48 segundos.")
+    print("  Esperando sample del sensor (hasta 90 segundos)...")
+    print("  El WH1081 transmite cada ~48 segundos.")
 
     result: dict = {}
 
@@ -436,7 +441,9 @@ def check_daemon_lifecycle(tmpdir: Path, *, with_sensor: bool) -> bool:
     else:
         # Modo con sensor: fuente real — requiere WH1081 conectado.
         try:
-            from yvy.infrastructure.pywws.live_source import PywwsLiveSource  # type: ignore[import-not-found]
+            from yvy.infrastructure.pywws.live_source import (
+                PywwsLiveSource,  # type: ignore[import-not-found]
+            )
             source = PywwsLiveSource()
         except Exception as exc:
             _check("PywwsLiveSource importable", False, str(exc))

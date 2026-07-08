@@ -9,8 +9,8 @@ from yvy.domain.auth.exceptions import (
     SuperadminProtectedError,
     TooManyAdminsError,
     UserInactiveError,
-    UserNotFoundError,
     UsernameAlreadyExistsError,
+    UserNotFoundError,
     WeakPasswordError,
 )
 from yvy.domain.auth.models import (

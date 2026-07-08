@@ -15,7 +15,6 @@ from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
 from yvy.infrastructure.persistence.sqlite_audit_log_repository import SQLiteAuditLogRepository
 from yvy.infrastructure.updates.retention import ReleaseRetention
 
-
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 
@@ -124,7 +123,6 @@ def test_cleanup_keeps_release_in_list_if_removal_fails(
     retention: ReleaseRetention, cfg: AppConfigRepository, releases_dir: Path
 ) -> None:
     from unittest.mock import patch
-    import shutil
 
     _slot(releases_dir, "1.2.0")
     _slot(releases_dir, "1.3.0")

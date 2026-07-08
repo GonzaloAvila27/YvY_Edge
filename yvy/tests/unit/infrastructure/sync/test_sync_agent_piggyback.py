@@ -6,14 +6,11 @@ from __future__ import annotations
 
 import threading
 from datetime import UTC, datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from uuid import UUID
-
-import pytest
 
 from yvy.infrastructure.sync.http_client import SendResult
 from yvy.infrastructure.sync.sync_agent import SyncAgentDaemon
-
 
 _UUID = UUID("22222222-2222-4222-8222-222222222222")
 _KEY = b"k" * 32

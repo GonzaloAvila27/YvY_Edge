@@ -16,12 +16,10 @@ from datetime import UTC, datetime, timedelta, timezone
 import pytest
 
 from yvy.infrastructure.sync.clock_offset import (
-    ClockRecalibration,
     RecalibrationReason,
     apply_offset,
     compute_recalibration,
 )
-
 
 _T0 = datetime(2026, 5, 23, 18, 0, 0, tzinfo=UTC)
 

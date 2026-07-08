@@ -85,7 +85,9 @@ from yvy.application.use_cases.auth.create_user import CreateUserUseCase
 from yvy.application.use_cases.auth.login import LoginUseCase
 from yvy.application.use_cases.auth.manage_user import SetUserActiveUseCase, ToggleExportFlagUseCase
 from yvy.application.use_cases.empirical.create_empirical_event import CreateEmpiricalEventUseCase
-from yvy.application.use_cases.empirical.create_empirical_observation import CreateEmpiricalObservationUseCase
+from yvy.application.use_cases.empirical.create_empirical_observation import (
+    CreateEmpiricalObservationUseCase,
+)
 from yvy.application.use_cases.empirical.list_get_observations import (
     GetObservationDetailsUseCase,
     ListEmpiricalObservationsUseCase,
@@ -94,10 +96,10 @@ from yvy.application.use_cases.query_sensor_aggregated import QuerySensorAggrega
 from yvy.application.use_cases.retention.run_retention_job import RunRetentionJobUseCase
 from yvy.application.use_cases.sensor.capture_live_reading import CaptureLiveReadingUseCase
 from yvy.application.use_cases.sensor.run_catchup_recovery import RunCatchupRecoveryUseCase
+from yvy.bootstrap import build_core_dependencies
 from yvy.domain.auth.enums import Role
 from yvy.domain.retention.models import RetentionPolicy
 from yvy.domain.shared.value_objects import StationUUID
-from yvy.bootstrap import build_core_dependencies
 from yvy.infrastructure.auth.bcrypt_hasher import BcryptPasswordHasher
 from yvy.infrastructure.help.help_repository import HelpRepository
 from yvy.infrastructure.pywws.catchup_source import PywwsCatchupSource
@@ -107,7 +109,6 @@ from yvy.infrastructure.scheduling.sensor_collector import SensorCollectorDaemon
 from yvy.infrastructure.sync.http_client import HttpClient
 from yvy.infrastructure.sync.sync_agent import SyncAgentConfig, SyncAgentDaemon
 from yvy.infrastructure.sync.update_checker_daemon import UpdateCheckerDaemon
-from yvy.infrastructure.system.clock import SystemClock
 from yvy.presentation.app import MainApplication
 from yvy.presentation.controllers.auth_controller import AuthController
 from yvy.presentation.controllers.empirical_controller import EmpiricalController
@@ -518,7 +519,8 @@ def _try_build_update_checker(
 
 def _post_boot_check(app_config_repo, root: Path) -> None:
     """C3: Detecta si venimos de una instalación y registra el resultado."""
-    from datetime import UTC, datetime as _dt
+    from datetime import UTC
+    from datetime import datetime as _dt
 
     status = app_config_repo.get_install_status()
     if status != "requested":
@@ -539,9 +541,11 @@ def _post_boot_check(app_config_repo, root: Path) -> None:
         app_config_repo.clear_pending_update()
 
         # Escribir boot_ok.flag para que el watchdog lo detecte
-        from yvy.infrastructure.updates.installer import UpdateInstaller
-        from yvy.infrastructure.persistence.sqlite_audit_log_repository import SQLiteAuditLogRepository
         from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
+        from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
+            SQLiteAuditLogRepository,
+        )
+        from yvy.infrastructure.updates.installer import UpdateInstaller
         _factory = SQLiteConnectionFactory(path=root / "data" / "yvy.sqlite")
         _audit = SQLiteAuditLogRepository(_factory)
         _installer = UpdateInstaller(
@@ -574,9 +578,11 @@ def _post_boot_check(app_config_repo, root: Path) -> None:
 def _evaluate_stable_silently(app_config_repo, root: Path) -> None:
     """Evalúa promoción automática a estable. Silenciosa — errores no crashean."""
     try:
-        from yvy.infrastructure.updates.retention import ReleaseRetention
-        from yvy.infrastructure.persistence.sqlite_audit_log_repository import SQLiteAuditLogRepository
         from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
+        from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
+            SQLiteAuditLogRepository,
+        )
+        from yvy.infrastructure.updates.retention import ReleaseRetention
         _factory = SQLiteConnectionFactory(path=root / "data" / "yvy.sqlite")
         _audit = SQLiteAuditLogRepository(_factory)
         retention = ReleaseRetention(

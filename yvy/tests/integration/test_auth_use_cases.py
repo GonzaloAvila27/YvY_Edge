@@ -6,7 +6,7 @@ estos tests validan que el use case + repos + hasher funcionan juntos.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -38,7 +38,6 @@ from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
 from yvy.infrastructure.persistence.sqlite_user_repository import SQLiteUserRepository
 from yvy.infrastructure.system.clock import FrozenClock
 
-
 # ─── Fixtures de use cases ───────────────────────────────────────────────
 
 
@@ -53,7 +52,7 @@ def login_use_case(
         audit_repo=audit_log_repo,
         hasher=fast_hasher,
         time_provider=FrozenClock(
-            datetime(2026, 5, 1, 10, 0, 0, tzinfo=timezone.utc)
+            datetime(2026, 5, 1, 10, 0, 0, tzinfo=UTC)
         ),
     )
 
