@@ -44,7 +44,7 @@ sys.path.insert(0, str(CODE_ROOT / "src"))
 # STABLE_ROOT: dónde viven los DATOS persistentes (data/, releases/, current.txt,
 # credentials, installer). NUNCA debe ser el slot, o cada OTA arrancaría contra una
 # DB vacía (aparente instalación limpia). Ver resolve_stable_root.
-from yvy.infrastructure.system.paths import resolve_stable_root  # noqa: E402
+from yvy.infrastructure.system.paths import resolve_stable_root
 
 STABLE_ROOT = resolve_stable_root(CODE_ROOT)
 

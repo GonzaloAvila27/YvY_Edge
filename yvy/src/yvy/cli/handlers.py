@@ -278,10 +278,7 @@ def compute_status(deps: CoreDependencies) -> dict[str, Any]:
         sent = counts.get(SyncStatus.SENT, 0)
         error = counts.get(SyncStatus.ERROR, 0)
 
-        if error > 0 or pending > 100:
-            queue_status = "warn"
-        else:
-            queue_status = "ok"
+        queue_status = "warn" if error > 0 or pending > 100 else "ok"
 
         detail = f"{pending} pending · {sending} sending · " f"{sent} sent · {error} error"
         checks.append(
@@ -651,14 +648,9 @@ def test_db(deps: CoreDependencies) -> dict[str, Any]:
     except Exception as exc:
         return {
             "ok": False,
-            "checks": checks
-            + [
-                {
-                    "name": "Conexión",
-                    "status": "fail",
-                    "detail": f"error: {exc}",
-                    "value": None,
-                }
+            "checks": [
+                *checks,
+                {"name": "Conexión", "status": "fail", "detail": f"error: {exc}", "value": None},
             ],
             "notes": [],
             "summary": "DB no accesible",
@@ -832,14 +824,14 @@ def test_sync(deps: CoreDependencies, *, timeout_s: float = 5.0) -> dict[str, An
     except (KeyError, ValueError, TypeError) as exc:
         return {
             "ok": False,
-            "checks": checks
-            + [
+            "checks": [
+                *checks,
                 {
                     "name": "Formato credentials",
                     "status": "fail",
                     "detail": f"{type(exc).__name__}: {exc}",
                     "value": None,
-                }
+                },
             ],
             "notes": [],
             "summary": "Credentials con formato inválido",
@@ -850,14 +842,14 @@ def test_sync(deps: CoreDependencies, *, timeout_s: float = 5.0) -> dict[str, An
     if not server_url:
         return {
             "ok": False,
-            "checks": checks
-            + [
+            "checks": [
+                *checks,
                 {
                     "name": "URL del server",
                     "status": "fail",
                     "detail": "sync_server_url no configurado en app_config",
                     "value": None,
-                }
+                },
             ],
             "notes": [
                 "Configurar con: `app_config_repo.set('sync_server_url', " "'https://...')`",

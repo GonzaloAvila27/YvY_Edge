@@ -91,7 +91,7 @@ class LogsView(tk.Frame):
         event_combo = ttk.Combobox(
             filters,
             textvariable=self._event_filter_var,
-            values=[_ALL_LABEL] + list(_EVENT_LABELS.values()),
+            values=[_ALL_LABEL, *list(_EVENT_LABELS.values())],
             state="readonly",
             width=28,
         )

@@ -321,12 +321,12 @@ class PeriodSelector(tk.Frame):
         try:
             from_date = date.fromisoformat(from_str)
         except ValueError:
-            raise ValueError("Desde: formato AAAA-MM-DD")
+            raise ValueError("Desde: formato AAAA-MM-DD") from None
 
         try:
             until_date = date.fromisoformat(until_str)
         except ValueError:
-            raise ValueError("Hasta: formato AAAA-MM-DD")
+            raise ValueError("Hasta: formato AAAA-MM-DD") from None
 
         start = datetime(from_date.year, from_date.month, from_date.day, tzinfo=self._tz)
         end = datetime(

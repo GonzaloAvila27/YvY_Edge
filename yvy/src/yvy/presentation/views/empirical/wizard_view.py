@@ -542,7 +542,7 @@ class EmpiricalWizardView(tk.Frame):
         radio_wind.pack(fill="x")
         # Distribuir 8 puntos cardinales con columnas de peso uniforme
         # para que el espaciado sea proporcional al ancho disponible.
-        for i, d in enumerate(WindDirection):
+        for i, _ in enumerate(WindDirection):
             radio_wind.columnconfigure(i, weight=1)
         self._wind_dir_var = tk.StringVar(
             value=self._state["wind_direction"].value if self._state["wind_direction"] else ""

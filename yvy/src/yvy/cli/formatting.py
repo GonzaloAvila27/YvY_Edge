@@ -27,9 +27,7 @@ def _supports_unicode() -> bool:
     encoding = (sys.stdout.encoding or "").lower()
     if "utf" in encoding:
         return True
-    if os.environ.get("PYTHONIOENCODING", "").lower().startswith("utf"):
-        return True
-    return False
+    return bool(os.environ.get("PYTHONIOENCODING", "").lower().startswith("utf"))
 
 
 def _supports_color() -> bool:

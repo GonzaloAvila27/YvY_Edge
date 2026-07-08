@@ -655,7 +655,7 @@ class HttpClient:
         return SendResult(
             status_code=response.status_code,
             body_json=body_json,
-            headers={k: v for k, v in response.headers.items()},
+            headers=dict(response.headers.items()),
             server_time_utc=server_time_utc,
             server_sync_version=server_sync_version,
         )

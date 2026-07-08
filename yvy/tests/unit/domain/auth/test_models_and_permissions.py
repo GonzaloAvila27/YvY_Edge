@@ -16,14 +16,14 @@ from yvy.domain.auth import (
 
 
 def _make_user(role: Role = Role.ALUMNO, **overrides) -> User:
-    defaults = dict(
-        user_uuid=uuid4(),
-        username="testuser",
-        full_name="Test User",
-        role=role,
-        is_active=True,
-        can_export_raw=False,
-    )
+    defaults = {
+        "user_uuid": uuid4(),
+        "username": "testuser",
+        "full_name": "Test User",
+        "role": role,
+        "is_active": True,
+        "can_export_raw": False,
+    }
     defaults.update(overrides)
     return User(**defaults)
 

@@ -205,10 +205,7 @@ class HelpRepository:
                 art_language = fm_meta.get("language") or self._language
 
                 # Summary: del index.json o fallback al primer párrafo
-                if art_summary_raw:
-                    summary = art_summary_raw
-                else:
-                    summary = _first_paragraph(body) or None
+                summary = art_summary_raw if art_summary_raw else _first_paragraph(body) or None
 
                 raw_related[art_key] = art_related_raw
 

@@ -67,15 +67,15 @@ def _data(with_secondary: bool = False, **overrides) -> OnboardingData:
         if with_secondary
         else None
     )
-    base = dict(
-        cue="540178700",
-        school_name="IEA Nº10 — Posadas",
-        school_short_name="IEA10",
-        timezone="America/Argentina/Cordoba",
-        primary_admin=primary,
-        secondary_admin=secondary,
-        hardware_fingerprint=None,
-    )
+    base = {
+        "cue": "540178700",
+        "school_name": "IEA Nº10 — Posadas",
+        "school_short_name": "IEA10",
+        "timezone": "America/Argentina/Cordoba",
+        "primary_admin": primary,
+        "secondary_admin": secondary,
+        "hardware_fingerprint": None,
+    }
     base.update(overrides)
     return OnboardingData(**base)
 

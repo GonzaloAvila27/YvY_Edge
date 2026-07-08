@@ -79,11 +79,11 @@ class SensorCollectorDaemon(threading.Thread):
         while not self._shutdown.is_set():
             result_box: dict = {}
 
-            def _execute() -> None:
+            def _execute(box: dict = result_box) -> None:
                 try:
-                    result_box["result"] = self._use_case.execute()
+                    box["result"] = self._use_case.execute()
                 except Exception as exc:
-                    result_box["error"] = exc
+                    box["error"] = exc
                 finally:
                     # Liberar conexión del sub-thread para no dejar handles huérfanos.
                     self._factory.close_thread_connection()
@@ -109,19 +109,19 @@ class SensorCollectorDaemon(threading.Thread):
 
             if "error" in result_box:
                 consecutive_failures += 1
-                n, exc = consecutive_failures, result_box["error"]
+                n, err = consecutive_failures, result_box["error"]
                 if n <= 3:
                     logger.error(
                         "sensor.capture.failure | consecutive=%d error=%s",
                         n,
-                        exc,
-                        exc_info=exc,
+                        err,
+                        exc_info=err,
                     )
                 elif n % 30 == 0:
                     logger.warning(
                         "sensor.capture.failure | %d errores consecutivos (muestra c/30): %s",
                         n,
-                        exc,
+                        err,
                     )
                 if self._shutdown.wait(timeout=_BACKOFF_FAILURE_S):
                     break

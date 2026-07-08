@@ -201,10 +201,7 @@ def daily_thermal_amplitude(
     amplitudes: list[float] = []
     for d in sorted(day_buckets):
         vals = day_buckets[d]
-        if len(vals) >= 2:
-            amp = max(vals) - min(vals)
-        else:
-            amp = 0.0
+        amp = max(vals) - min(vals) if len(vals) >= 2 else 0.0
         dates.append(d)
         amplitudes.append(amp)
 
@@ -359,7 +356,6 @@ class ComputeDerivedUseCase:
         temp = last_valid(temp_series)
         rh = last_valid(hum_series)
         wind = last_valid(wind_series)
-        pressure = last_valid(pres_series)
 
         # ── Derivados ──────────────────────────────────────────────────
         vpd_val: float | None = None
@@ -473,7 +469,6 @@ class ComputeDerivedUseCase:
         # ── Tendencia de presión ───────────────────────────────────────
         if pressure_delta is not None and abs(pressure_delta) >= 1.5:
             direction = "descenso" if pressure_delta < 0 else "ascenso"
-            sign = "" if pressure_delta > 0 else ""
             parts.append(
                 f"Presión en {direction} ({pressure_delta:+.1f} hPa en 3h), "
                 f"posibles cambios en el tiempo."

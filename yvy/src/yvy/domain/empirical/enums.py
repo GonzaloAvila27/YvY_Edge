@@ -12,7 +12,7 @@ class WindDirection(StrEnum):
     SE = "SE"
     S = "S"
     SO = "SO"
-    O = "O"
+    O = "O"  # noqa: E741 — Oeste (punto cardinal del dominio), no ambiguo acá
     NO = "NO"
 
 

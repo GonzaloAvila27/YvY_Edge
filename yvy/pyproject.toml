@@ -72,16 +72,33 @@ ignore = [
     "RUF001", # ambiguous-unicode-character-string
     "RUF002", # ambiguous-unicode-character-docstring
     "RUF003", # ambiguous-unicode-character-comment
+    # Preferencias de estilo: la forma actual suele ser más clara.
+    "SIM102", # collapsible-if (ifs anidados a veces más legibles que un `and` largo)
+    "SIM105", # suppressible-exception (try/except/pass explícito es aceptable;
+              # theme_manager lo usa a propósito en su walk por-widget, ver docstring)
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = [
     "S101",   # asserts permitidos en tests
     "N802",   # nombres de tests pueden romper convención
+    "E402",   # imports tras setup de fixtures/paths
+    "F841",   # vars de setup asignadas por su efecto (creación en DB) sin usar el nombre
+    "E741",   # nombres cortos en escenarios de test
+    "B007",   # loop vars sin usar en tests
 ]
 "src/yvy/presentation/**/*.py" = [
     "N802",   # tkinter usa nombres camelCase
     "N803",
+    "N806",   # matplotlib/tkinter: vars locales no-lowercase (X, Y, ...)
+]
+"src/yvy/application/use_cases/compute_derived.py" = [
+    "N806",   # variables de fórmulas meteorológicas (T, RH, es, ea) por convención
+]
+"scripts/**/*.py" = [
+    "E402",   # scripts utilitarios: setup de sys.path/entorno antes de imports
+    "B007",   # loop vars sin usar en scripts one-off
+    "N801",   # convención laxa de nombres en scripts
 ]
 
 [tool.ruff.format]
