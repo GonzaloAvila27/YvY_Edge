@@ -1,0 +1,40 @@
+name: CI
+
+# Gate de calidad de YVY Edge. Arranca con ruff (lint + formato) como job
+# BLOQUEANTE — antes de esto el linter no protegía nada (audit/peer-review §3.4:
+# "quality gates invertidos"). El proyecto vive en el subdirectorio `yvy/`.
+#
+# Follow-up (no incluido acá): jobs de mypy y pytest. Requieren validar el
+# entorno headless (MPLBACKEND=Agg, tkinter skip, refresh de poetry.lock).
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Ruff (lint + format)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: yvy
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Pinneado a la misma versión que el entorno local y `ruff = "^0.7.0"`
+      # en pyproject. La config de reglas vive en yvy/pyproject.toml.
+      - name: Install ruff
+        run: pip install ruff==0.7.4
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Ruff format check
+        run: ruff format --check .
