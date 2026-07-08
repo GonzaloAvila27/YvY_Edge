@@ -375,7 +375,7 @@ class TestSuccessPath:
 
 
 class TestNetworkErrorPath:
-    """NetworkError / TimeoutError → mark_failed + NETWORK_ERROR event."""
+    """NetworkError / HttpTimeoutError → mark_failed + NETWORK_ERROR event."""
 
     def test_connect_error_transitions_to_disconnected(self) -> None:
         sync_repo = FakeSyncRepo()

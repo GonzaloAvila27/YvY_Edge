@@ -26,17 +26,19 @@ from yvy.infrastructure.sync.envelope_builder import (
 from yvy.infrastructure.sync.hmac_signer import sign_envelope
 from yvy.infrastructure.sync.http_client import (
     HttpClient,
+    HttpTimeoutError,
     MalformedResponseError,
     NetworkError,
     SendError,
     SendResult,
-    TimeoutError,
+    TimeoutError,  # alias de compat de HttpTimeoutError (audit H9); retirar próx. ciclo
 )
 
 __all__ = [
     "CANONICAL_JSON_SPEC_VERSION",
     "ClockRecalibration",
     "HttpClient",
+    "HttpTimeoutError",
     "MalformedResponseError",
     "NetworkError",
     "RecalibrationReason",

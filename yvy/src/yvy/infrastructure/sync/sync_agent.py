@@ -29,7 +29,7 @@ Every iteration:
 Failure classification → AgentEvent mapping
 -------------------------------------------
 
-- NetworkError, TimeoutError, MalformedResponseError → NETWORK_ERROR
+- NetworkError, HttpTimeoutError, MalformedResponseError → NETWORK_ERROR
 - 200 OK → JOB_SUCCESS
 - 400 SCHEMA → no event (handle as permanent failure on the job; don't
   transition the agent)
@@ -83,9 +83,9 @@ from yvy.infrastructure.sync.http_client import (
     HttpClient,
     MalformedResponseError,
     NetworkError,
+    HttpTimeoutError,
     SendError,
     SendResult,
-    TimeoutError as HttpTimeoutError,
 )
 
 log = logging.getLogger("yvy.sync.agent")

@@ -118,7 +118,7 @@ class NetworkError(SendError):
     """
 
 
-class TimeoutError(SendError):
+class HttpTimeoutError(SendError):
     """The request was sent but no response (or no complete response)
     arrived within the configured timeouts.
 
@@ -131,6 +131,12 @@ class TimeoutError(SendError):
     Maps to ``FailureClass.NETWORK`` in the agent (same handling as
     network failures, but worth distinguishing in logs).
     """
+
+
+# Compat (audit H9): el nombre viejo ``TimeoutError`` sombreaba el builtin, una
+# trampa para cualquier ``except TimeoutError`` escrito de memoria. Migrar los
+# imports a ``HttpTimeoutError``; retirar este alias el próximo ciclo.
+TimeoutError = HttpTimeoutError
 
 
 class AuthError(SendError):
@@ -294,14 +300,14 @@ class HttpClient:
             NetworkError: Could not establish connection, DNS failed,
                 cert validation failed, server reset the connection
                 mid-request, etc.
-            TimeoutError: Connect/read/write timeout fired.
+            HttpTimeoutError: Connect/read/write timeout fired.
             MalformedResponseError: Response body wasn't JSON, or
                 parsing it failed.
         """
         try:
             response = self._client.post(path, json=envelope)
         except httpx.TimeoutException as exc:
-            raise TimeoutError(
+            raise HttpTimeoutError(
                 f"timeout during POST {path}: {exc}"
             ) from exc
         except httpx.ConnectError as exc:

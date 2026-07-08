@@ -74,7 +74,7 @@ class AgentEvent(StrEnum):
     """A job was sent successfully (status 200, inserted or duplicate)."""
 
     NETWORK_ERROR = "network_error"
-    """``NetworkError`` or ``TimeoutError`` from the HTTP client."""
+    """``NetworkError`` or ``HttpTimeoutError`` from the HTTP client."""
 
     AUTH_ERROR = "auth_error"
     """Server returned 401 AUTH — HMAC mismatch or unknown station/cred."""

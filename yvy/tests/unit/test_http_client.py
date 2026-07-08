@@ -6,7 +6,7 @@ code paths without touching a server. Tests are organized into 5 classes:
 - ``TestSuccess``: happy path, SendResult construction.
 - ``TestStatusCodesArePropagated``: 4xx/5xx are NOT raised — they flow
   through as SendResult so the agent can pattern-match on them.
-- ``TestTransportErrors``: NetworkError / TimeoutError categorization.
+- ``TestTransportErrors``: NetworkError / HttpTimeoutError categorization.
 - ``TestMalformedResponses``: MalformedResponseError surface.
 - ``TestServerTimeHeader``: parsing + missing/malformed graceful handling.
 - ``TestRequestShape``: headers, body, base_url concatenation.
@@ -26,10 +26,10 @@ import respx
 
 from yvy.infrastructure.sync.http_client import (
     HttpClient,
+    HttpTimeoutError,
     MalformedResponseError,
     NetworkError,
     SendResult,
-    TimeoutError,
 )
 
 # ─── Fixtures ────────────────────────────────────────────────────────────
@@ -214,7 +214,7 @@ class TestTransportErrors:
             side_effect=httpx.ReadTimeout("server too slow")
         )
 
-        with pytest.raises(TimeoutError):
+        with pytest.raises(HttpTimeoutError):
             client.post_envelope(_INGEST_PATH, _VALID_ENVELOPE)
 
     @respx.mock
@@ -223,7 +223,7 @@ class TestTransportErrors:
             side_effect=httpx.ConnectTimeout("handshake too slow")
         )
 
-        with pytest.raises(TimeoutError):
+        with pytest.raises(HttpTimeoutError):
             client.post_envelope(_INGEST_PATH, _VALID_ENVELOPE)
 
     @respx.mock
@@ -438,7 +438,7 @@ class TestFailFastNoRetry:
             side_effect=httpx.ReadTimeout("slow")
         )
 
-        with pytest.raises(TimeoutError):
+        with pytest.raises(HttpTimeoutError):
             client.post_envelope(_INGEST_PATH, _VALID_ENVELOPE)
 
         assert route.call_count == 1
