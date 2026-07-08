@@ -669,7 +669,7 @@ class DashboardAdminView(tk.Frame):
                 ))
             except Exception as exc:
                 logger.exception("Export dashboard falló")
-                self.after(0, lambda: messagebox.showerror("Error", f"No se pudo exportar:\n{exc}"))
+                self.after(0, lambda exc=exc: messagebox.showerror("Error", f"No se pudo exportar:\n{exc}"))
 
         threading.Thread(target=_run, daemon=True).start()
 

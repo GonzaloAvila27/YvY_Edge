@@ -476,7 +476,7 @@ class DataView(tk.Frame):
                 self.after(0, self.refresh)
             except Exception as exc:
                 logger.exception("Import sensor_data falló")
-                self.after(0, lambda: messagebox.showerror(
+                self.after(0, lambda exc=exc: messagebox.showerror(
                     "Error al importar",
                     f"No se pudo importar el archivo:\n{exc}",
                 ))
@@ -513,7 +513,7 @@ class DataView(tk.Frame):
                 ))
             except Exception as exc:
                 logger.exception("Export sensor_data falló")
-                self.after(0, lambda: messagebox.showerror(
+                self.after(0, lambda exc=exc: messagebox.showerror(
                     "Error",
                     f"No se pudo exportar:\n{exc}",
                 ))
@@ -562,7 +562,7 @@ class DataView(tk.Frame):
                 ))
             except Exception as exc:
                 logger.exception("Export sensor_raw falló")
-                self.after(0, lambda: messagebox.showerror(
+                self.after(0, lambda exc=exc: messagebox.showerror(
                     "Error",
                     f"No se pudo exportar:\n{exc}",
                 ))

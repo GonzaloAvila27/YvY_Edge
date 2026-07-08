@@ -621,7 +621,7 @@ class SettingsView(tk.Frame):
                 ))
             except Exception as exc:
                 logger.exception("Error en retention forzado")
-                self.after(0, lambda: messagebox.showerror(
+                self.after(0, lambda exc=exc: messagebox.showerror(
                     "Error", f"No se pudo ejecutar la retención: {exc}",
                 ))
 
