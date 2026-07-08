@@ -26,6 +26,25 @@ class SyncJob:
             (sensor_data.id para lecturas de sensor).
             None para entidades sin PK integer (empirical, comment).
         payload: JSON-serializable con los datos a enviar.
+
+    Campos duales legacy/v13 (audit H4 — deuda de migración):
+        El tracking de reintentos arrastra 4 pares duplicados desde la
+        migración v13 (Fase 9.2). **El juego v13 es el canónico / fuente de
+        verdad** — es lo que lee y escribe el sync agent::
+
+            legacy (a retirar)  →  v13 (canónico)
+            attempts            →  attempt_count
+            last_attempt        →  last_attempt_at
+            retry_after         →  next_retry_at
+            error_msg           →  last_error
+
+        Los campos legacy sobreviven porque parte de la UI todavía los lee y
+        el schema SQLite desplegado aún tiene ambas columnas; ``mark_failed``
+        espeja los dos lados en cada write (ver ``sqlite_sync_repository``).
+
+        Plan de retiro (NO aislado — va en la próxima migración mayor de Edge):
+        eliminar columnas legacy del schema, migrar la UI a los nombres v13, y
+        dejar de duplicar en ``_row_to_syncjob`` / ``mark_failed``.
     """
 
     event_id: UUID
@@ -35,12 +54,15 @@ class SyncJob:
     payload: dict[str, Any] = field(default_factory=dict)
     payload_version: str = "1.0"
     status: SyncStatus = SyncStatus.PENDING
+    # Reintentos — campos LEGACY (deuda H4): NO canónicos. Se conservan por
+    # compat (UI + schema desplegado); el canon es el bloque v13 de abajo.
     attempts: int = 0
     retry_after: datetime | None = None
     last_attempt: datetime | None = None
     error_msg: str | None = None
     created_at: datetime | None = None
-    # Fase 9.2 — migración v13: tracking del sync agent
+    # Reintentos — canon v13 (Fase 9.2): FUENTE DE VERDAD, lo que lee/escribe el
+    # sync agent. Los campos legacy de arriba se espejan por ahora (ver H4).
     attempt_count: int = 0
     last_attempt_at: datetime | None = None
     next_retry_at: datetime | None = None
