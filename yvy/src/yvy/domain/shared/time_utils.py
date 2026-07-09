@@ -82,6 +82,41 @@ class CanonicalTimestamp:
         return self.iso_format
 
 
+def iso_ms_z(dt: datetime) -> str:
+    """Formato ISO 8601 UTC con milisegundos y sufijo ``Z`` (INI-2 · 2.1.2 · H3).
+
+    ``2026-07-09T12:34:56.789Z``. Los microsegundos se **truncan** (no se
+    redondean) a milisegundos.
+
+    Es un **formato-contrato**: ``sent_at_utc`` es uno de los cuatro campos que
+    se firman con HMAC hacia el Core. Un byte de diferencia invalida la firma.
+
+    Había dos implementaciones, equivalentes sólo por casualidad::
+
+        dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"                 # 5 sitios
+        dt.isoformat(timespec="milliseconds").replace("+00:00", "Z")   # 1 sitio
+
+    Coinciden byte a byte **sólo si dt es aware-UTC**. Fuera de ese caso fallan
+    de formas distintas y silenciosas:
+
+    - la primera formatea los campos locales y les pega una ``Z``: para un
+      datetime en ``-03:00`` emite la hora local **afirmando que es UTC**;
+    - la segunda no encuentra ``+00:00`` que reemplazar y devuelve la string
+      **sin la Z**, rompiendo el formato.
+
+    Por eso acá los naive se rechazan (no hay forma correcta de adivinar su zona)
+    y los aware se convierten a UTC antes de formatear.
+
+    Raises:
+        InvalidTimestampError: si ``dt`` es naive.
+    """
+    if dt.tzinfo is None:
+        raise InvalidTimestampError(
+            f"iso_ms_z requiere un datetime timezone-aware. Recibido naive: {dt!r}"
+        )
+    return dt.astimezone(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
 def canonicalize_to_minute_utc(dt: datetime) -> CanonicalTimestamp:
     """Convierte un datetime a CanonicalTimestamp.
 
