@@ -96,7 +96,7 @@ from yvy.application.use_cases.query_sensor_aggregated import QuerySensorAggrega
 from yvy.application.use_cases.retention.run_retention_job import RunRetentionJobUseCase
 from yvy.application.use_cases.sensor.capture_live_reading import CaptureLiveReadingUseCase
 from yvy.application.use_cases.sensor.run_catchup_recovery import RunCatchupRecoveryUseCase
-from yvy.bootstrap import build_core_dependencies
+from yvy.bootstrap import CoreDependencies, build_core_dependencies
 from yvy.domain.auth.enums import Role
 from yvy.domain.retention.models import RetentionPolicy
 from yvy.domain.shared.value_objects import StationUUID
@@ -130,7 +130,7 @@ def main() -> int:
 
     # ── C3: Detección post-instalación ────────────────────────────────────
     # Debe ejecutarse DESPUÉS de las migraciones (build_core_dependencies ya las corrió).
-    _post_boot_check(deps.app_config_repo, STABLE_ROOT)
+    _post_boot_check(deps)
     db_path = deps.db_path
     user_repo = deps.user_repo
     audit_repo = deps.audit_repo
@@ -530,90 +530,22 @@ def _try_build_update_checker(
     )
 
 
-def _post_boot_check(app_config_repo, root: Path) -> None:
-    """C3: Detecta si venimos de una instalación y registra el resultado."""
-    from datetime import UTC
-    from datetime import datetime as _dt
+def _post_boot_check(deps: CoreDependencies) -> None:
+    """Shim: la lógica vive en ``RunPostBootCheckUseCase`` (INI-3 · 3.2.2).
 
-    status = app_config_repo.get_install_status()
-    if status != "requested":
-        # Evaluar promoción a estable en cada arranque
-        _evaluate_stable_silently(app_config_repo, root)
-        return
+    Antes esta función y ``_evaluate_stable_silently`` construían acá su propia
+    infraestructura (factory + audit + installer + retention). Ahora consumen el
+    bundle del composition root y la decisión es un use case testeable.
+    """
+    from yvy import __version__
+    from yvy.application.use_cases.updates.post_boot_check import RunPostBootCheckUseCase
 
-    from yvy import __version__ as _ver
-
-    to_version = app_config_repo.get_install_to_version()
-    from_version = app_config_repo.get_install_from_version() or "?"
-    now_iso = _dt.now(UTC).isoformat()
-
-    if to_version and _ver == to_version:
-        # Arranque exitoso del nuevo release
-        app_config_repo.set_install_completed(now_iso)
-        app_config_repo.set_show_result("success")
-        app_config_repo.clear_downloaded_update()
-        app_config_repo.clear_pending_update()
-
-        # Escribir boot_ok.flag para que el watchdog lo detecte
-        from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
-        from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
-            SQLiteAuditLogRepository,
-        )
-        from yvy.infrastructure.updates.installer import UpdateInstaller
-
-        _factory = SQLiteConnectionFactory(path=root / "data" / "yvy.sqlite")
-        _audit = SQLiteAuditLogRepository(_factory)
-        _installer = UpdateInstaller(
-            app_config_repo=app_config_repo,
-            audit_repo=_audit,
-            root_path=root,
-        )
-        _installer.write_boot_ok_flag()
-
-        from yvy.domain.auth.enums import AuditEventType, AuditSource
-        from yvy.domain.auth.models import AuditLogEntry
-
-        _audit.append(
-            AuditLogEntry(
-                event_type=AuditEventType.UPDATE_COMPLETED,
-                source=AuditSource.SYSTEM,
-                metadata={"from_version": from_version, "to_version": to_version},
-            )
-        )
-        _logger_main.info(
-            "update.install.completed",
-            extra={"from": from_version, "to": to_version},
-        )
-        _evaluate_stable_silently(app_config_repo, root)
-    else:
-        # Versión no coincide: el switch no llevó a donde esperábamos
-        detail = f"version_mismatch: expected={to_version}, actual={_ver}"
-        app_config_repo.set_install_failed(detail)
-        app_config_repo.set_show_result("version_mismatch")
-        _logger_main.error(
-            "update.install.version_mismatch", extra={"expected": to_version, "actual": _ver}
-        )
-
-
-def _evaluate_stable_silently(app_config_repo, root: Path) -> None:
-    """Evalúa promoción automática a estable. Silenciosa — errores no crashean."""
-    try:
-        from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
-        from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
-            SQLiteAuditLogRepository,
-        )
-        from yvy.infrastructure.updates.retention import ReleaseRetention
-
-        _factory = SQLiteConnectionFactory(path=root / "data" / "yvy.sqlite")
-        _audit = SQLiteAuditLogRepository(_factory)
-        retention = ReleaseRetention(
-            app_config_repo=app_config_repo,
-            audit_repo=_audit,
-            releases_dir=root / "releases",
-        )
-        retention.evaluate_stable_promotion()
-    except Exception as exc:
-        _logger_main.debug("stable_promotion_check_failed: %s", exc)
+    RunPostBootCheckUseCase(
+        app_config_repo=deps.app_config_repo,
+        audit_repo=deps.audit_repo,
+        updates_service=deps.updates_service,
+        current_version=__version__,
+    ).execute()
 
 
 if __name__ == "__main__":

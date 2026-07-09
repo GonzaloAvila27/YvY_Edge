@@ -67,7 +67,8 @@ class InstallerPort(Protocol):
 
 
 class RetentionPort(Protocol):
-    def mark_stable_manual(self, version: str, user_id: int) -> Any: ...
+    def mark_stable_manual(self, version: str, user_id: int | None) -> Any: ...
+    def evaluate_stable_promotion(self) -> Any: ...
 
 
 class DownloaderPort(Protocol):
@@ -193,6 +194,13 @@ class UpdatesService:
         except Exception as exc:
             logger.exception("Error en mark_stable")
             return OperationResult(ok=False, error=str(exc))
+
+    def evaluate_stable_promotion(self) -> None:
+        """Promoción automática a estable. Silenciosa: un fallo no frena el arranque."""
+        try:
+            self._retention.evaluate_stable_promotion()
+        except Exception as exc:
+            logger.debug("stable_promotion_check_failed: %s", exc)
 
     def write_boot_ok_flag(self) -> None:
         try:
