@@ -288,9 +288,17 @@ INI-5 ── espera trigger externo (sin release asignado)
 | # | Tarea | Tamaño | Estado |
 |---|---|---|---|
 | 3.2.1 | `sync_controller` deja de fabricar infraestructura (consume `UpdatesService` inyectado); **el peor sitio primero** | M | ✅ `2d1c456` — `get_installer()` eliminado; cero construcción de infra en el controller |
-| 3.2.2 | Lógica post-boot (`_post_boot_check`/`_evaluate_stable_silently`) → use case en application con tests; `launch_app` queda shim | M | pendiente |
-| 3.2.3 | `cli/handlers`: los 6 sitios consumen el service | M | pendiente |
-| 3.2.4 | `scripts/` entra al scope de mypy; corregir lo que aparezca | S | pendiente |
+| 3.2.2 | Lógica post-boot (`_post_boot_check`/`_evaluate_stable_silently`) → use case en application con tests; `launch_app` queda shim | M | ✅ `fb8ab8b` — `RunPostBootCheckUseCase` + 6 tests (antes: cero tests pese a decidir si se escribe `boot_ok.flag`) |
+| 3.2.3 | `cli/handlers`: los 6 sitios consumen el service | M | ✅ `9c167b3` — 5/6 migrados; el 6º (`compute_check_updates`) construye un HttpClient para consultar al Core: concern de *sync*, no de la dispersión installer/factory |
+| 3.2.4 | `scripts/` entra al scope de mypy; corregir lo que aparezca | S | ⏸ **prematura** — ver nota |
+
+> **Hallazgo 2026-07-09 (3.2.4):** `mypy src` reporta **261 errores en 52 archivos**;
+> no hay job de mypy en CI. Meter `scripts/` (23 errores más) a un checker que no
+> gatea no protege nada — es la misma situación que tenía ruff antes de la épica 1.5.
+> **Propuesta:** posponer 3.2.4 y crear una épica de *adopción de mypy* espejo de la
+> 1.5 (bajar a cero por capas + `mypy` como job bloqueante en CI), y recién ahí sumar
+> `scripts/`. Mientras tanto, `domain/` y `application/` son strict y **todo el código
+> nuevo de INI-3 pasa mypy strict limpio** (`25678ef`).
 
 ## INI-3 · Épica 3.3 — Reorganización del CLI (H6)
 | # | Tarea | Tamaño |
@@ -467,6 +475,9 @@ el mismo release. Mitigación: la tabla §7 es contrato; un release = un caráct
 | 2026-07-08 | `stab/ini-1-higiene` `184e899` | 1.4.1 (consolidar CLIs) | Migra migrate/retention/**hero-rescue** a yvy.cli (brecha: hero-rescue no era alcanzable por `python -m yvy`); script→yvy.cli; main.py→shim. Verificado e2e. 1069 passed. |
 | 2026-07-09 | `stab/ini-1-higiene` `f66284f` | **3.1.2** (H11 · INI-3) | `SQLiteEmpiricalRepository` al contrato factory (era el único con conn cruda → inutilizable cross-thread). +test de regresión. Desbloquea el bloqueante #1 del web LAN. 1070 passed. |
 | 2026-07-09 | `stab/ini-1-higiene` `2d1c456` | **3.1.1 + 3.2.1** (INI-3 ⭐) | `UpdatesService` en application (puertos Protocol, downloader tras context manager) construido UNA vez en bootstrap con el root estable; `sync_controller` deja de fabricar infra (`get_installer()` eliminado). +17 tests. 1081 passed. |
+| 2026-07-09 | `stab/ini-1-higiene` `9c167b3` | **3.2.3** (cli/handlers) | 5/6 sitios consumen el service. `OperationResult(ok, error)` para no perder el mensaje que el CLI reporta. **Bug corregido:** bootstrap leía credentials con `utf-8` vs `utf-8-sig` del CLI (BOM rompía la descarga desde GUI). 1090 passed. |
+| 2026-07-09 | `stab/ini-1-higiene` `fb8ab8b` | **3.2.2** (post-boot) | `RunPostBootCheckUseCase` en application + 6 tests; `launch_app` queda shim. Fija que en `version_mismatch` NO se escribe `boot_ok.flag` (el watchdog debe revertir). 1096 passed. |
+| 2026-07-09 | `stab/ini-1-higiene` `25678ef` | tipado INI-3 | `updates_service` y `post_boot_check` pasan mypy **strict** limpio. Hallazgo: `mypy src` = 261 errores, sin job en CI → 3.2.4 pospuesta. |
 
 ---
 *Plan de ingeniería — sin código, sin nuevas auditorías. Basado íntegramente en los
