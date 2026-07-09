@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from yvy.main import main
+from yvy.cli.__main__ import main
 
 
 @pytest.mark.integration
