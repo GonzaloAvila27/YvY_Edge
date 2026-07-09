@@ -235,11 +235,18 @@ INI-5 ── espera trigger externo (sin release asignado)
 | 1.3.1 | Spike: option-database/`tk_setPalette` al aplicar tema; probar toggle repetido claro↔oscuro | M |
 | 1.3.2 | Si funciona: adoptar + pasada visual completa ambos temas en resolución netbook. Si no: documentar y activar plan-factory en INI-4 | M |
 
-## INI-1 · Épica 1.4 — main.py
-| # | Tarea | Tamaño |
-|---|---|---|
-| 1.4.1 | Confirmar con el autor uso real de `rescue`; redirigir `[tool.poetry.scripts]` al CLI y reducir `main.py` a shim de delegación (no borrar en el mismo PR) | S |
-| 1.4.2 | (Release siguiente) eliminar `main.py` si nada lo reclamó | S |
+## INI-1 · Épica 1.4 — main.py ✅ (1.4.1)
+> **Al ejecutar resultó más grande que "sacar un fantasma":** había **dos CLIs
+> divergentes** — `python -m yvy` (yvy.cli) y el console script `yvy` (yvy.main).
+> **`hero-rescue`** (reset de password admin de emergencia, documentado en el
+> CHANGELOG como único camino cuando la UI lo bloquea) vivía SOLO en yvy.main →
+> **no era alcanzable por `python -m yvy`** (lo que usan los .bat). Brecha
+> operativa real, no solo deuda. Gonzalo eligió consolidar los 3 comandos.
+
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 1.4.1 | Migra `migrate`/`retention`/`hero-rescue` a `yvy.cli` (verbatim); redirige `[tool.poetry.scripts]` a `yvy.cli`; `main.py` → shim de delegación (no borra) | S→M | ✅ `184e899` |
+| 1.4.2 | (Release siguiente) eliminar `main.py` si nada reclama el shim `from yvy.main import main` / `python -m yvy.main` | S | pendiente |
 
 ## INI-1 · Épica 1.5 — Adopción de ruff como gate ✅ (hallazgo 2026-07)
 > **Descubierto ejecutando 1.1.1:** `ruff check .` reportaba **~400 errores** en el
@@ -457,6 +464,7 @@ el mismo release. Mitigación: la tabla §7 es contrato; un release = un caráct
 | 2026-07-03 | `stab/ini-1-higiene` `f2c31f1`+`36680e2` | 1.5.1 (autofix+format) | 268 autofixes + `ruff format` (230 files) + ignore RUF-español. 1060/1069 passed. |
 | 2026-07-03 | `stab/ini-1-higiene` `63f862a` | 1.5.2 (ruff a cero) | Fixes (F841/B023/B904/E741/B007) + baseline de ignores justificado. ~400→0. 1069 passed. |
 | 2026-07-03 | `stab/ini-1-higiene` `053b373` | 1.5.3 (CI gate) | `.github/workflows/ci.yml` con ruff bloqueante (el repo no tenía CI). |
+| 2026-07-08 | `stab/ini-1-higiene` `184e899` | 1.4.1 (consolidar CLIs) | Migra migrate/retention/**hero-rescue** a yvy.cli (brecha: hero-rescue no era alcanzable por `python -m yvy`); script→yvy.cli; main.py→shim. Verificado e2e. 1069 passed. |
 
 ---
 *Plan de ingeniería — sin código, sin nuevas auditorías. Basado íntegramente en los
