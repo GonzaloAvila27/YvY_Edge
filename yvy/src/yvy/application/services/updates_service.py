@@ -52,15 +52,15 @@ class AppConfigReaderPort(Protocol):
 
     def get(self, key: str) -> str | None: ...
     def get_last_sync_version(self) -> int: ...
-    def get_pending_update(self) -> dict | None: ...
+    def get_pending_update(self) -> dict[str, Any] | None: ...
     def is_update_downloaded(self) -> bool: ...
 
 
 class InstallerPort(Protocol):
     def prevalidate(self) -> Any: ...
     def request_install(self, requested_by_user_id: int | None) -> None: ...
-    def rollback(self, *, to_version: str, reason: str, performed_by: int) -> Any: ...
-    def get_releases_on_disk(self) -> list[dict]: ...
+    def rollback(self, *, to_version: str, reason: str, performed_by: int | None) -> Any: ...
+    def get_releases_on_disk(self) -> list[dict[str, Any]]: ...
     def has_pending_install_request(self) -> bool: ...
     def write_boot_ok_flag(self) -> None: ...
     def clear_boot_ok_flag(self) -> None: ...
@@ -107,14 +107,14 @@ class UpdatesService:
 
     # ─── Estado ───────────────────────────────────────────────────────────
 
-    def get_status(self) -> dict:
+    def get_status(self) -> dict[str, Any]:
         """Estado de updates para la UI y el CLI.
 
         Nunca lanza: ante un fallo de lectura devuelve el default y loguea.
         """
         last_sync_version = 0
         last_checked_at: str | None = None
-        pending: dict | None = None
+        pending: dict[str, Any] | None = None
         try:
             last_sync_version = self._cfg.get_last_sync_version()
             last_checked_at = self._cfg.get("update.last_checked_at")
@@ -169,7 +169,7 @@ class UpdatesService:
             logger.exception("Error leyendo has_pending_install_request")
             return False
 
-    def get_releases_on_disk(self) -> list[dict]:
+    def get_releases_on_disk(self) -> list[dict[str, Any]]:
         try:
             return self._installer.get_releases_on_disk()
         except Exception:
@@ -216,7 +216,7 @@ class UpdatesService:
 
     # ─── Descarga ─────────────────────────────────────────────────────────
 
-    def _no_config(self) -> dict:
+    def _no_config(self) -> dict[str, Any]:
         return {
             "ok": False,
             "already_downloaded": False,
@@ -225,7 +225,9 @@ class UpdatesService:
             "dest_path": None,
         }
 
-    def download(self, progress_callback: Callable[[int, int], None] | None = None) -> dict:
+    def download(
+        self, progress_callback: Callable[[int, int], None] | None = None
+    ) -> dict[str, Any]:
         """Descarga el paquete pendiente.
 
         Devuelve siempre las mismas claves:
