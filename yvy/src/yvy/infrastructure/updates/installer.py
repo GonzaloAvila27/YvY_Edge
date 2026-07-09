@@ -25,6 +25,7 @@ from pathlib import Path
 from yvy import __version__
 from yvy.domain.auth.enums import AuditEventType, AuditSource
 from yvy.domain.auth.models import AuditLogEntry
+from yvy.domain.shared.version import version_gte
 from yvy.infrastructure.persistence.app_config_repository import AppConfigRepository
 from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
     SQLiteAuditLogRepository,
@@ -159,9 +160,11 @@ class UpdateInstaller:
                 package_path=pkg,
             )
 
-        # Verificar min_edge_version
+        # Verificar min_edge_version.
+        # Política ante una versión ilegible: NO bloquear la instalación
+        # (antes vivía dentro del `except` de `_version_gte`; ahora es explícita).
         min_ver = meta.get("min_edge_version", "")
-        if min_ver and not _version_gte(__version__, min_ver):
+        if min_ver and not version_gte(__version__, min_ver, on_unparseable=True):
             return PrevalidationResult(
                 ok=False,
                 reason=(
@@ -412,15 +415,3 @@ def _verify_sha256(path: Path, expected: str) -> bool:
     except OSError:
         return False
     return h.hexdigest() == expected
-
-
-def _version_gte(v: str, minimum: str) -> bool:
-    """Comparación semántica simple: '1.2.3' >= '1.2.0'."""
-    try:
-
-        def _parts(s: str) -> tuple[int, ...]:
-            return tuple(int(x) for x in s.split(".")[:3])
-
-        return _parts(v) >= _parts(minimum)
-    except (ValueError, AttributeError):
-        return True  # ante la duda, no bloquear

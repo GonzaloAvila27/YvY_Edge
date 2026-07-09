@@ -15,6 +15,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from yvy.domain.shared.version import version_lte
 from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
 
 logger = logging.getLogger(__name__)
@@ -327,28 +328,14 @@ class AppConfigRepository:
 # ─── Helpers libres ──────────────────────────────────────────────────────────
 
 
-def _parse_semver(value: str) -> tuple[int, ...]:
-    """Parsea 'X.Y.Z' a tupla de ints (descarta sufijos -pre/+build).
-
-    Devuelve () si no se puede parsear — el caller decide qué hacer ante eso.
-    """
-    base = value.split("-")[0].split("+")[0]
-    try:
-        return tuple(int(x) for x in base.split(".")[:3])
-    except (ValueError, AttributeError):
-        return ()
-
-
 def _pending_is_obsolete(pending_version: str) -> bool:
     """True si ``pending_version`` <= la versión actual del nodo (``__version__``).
 
-    Ante versiones no parseables, devuelve False (no limpiar: mejor dejar el
-    pending visible que descartarlo por un parseo dudoso).
+    Política ante versiones no parseables: **False** (no limpiar). Mejor dejar el
+    pending visible que descartarlo por un parseo dudoso. Es la política opuesta
+    a la del installer (que ante la duda no bloquea la instalación); por eso
+    ``version_lte`` la exige explícita en vez de esconderla en un ``except``.
     """
     from yvy import __version__
 
-    pending = _parse_semver(pending_version)
-    current = _parse_semver(__version__)
-    if not pending or not current:
-        return False
-    return pending <= current
+    return version_lte(pending_version, __version__, on_unparseable=False)
