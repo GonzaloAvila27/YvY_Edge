@@ -117,7 +117,7 @@ def build_core_dependencies(
     sensor_repo = SQLiteSensorRepository(factory)
     sync_repo = SQLiteSyncRepository(factory)
     sync_agent_state_repo = SQLiteSyncAgentStateRepository(factory)
-    empirical_repo = SQLiteEmpiricalRepository(conn)
+    empirical_repo = SQLiteEmpiricalRepository(factory)
     app_config_repo = AppConfigRepository(factory)
     clock = SystemClock()
 

@@ -6,7 +6,6 @@ para aislar el comportamiento del use case sin acoplar a Fase 9.
 
 from __future__ import annotations
 
-import sqlite3
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -38,6 +37,7 @@ from yvy.domain.empirical.exceptions import (
     InvalidEventError,
     InvalidObservationError,
 )
+from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
 from yvy.infrastructure.persistence.sqlite_empirical_repository import (
     SQLiteEmpiricalRepository,
 )
@@ -48,11 +48,10 @@ from yvy.infrastructure.persistence.sqlite_empirical_repository import (
 
 
 @pytest.fixture
-def conn(tmp_path: Path):
+def factory(tmp_path: Path):
     db_path = tmp_path / "test.sqlite"
-    conn = sqlite3.connect(str(db_path), isolation_level=None)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
+    factory = SQLiteConnectionFactory(path=db_path)
+    conn = factory.get_connection()
 
     migrations_dir = Path(__file__).parent.parent.parent / "migrations"
     for migration_file in sorted(migrations_dir.glob("*.sql")):
@@ -65,13 +64,13 @@ def conn(tmp_path: Path):
         (str(uuid.uuid4()),),
     )
     conn.commit()
-    yield conn
-    conn.close()
+    yield factory
+    factory.close_thread_connection()
 
 
 @pytest.fixture
-def empirical_repo(conn):
-    return SQLiteEmpiricalRepository(conn)
+def empirical_repo(factory):
+    return SQLiteEmpiricalRepository(factory)
 
 
 @pytest.fixture

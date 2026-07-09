@@ -174,7 +174,7 @@ def check_empirical(conn: sqlite3.Connection) -> bool:
     time_prov.now_utc.return_value = now
     time_prov.now_local.return_value = now
 
-    repo = SQLiteEmpiricalRepository(conn)
+    repo = SQLiteEmpiricalRepository(MagicMock_factory(conn))
     create_obs = CreateEmpiricalObservationUseCase(
         empirical_repo=repo,
         sync_repo=sync_repo,

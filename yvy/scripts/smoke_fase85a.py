@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import json
 import logging
-import sqlite3
 import sys
 import tempfile
 import uuid
@@ -62,6 +61,7 @@ def main() -> int:
         Visibility,
         WindDirection,
     )
+    from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
     from yvy.infrastructure.persistence.sqlite_empirical_repository import (
         SQLiteEmpiricalRepository,
     )
@@ -69,9 +69,8 @@ def main() -> int:
     # ── 1. Setup DB temporal con migraciones ──────────────────────────────
     tmpdir = tempfile.mkdtemp(prefix="yvy_smoke_85a_")
     db_path = Path(tmpdir) / "yvy_smoke.sqlite"
-    conn = sqlite3.connect(str(db_path), isolation_level=None)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
+    factory = SQLiteConnectionFactory(path=db_path)
+    conn = factory.get_connection()
 
     migrations_dir = Path(__file__).parent.parent / "migrations"
     if not migrations_dir.exists():
@@ -91,7 +90,7 @@ def main() -> int:
     )
     conn.commit()
 
-    repo = SQLiteEmpiricalRepository(conn)
+    repo = SQLiteEmpiricalRepository(factory)
     actor = User(
         id=1,
         user_uuid=uuid.uuid4(),

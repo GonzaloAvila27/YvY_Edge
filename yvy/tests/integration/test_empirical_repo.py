@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import sqlite3
+import threading
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -21,6 +21,7 @@ from yvy.domain.empirical.enums import (
     WindDirection,
 )
 from yvy.domain.empirical.models import EmpiricalEvent, EmpiricalObservation
+from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
 from yvy.infrastructure.persistence.sqlite_empirical_repository import (
     SQLiteEmpiricalRepository,
 )
@@ -31,12 +32,11 @@ from yvy.infrastructure.persistence.sqlite_empirical_repository import (
 
 
 @pytest.fixture
-def conn(tmp_path: Path, request) -> sqlite3.Connection:
-    """Conexión SQLite con migraciones aplicadas (incluye v11)."""
+def factory(tmp_path: Path):
+    """Factory con DB migrada (incluye v11) + user dummy para el FK."""
     db_path = tmp_path / "test_yvy.sqlite"
-    conn = sqlite3.connect(str(db_path), isolation_level=None)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
+    factory = SQLiteConnectionFactory(path=db_path)
+    conn = factory.get_connection()
 
     # Aplicar migraciones desde el directorio del proyecto
     migrations_dir = Path(__file__).parent.parent.parent / "migrations"
@@ -52,13 +52,13 @@ def conn(tmp_path: Path, request) -> sqlite3.Connection:
     )
     conn.commit()
 
-    yield conn
-    conn.close()
+    yield factory
+    factory.close_thread_connection()
 
 
 @pytest.fixture
-def repo(conn: sqlite3.Connection) -> SQLiteEmpiricalRepository:
-    return SQLiteEmpiricalRepository(conn)
+def repo(factory: SQLiteConnectionFactory) -> SQLiteEmpiricalRepository:
+    return SQLiteEmpiricalRepository(factory)
 
 
 def make_observation(**overrides) -> EmpiricalObservation:
@@ -271,3 +271,28 @@ class TestSaveAndListEvents:
         repo.save_event(evt)
         repo.save_event(evt)  # no rompe
         assert len(repo.list_events_for_date(evt.observation_date)) == 1
+
+
+@pytest.mark.integration
+def test_repo_usable_desde_otro_thread(factory: SQLiteConnectionFactory) -> None:
+    """H11: el repo toma el factory (conn por-thread), no una conn atada.
+
+    Antes recibía una ``sqlite3.Connection`` cruda: con ``check_same_thread=True``
+    usarlo desde otro thread (daemons, futuro adaptador web LAN) lanzaba
+    ``ProgrammingError``. Este test fija el contrato de construcción.
+    """
+    repo = SQLiteEmpiricalRepository(factory)
+    result: dict[str, object] = {}
+
+    def worker() -> None:
+        try:
+            result["count"] = repo.count_observations()
+        except Exception as exc:
+            result["error"] = f"{type(exc).__name__}: {exc}"
+
+    thread = threading.Thread(target=worker)
+    thread.start()
+    thread.join(timeout=5)
+
+    assert "error" not in result, result.get("error")
+    assert result["count"] == 0
