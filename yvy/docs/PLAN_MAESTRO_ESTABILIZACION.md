@@ -280,17 +280,17 @@ INI-5 ── espera trigger externo (sin release asignado)
 ## INI-3 · Épica 3.1 — Contrato del bootstrap
 | # | Tarea | Tamaño | Estado |
 |---|---|---|---|
-| 3.1.1 | `UpdatesService` (application) con operaciones hoy dispersas: prevalidate/request-install/download/check/purge/estado; construido en bootstrap con installer/retention/downloader inyectados | M | pendiente |
+| 3.1.1 | `UpdatesService` (application) con operaciones hoy dispersas: prevalidate/request-install/download/check/purge/estado; construido en bootstrap con installer/retention/downloader inyectados | M | ✅ `2d1c456` — puertos Protocol (application no importa infra); downloader tras context manager del composition root; 17 tests |
 | 3.1.2 | H11: `SQLiteEmpiricalRepository` a contrato factory (idéntico a los otros 7 repos) | S | ✅ `f66284f` — + test de regresión cross-thread; desbloquea el bloqueante #1 del diagnóstico web LAN |
 | 3.1.3 | H10 completo: pending como valor atómico (una key JSON), con lectura tolerante a formato viejo durante 1 ciclo | M | pendiente |
 
 ## INI-3 · Épica 3.2 — Los tres frentes consumen el service
-| # | Tarea | Tamaño |
-|---|---|---|
-| 3.2.1 | `sync_controller` deja de fabricar infraestructura (consume `UpdatesService` inyectado); **el peor sitio primero** | M |
-| 3.2.2 | Lógica post-boot (`_post_boot_check`/`_evaluate_stable_silently`) → use case en application con tests; `launch_app` queda shim | M |
-| 3.2.3 | `cli/handlers`: los 6 sitios consumen el service | M |
-| 3.2.4 | `scripts/` entra al scope de mypy; corregir lo que aparezca | S |
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 3.2.1 | `sync_controller` deja de fabricar infraestructura (consume `UpdatesService` inyectado); **el peor sitio primero** | M | ✅ `2d1c456` — `get_installer()` eliminado; cero construcción de infra en el controller |
+| 3.2.2 | Lógica post-boot (`_post_boot_check`/`_evaluate_stable_silently`) → use case en application con tests; `launch_app` queda shim | M | pendiente |
+| 3.2.3 | `cli/handlers`: los 6 sitios consumen el service | M | pendiente |
+| 3.2.4 | `scripts/` entra al scope de mypy; corregir lo que aparezca | S | pendiente |
 
 ## INI-3 · Épica 3.3 — Reorganización del CLI (H6)
 | # | Tarea | Tamaño |
@@ -466,6 +466,7 @@ el mismo release. Mitigación: la tabla §7 es contrato; un release = un caráct
 | 2026-07-03 | `stab/ini-1-higiene` `053b373` | 1.5.3 (CI gate) | `.github/workflows/ci.yml` con ruff bloqueante (el repo no tenía CI). |
 | 2026-07-08 | `stab/ini-1-higiene` `184e899` | 1.4.1 (consolidar CLIs) | Migra migrate/retention/**hero-rescue** a yvy.cli (brecha: hero-rescue no era alcanzable por `python -m yvy`); script→yvy.cli; main.py→shim. Verificado e2e. 1069 passed. |
 | 2026-07-09 | `stab/ini-1-higiene` `f66284f` | **3.1.2** (H11 · INI-3) | `SQLiteEmpiricalRepository` al contrato factory (era el único con conn cruda → inutilizable cross-thread). +test de regresión. Desbloquea el bloqueante #1 del web LAN. 1070 passed. |
+| 2026-07-09 | `stab/ini-1-higiene` `2d1c456` | **3.1.1 + 3.2.1** (INI-3 ⭐) | `UpdatesService` en application (puertos Protocol, downloader tras context manager) construido UNA vez en bootstrap con el root estable; `sync_controller` deja de fabricar infra (`get_installer()` eliminado). +17 tests. 1081 passed. |
 
 ---
 *Plan de ingeniería — sin código, sin nuevas auditorías. Basado íntegramente en los
