@@ -135,6 +135,9 @@ def _build_deps(
         ),
         empirical_repo=None,  # type: ignore[arg-type]
         app_config_repo=_FakeAppConfig(app_config_data),  # type: ignore[arg-type]
+        # Los handlers del CLI todavía construyen su propia infra de updates
+        # (se migran en INI-3 · 3.2.3); ningún test de este archivo lo usa.
+        updates_service=None,  # type: ignore[arg-type]
         station_uuid=station_uuid,
     )
 

@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, tzinfo
 from pathlib import Path
 
+from yvy.application.services.updates_service import UpdatesService
 from yvy.application.use_cases.sensor.run_catchup_recovery import (
     CatchupResult,
     RunCatchupRecoveryUseCase,
@@ -90,6 +91,7 @@ class SyncController:
         update_check_trigger: threading.Event | None = None,
         live_source: object | None = None,
         root_path: Path | None = None,
+        updates_service: UpdatesService | None = None,
     ) -> None:
         self._catchup_use_case = catchup_use_case
         self._sync_repo = sync_repo
@@ -103,6 +105,9 @@ class SyncController:
         # directamente (puede fallar con ACCESS si el live ya lo tiene).
         self._live_source = live_source
         self._root_path = root_path
+        # Instancia ÚNICA construida en el composition root (yvy.bootstrap).
+        # El controller NO fabrica infraestructura de updates (INI-3 · 3.2.1).
+        self._updates_service = updates_service
 
         self._catchup_thread: threading.Thread | None = None
         self._catchup_lock = threading.Lock()
@@ -315,47 +320,25 @@ class SyncController:
     def get_update_info(self) -> dict:
         """Datos para la sección de actualizaciones en SyncStatusView.
 
-        Retorna dict con:
-            current_version: str
-            last_sync_version: int
-            last_checked_at: str | None  (ISO 8601)
-            pending: dict | None         (metadata del update, o None)
-            has_update_checker: bool
+        Delega el estado en ``UpdatesService`` y sólo agrega lo que es propio
+        del controller (si hay daemon de chequeo corriendo).
         """
-        from yvy import __version__
+        if self._updates_service is None:
+            from yvy import __version__
 
-        last_sync_version = 0
-        last_checked_at = None
-        pending = None
+            return {
+                "current_version": __version__,
+                "last_sync_version": 0,
+                "last_checked_at": None,
+                "pending": None,
+                "is_downloaded": False,
+                "downloaded_path": None,
+                "has_update_checker": self.has_update_checker(),
+            }
 
-        if self._app_config_repo is not None:
-            try:
-                last_sync_version = self._app_config_repo.get_last_sync_version()  # type: ignore[union-attr]
-                last_checked_at = self._app_config_repo.get("update.last_checked_at")  # type: ignore[union-attr]
-                pending = self._app_config_repo.get_pending_update()  # type: ignore[union-attr]
-            except Exception:
-                logger.exception("Error leyendo datos de update checker")
-
-        is_downloaded = False
-        if self._app_config_repo is not None:
-            try:
-                is_downloaded = self._app_config_repo.is_update_downloaded()  # type: ignore[union-attr]
-            except Exception as exc:
-                logger.warning("No se pudo leer is_update_downloaded, se asume False: %s", exc)
-
-        return {
-            "current_version": __version__,
-            "last_sync_version": last_sync_version,
-            "last_checked_at": last_checked_at,
-            "pending": pending,
-            "has_update_checker": self.has_update_checker(),
-            "is_downloaded": is_downloaded,
-            "downloaded_path": (
-                self._app_config_repo.get("update_pending.local_path")  # type: ignore[union-attr]
-                if self._app_config_repo is not None
-                else None
-            ),
-        }
+        info = self._updates_service.get_status()
+        info["has_update_checker"] = self.has_update_checker()
+        return info
 
     def start_update_download(
         self,
@@ -392,121 +375,47 @@ class SyncController:
         progress_callback: Callable[[int, int], None] | None,
         done_callback: Callable[[dict], None] | None,
     ) -> None:
-        import json as _json
-        from uuid import UUID
+        """Corre la descarga en el thread de descarga. No construye nada.
 
-        assert self._root_path is not None
-        creds_path = self._root_path / "data" / "station_credentials.json"
-        server_url = self._app_config_repo.get("sync_server_url")  # type: ignore[union-attr]
-
-        if not server_url or not creds_path.exists():
+        El ``UpdatesService`` resuelve credenciales/HttpClient y garantiza el
+        cierre; acá sólo se propaga el resultado al callback.
+        """
+        if self._updates_service is None:
             if done_callback:
                 done_callback({"ok": False, "error": "sync_no_config"})
             return
 
-        try:
-            creds = _json.loads(creds_path.read_text(encoding="utf-8"))
-            station_uuid = UUID(creds["station_uuid"])
-            key_version = int(creds["key_version"])
-            key_bytes = bytes.fromhex(creds["key_hmac_hex"])
-        except Exception as exc:
-            if done_callback:
-                done_callback({"ok": False, "error": f"credentials: {exc}"})
-            return
-
-        from yvy.infrastructure.sync.http_client import HttpClient
-        from yvy.infrastructure.sync.update_downloader import UpdateDownloader
-
-        updates_dir = self._root_path / "data" / "updates"
-        http_client = HttpClient(server_url=server_url, verify=True)
-        downloader = UpdateDownloader(
-            http_client=http_client,
-            app_config_repo=self._app_config_repo,  # type: ignore[arg-type]
-            station_uuid=station_uuid,
-            key_version=key_version,
-            key=key_bytes,
-            updates_dir=updates_dir,
-        )
-
-        try:
-            result = downloader.download(progress_callback=progress_callback)
-            if done_callback:
-                done_callback(
-                    {
-                        "ok": result.success,
-                        "error": result.error,
-                        "bytes_downloaded": result.bytes_downloaded,
-                        "dest_path": str(result.dest_path) if result.success else None,
-                    }
-                )
-        except Exception as exc:
-            logger.exception("Error en _run_download")
-            if done_callback:
-                done_callback({"ok": False, "error": str(exc)})
-        finally:
-            try:
-                http_client.close()
-            except Exception as exc:
-                logger.debug("Error cerrando http_client (ignorado): %s", exc)
+        result = self._updates_service.download(progress_callback=progress_callback)
+        if done_callback:
+            done_callback(result)
 
     # ─── Canal Core → Edge: instalador (Sprint C) ─────────────────────────
 
-    def get_installer(self):
-        """Retorna una instancia de UpdateInstaller, o None si falta root_path."""
-        if self._root_path is None or self._app_config_repo is None:
-            return None
-        try:
-            from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
-            from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
-                SQLiteAuditLogRepository,
-            )
-            from yvy.infrastructure.updates.installer import UpdateInstaller
-
-            _factory = SQLiteConnectionFactory(path=self._root_path / "data" / "yvy.sqlite")
-            _audit = SQLiteAuditLogRepository(_factory)
-            return UpdateInstaller(
-                app_config_repo=self._app_config_repo,  # type: ignore[arg-type]
-                audit_repo=_audit,
-                root_path=self._root_path,
-            )
-        except Exception:
-            logger.exception("Error construyendo UpdateInstaller")
-            return None
-
     def prevalidate_install(self):
-        """Llama a UpdateInstaller.prevalidate(). Retorna PrevalidationResult o None."""
-        installer = self.get_installer()
-        if installer is None:
+        """``PrevalidationResult`` del service, o None si no hay service."""
+        if self._updates_service is None:
             return None
-        return installer.prevalidate()
+        return self._updates_service.prevalidate()
 
     def request_install(self, user_id: int, on_done: Callable[[], None] | None = None) -> bool:
         """Dispara la instalación: backup + lanzar .bat + señalizar cierre.
 
         La app debe cerrarse después de este retorno.
-        Returns True si se pudo lanzar, False si no hay instalador.
+        Returns True si se pudo lanzar, False si no.
         """
-        installer = self.get_installer()
-        if installer is None:
+        if self._updates_service is None:
             return False
-        try:
-            installer.request_install(user_id)
-            if on_done:
-                on_done()
-            return True
-        except Exception:
-            logger.exception("Error en request_install")
+        if not self._updates_service.request_install(user_id):
             return False
+        if on_done:
+            on_done()
+        return True
 
     def get_releases_on_disk(self) -> list[dict]:
         """Lista releases en disco para el modal y settings."""
-        installer = self.get_installer()
-        if installer is None:
+        if self._updates_service is None:
             return []
-        try:
-            return installer.get_releases_on_disk()
-        except Exception:
-            return []
+        return self._updates_service.get_releases_on_disk()
 
     def rollback(
         self,
@@ -515,31 +424,12 @@ class SyncController:
         user_id: int,
     ):
         """Rollback a un release anterior. Retorna RollbackResult o None."""
-        installer = self.get_installer()
-        if installer is None:
+        if self._updates_service is None:
             return None
-        return installer.rollback(to_version=to_version, reason=reason, performed_by=user_id)
+        return self._updates_service.rollback(to_version=to_version, reason=reason, user_id=user_id)
 
     def mark_stable(self, version: str, user_id: int) -> bool:
         """Marca un release como estable manualmente."""
-        if self._root_path is None or self._app_config_repo is None:
+        if self._updates_service is None:
             return False
-        try:
-            from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
-            from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
-                SQLiteAuditLogRepository,
-            )
-            from yvy.infrastructure.updates.retention import ReleaseRetention
-
-            _factory = SQLiteConnectionFactory(path=self._root_path / "data" / "yvy.sqlite")
-            _audit = SQLiteAuditLogRepository(_factory)
-            retention = ReleaseRetention(
-                app_config_repo=self._app_config_repo,  # type: ignore[arg-type]
-                audit_repo=_audit,
-                releases_dir=self._root_path / "releases",
-            )
-            retention.mark_stable_manual(version, user_id)
-            return True
-        except Exception:
-            logger.exception("Error en mark_stable")
-            return False
+        return self._updates_service.mark_stable(version, user_id)

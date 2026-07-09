@@ -327,6 +327,9 @@ def main() -> int:
         update_check_trigger=update_check_trigger,
         live_source=_live_source,  # None si el sensor no está disponible
         root_path=STABLE_ROOT,
+        # Instancia única del composition root: el controller ya no fabrica
+        # infraestructura de updates (INI-3 · 3.2.1).
+        updates_service=deps.updates_service,
     )
 
     # Callable que MainApplication consulta cada 15s para el indicador del
