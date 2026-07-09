@@ -13,7 +13,6 @@ después de que Python termina completamente.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import shutil
@@ -30,6 +29,7 @@ from yvy.infrastructure.persistence.app_config_repository import AppConfigReposi
 from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
     SQLiteAuditLogRepository,
 )
+from yvy.infrastructure.system.hashing import verify_sha256_file
 
 logger = logging.getLogger(__name__)
 
@@ -134,9 +134,9 @@ class UpdateInstaller:
                 reason=f"El archivo del paquete no existe en disco: {pkg}",
             )
 
-        # Verificar hash
+        # Verificar hash (un `expected_sha` vacío significa "no verificar")
         expected_sha = meta.get("package_sha256", "")
-        if expected_sha and not _verify_sha256(pkg, expected_sha):
+        if expected_sha and not verify_sha256_file(pkg, expected_sha):
             return PrevalidationResult(
                 ok=False, reason="Hash SHA-256 del paquete no coincide. Re-descargar."
             )
@@ -401,17 +401,3 @@ class UpdateInstaller:
                 states.append("stable")
             result.append({"version": ver, "states": states, "path": slot})
         return result
-
-
-# ─── Helpers libres ───────────────────────────────────────────────────────────
-
-
-def _verify_sha256(path: Path, expected: str) -> bool:
-    h = hashlib.sha256()
-    try:
-        with path.open("rb") as f:
-            while chunk := f.read(65536):
-                h.update(chunk)
-    except OSError:
-        return False
-    return h.hexdigest() == expected
