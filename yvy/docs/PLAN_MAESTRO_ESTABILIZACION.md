@@ -264,18 +264,34 @@ INI-5 ── espera trigger externo (sin release asignado)
 | 1.5.2 | Restantes a cero: fixes reales (F841 dead code, B023, B904, E741, B007) + baseline de ignores justificado por regla | M | ✅ `63f862a` |
 | 1.5.3 | `.github/workflows/ci.yml`: `ruff check` + `ruff format --check` como job bloqueante (el repo NO tenía CI) | S | ✅ `053b373` |
 
-## INI-2 · Épica 2.1 — Utilidades canónicas
-| # | Tarea | Tamaño |
-|---|---|---|
-| 2.1.1 | `domain/shared/version.py`: parser único + comparadores con política explícita; migrar `installer` y `app_config` **conservando cada política actual**; tests de borde | M |
-| 2.1.2 | `iso_ms_z()` en `time_utils` + golden test de equivalencia byte-a-byte contra ambas implementaciones viejas sobre corpus de datetimes; migrar los 6 sitios | M |
-| 2.1.3 | `sha256_file()` común; downloader e installer delegan | S |
+## INI-2 · Épica 2.1 — Utilidades canónicas ✅
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 2.1.1 | `domain/shared/version.py`: parser único + comparadores con política explícita; migrar `installer` y `app_config` **conservando cada política actual**; tests de borde | M | ✅ `b4ee590` — `on_unparseable` obligatorio y keyword-only; +34 tests |
+| 2.1.2 | `iso_ms_z()` en `time_utils` + golden test de equivalencia byte-a-byte contra ambas implementaciones viejas sobre corpus de datetimes; migrar los 6 sitios | M | ✅ `2668847` — golden sobre 5.000 datetimes: 0 diferencias; +11 tests |
+| 2.1.3 | `sha256_file()` común; downloader e installer delegan | S | ✅ `d3ef009` — corrige divergencia case-sensitive vs insensitive; +11 tests |
 
 ## INI-2 · Épica 2.2 — Scripts como wrappers (H7)
-| # | Tarea | Tamaño |
-|---|---|---|
-| 2.2.1 | `configure_sync.py` → wrapper del handler; probar `CONFIGURAR_SYNC.bat` en nodo | S |
-| 2.2.2 | `validar_sensor.py` → wrapper de `test_sensor`; probar `VALIDAR_SENSOR.bat` en nodo | S |
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 2.2.1 | `configure_sync.py` → wrapper del handler; probar `CONFIGURAR_SYNC.bat` en nodo | S | ✅ `7dd0981` — **corrige bug de BOM**; falta probar el .bat en nodo real |
+| 2.2.2 | `validar_sensor.py` → wrapper de `test_sensor`; probar `VALIDAR_SENSOR.bat` en nodo | S | ⏸ **descartada** — ver nota |
+
+> **Hallazgo 2026-07-09 (2.2.2): la premisa de la tarea es incorrecta.**
+> `validar_sensor.py` y `handlers.test_sensor` **no son duplicados**:
+>
+> - `test_sensor` es **nivel B** y por diseño **no abre el dispositivo** ("NO lee
+>   frames del sensor: puede colisionar con `SensorCollectorDaemon` en runtime").
+> - `validar_sensor.py` es un diagnóstico **nivel C** offline (se corre con la app
+>   detenida, vía `VALIDAR_SENSOR.bat`): abre la `WeatherStation`, lee el buffer,
+>   enumera los dispositivos USB, y —clave— distingue el **driver de Zadig**
+>   (`libusb-win32` vs `WinUSB`), que es un modo de falla real de pywws que el
+>   handler no chequea. Además da remediación paso a paso al técnico de IEA.
+>
+> Convertirlo en wrapper **degradaría la herramienta de campo**. El alcance correcto
+> sería que el script delegue sólo el prefijo compartido (imports de pywws/pyusb,
+> backend libusb, VID/PID) y conserve sus chequeos nivel C encima — un cambio mayor
+> que requiere validar `VALIDAR_SENSOR.bat` en un nodo real. Se difiere.
 
 ## INI-3 · Épica 3.1 — Contrato del bootstrap
 | # | Tarea | Tamaño | Estado |
@@ -502,6 +518,10 @@ el mismo release. Mitigación: la tabla §7 es contrato; un release = un caráct
 | 2026-07-09 | `stab/ini-1-higiene` `25678ef` | tipado INI-3 | `updates_service` y `post_boot_check` pasan mypy **strict** limpio. Hallazgo: `mypy src` = 261 errores, sin job en CI → 3.2.4 pospuesta. |
 | 2026-07-09 | `stab/ini-1-higiene` `f6ae4fd` | **3.1.3** (H10) | Pending en una key JSON: escritura/lectura atómicas + tolerancia al formato viejo. Carrera **medida** antes/después (58/14.395 → 0/107.388). +6 tests. 1102 passed. **Cierra la épica 3.1.** |
 | 2026-07-09 | `stab/ini-1-higiene` `8f25fd3` | **3.3.1** (H6) | `handlers.py` (1.425 líneas) → paquete de 4 módulos por dominio, API intacta. Cuerpos verificados idénticos. mypy 261→251. **Cierra INI-3.** |
+| 2026-07-09 | `stab/ini-1-higiene` `b4ee590` | **2.1.1** (H2 semver) | Parser único; `on_unparseable` obligatorio y keyword-only. Cada call site conserva su política opuesta, ahora visible. +34 tests. 1136 passed. |
+| 2026-07-09 | `stab/ini-1-higiene` `d3ef009` | **2.1.3** (H8 sha256) | `sha256_file`/`verify_sha256_file` únicos. **Divergencia real:** installer comparaba case-sensitive, downloader no → un hex en mayúsculas descargaba pero no instalaba. +11 tests. 1146 passed. |
+| 2026-07-09 | `stab/ini-1-higiene` `2668847` | **2.1.2** (H3 iso_ms_z) | Formato-contrato del HMAC. **Golden byte-a-byte** contra ambas impls viejas sobre 5.000 datetimes: 0 diferencias. Rechaza naive, convierte aware. +11 tests. 1157 passed. **Cierra la épica 2.1.** |
+| 2026-07-09 | `stab/ini-1-higiene` `7dd0981` | **2.2.1** (H7) | `configure_sync.py` → wrapper del handler. **Bug corregido:** leía credentials con `utf-8` (BOM de Notepad rompía `CONFIGURAR_SYNC.bat`); el handler usa `utf-8-sig`. Verificado ejecutándolo. |
 
 ---
 *Plan de ingeniería — sin código, sin nuevas auditorías. Basado íntegramente en los
