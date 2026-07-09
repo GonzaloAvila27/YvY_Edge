@@ -108,6 +108,7 @@ class FakeDownloader:
     def __init__(self, result: FakeDownloadResult) -> None:
         self._result = result
         self.progress_callback = None
+        self.already = False
 
     def download(self, progress_callback=None):
         self.progress_callback = progress_callback
@@ -117,7 +118,7 @@ class FakeDownloader:
         return True
 
     def is_already_downloaded(self) -> bool:
-        return False
+        return self.already
 
 
 def _make_service(
@@ -178,12 +179,15 @@ class TestInstalacion:
 
     def test_request_install_ok(self):
         inst = FakeInstaller()
-        assert _make_service(installer=inst).request_install(7) is True
+        assert _make_service(installer=inst).request_install(7).ok is True
         assert inst.install_calls == [7]
 
-    def test_request_install_false_si_falla(self):
+    def test_request_install_propaga_el_mensaje_de_error(self):
+        """El CLI reporta este mensaje al operador: no debe perderse."""
         svc = _make_service(installer=FakeInstaller(raises=True))
-        assert svc.request_install(7) is False
+        result = svc.request_install(7)
+        assert result.ok is False
+        assert "installer roto" in result.error
 
     def test_rollback_pasa_performed_by(self):
         inst = FakeInstaller()
@@ -204,21 +208,41 @@ class TestInstalacion:
 
     def test_mark_stable_delega_a_retention(self):
         ret = FakeRetention()
-        assert _make_service(retention=ret).mark_stable("1.5.1", 9) is True
+        assert _make_service(retention=ret).mark_stable("1.5.1", 9).ok is True
         assert ret.calls == [("1.5.1", 9)]
 
-    def test_mark_stable_false_si_falla(self):
+    def test_mark_stable_propaga_el_mensaje_de_error(self):
         svc = _make_service(retention=FakeRetention(raises=True))
-        assert svc.mark_stable("1.5.1", 9) is False
+        result = svc.mark_stable("1.5.1", 9)
+        assert result.ok is False
+        assert "retention rota" in result.error
+
+    def test_user_id_none_desde_el_cli(self):
+        """El CLI no tiene usuario autenticado: user_id=None debe funcionar."""
+        inst, ret = FakeInstaller(), FakeRetention()
+        svc = _make_service(installer=inst, retention=ret)
+        assert svc.request_install(None).ok is True
+        assert svc.mark_stable("1.5.1", None).ok is True
+        assert svc.rollback(to_version="1.4.0", reason="x", user_id=None) == "rollback-ok"
+        assert inst.rollback_calls[0]["performed_by"] is None
 
 
 # ─── Descarga ─────────────────────────────────────────────────────────────────
 
 
+_NO_CONFIG = {
+    "ok": False,
+    "already_downloaded": False,
+    "error": "sync_no_config",
+    "bytes_downloaded": 0,
+    "dest_path": None,
+}
+
+
 @pytest.mark.unit
 class TestDownload:
     def test_sin_downloader_context_reporta_sync_no_config(self):
-        assert _make_service().download() == {"ok": False, "error": "sync_no_config"}
+        assert _make_service().download() == _NO_CONFIG
 
     def test_context_que_cede_none_reporta_sync_no_config(self):
         """Nodo sin credenciales: el composition root cede None."""
@@ -227,10 +251,36 @@ class TestDownload:
         def _ctx():
             yield None
 
-        assert _make_service(downloader_context=_ctx).download() == {
-            "ok": False,
-            "error": "sync_no_config",
-        }
+        assert _make_service(downloader_context=_ctx).download() == _NO_CONFIG
+
+    def test_credenciales_rotas_se_distinguen_de_sync_no_config(self):
+        """El composition root lanza; el service lo reporta con diagnóstico."""
+
+        @contextmanager
+        def _ctx():
+            raise ValueError("credentials_invalid: Expecting value")
+            yield None  # pragma: no cover
+
+        out = _make_service(downloader_context=_ctx).download()
+        assert out["ok"] is False
+        assert out["error"].startswith("credentials_invalid:")
+
+    def test_ya_descargado_no_vuelve_a_bajar(self):
+        """Atajo: si el paquete está verificado en disco, no se re-descarga."""
+        cfg = FakeAppConfig(values={"update_pending.local_path": "/tmp/pkg.tar.gz"})
+        dl = FakeDownloader(FakeDownloadResult(True, None, 999, Path("/nunca")))
+        dl.already = True
+
+        @contextmanager
+        def _ctx():
+            yield dl
+
+        out = _make_service(app_config=cfg, downloader_context=_ctx).download()
+        assert out["ok"] is True
+        assert out["already_downloaded"] is True
+        assert out["bytes_downloaded"] == 0
+        assert out["dest_path"] == "/tmp/pkg.tar.gz"
+        assert dl.progress_callback is None, "no debe llamarse download()"
 
     def test_descarga_exitosa_mapea_el_resultado(self):
         dl = FakeDownloader(FakeDownloadResult(True, None, 1024, Path("/tmp/pkg.tar.gz")))
@@ -257,6 +307,7 @@ class TestDownload:
         out = _make_service(downloader_context=_ctx).download()
         assert out == {
             "ok": False,
+            "already_downloaded": False,
             "error": "network: timeout",
             "bytes_downloaded": 0,
             "dest_path": None,

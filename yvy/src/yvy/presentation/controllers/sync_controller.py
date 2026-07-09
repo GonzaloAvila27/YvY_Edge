@@ -405,7 +405,7 @@ class SyncController:
         """
         if self._updates_service is None:
             return False
-        if not self._updates_service.request_install(user_id):
+        if not self._updates_service.request_install(user_id).ok:
             return False
         if on_done:
             on_done()
@@ -432,4 +432,4 @@ class SyncController:
         """Marca un release como estable manualmente."""
         if self._updates_service is None:
             return False
-        return self._updates_service.mark_stable(version, user_id)
+        return self._updates_service.mark_stable(version, user_id).ok

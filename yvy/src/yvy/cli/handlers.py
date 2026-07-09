@@ -58,13 +58,9 @@ def download_update(
         error: str | None
         dest_path: str | None
     """
-    import json as _json
-    from uuid import UUID
-
+    # Nodo sin sync configurado: se reporta antes que nada (orden histórico).
     creds_path = deps.root / "data" / "station_credentials.json"
-    server_url = deps.app_config_repo.get("sync_server_url")
-
-    if not server_url or not creds_path.exists():
+    if not deps.app_config_repo.get("sync_server_url") or not creds_path.exists():
         return {
             "ok": False,
             "already_downloaded": False,
@@ -74,7 +70,7 @@ def download_update(
             "dest_path": None,
         }
 
-    # Verificar que hay un update pendiente
+    # Sin update pendiente: nada que hacer (no es un error).
     pending = deps.app_config_repo.get_pending_update()
     if pending is None:
         return {
@@ -86,61 +82,16 @@ def download_update(
             "dest_path": None,
         }
 
-    try:
-        creds = _json.loads(creds_path.read_text(encoding="utf-8-sig"))
-        station_uuid = UUID(creds["station_uuid"])
-        key_version = int(creds["key_version"])
-        key_bytes = bytes.fromhex(creds["key_hmac_hex"])
-    except Exception as exc:
-        return {
-            "ok": False,
-            "already_downloaded": False,
-            "version": pending.get("edge_version"),
-            "bytes_downloaded": 0,
-            "error": f"credentials_invalid: {exc}",
-            "dest_path": None,
-        }
-
-    from yvy.infrastructure.sync.http_client import HttpClient
-    from yvy.infrastructure.sync.update_downloader import UpdateDownloader
-
-    updates_dir = deps.root / "data" / "updates"
-    http_client = HttpClient(server_url=server_url, verify=True)
-    downloader = UpdateDownloader(
-        http_client=http_client,
-        app_config_repo=deps.app_config_repo,
-        station_uuid=station_uuid,
-        key_version=key_version,
-        key=key_bytes,
-        updates_dir=updates_dir,
-    )
-
-    try:
-        # Ya descargado y verificado
-        if downloader.is_already_downloaded():
-            return {
-                "ok": True,
-                "already_downloaded": True,
-                "version": pending.get("edge_version"),
-                "bytes_downloaded": 0,
-                "error": None,
-                "dest_path": deps.app_config_repo.get("update_pending.local_path"),
-            }
-
-        result = downloader.download(progress_callback=progress_callback)
-    finally:
-        try:
-            http_client.close()
-        except Exception as exc:
-            logger.debug("Error cerrando http_client (ignorado): %s", exc)
-
+    # El UpdatesService resuelve credenciales/HttpClient y garantiza el cierre.
+    # Acá no se construye infraestructura (INI-3 · 3.2.3).
+    out = deps.updates_service.download(progress_callback=progress_callback)
     return {
-        "ok": result.success,
-        "already_downloaded": False,
+        "ok": out["ok"],
+        "already_downloaded": out["already_downloaded"],
         "version": pending.get("edge_version"),
-        "bytes_downloaded": result.bytes_downloaded,
-        "error": result.error,
-        "dest_path": str(result.dest_path) if result.success else None,
+        "bytes_downloaded": out["bytes_downloaded"],
+        "error": out["error"],
+        "dest_path": out["dest_path"],
     }
 
 
@@ -1119,18 +1070,8 @@ def compute_check_updates(deps: CoreDependencies) -> dict[str, Any]:
 def compute_update_status(deps: CoreDependencies) -> dict[str, Any]:
     """Estado del sistema de updates: versión, slots, releases, pending."""
     from yvy import __version__
-    from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
-        SQLiteAuditLogRepository,
-    )
-    from yvy.infrastructure.updates.installer import UpdateInstaller
 
     checks: list[dict[str, Any]] = []
-    audit_repo = SQLiteAuditLogRepository(deps.factory)
-    installer = UpdateInstaller(
-        app_config_repo=deps.app_config_repo,
-        audit_repo=audit_repo,
-        root_path=deps.root,
-    )
 
     checks.append(
         {
@@ -1182,7 +1123,7 @@ def compute_update_status(deps: CoreDependencies) -> dict[str, Any]:
             }
         )
 
-    releases = installer.get_releases_on_disk()
+    releases = deps.updates_service.get_releases_on_disk()
     if releases:
         details = "  ·  ".join(
             f"{r['version']}" + (f" ({', '.join(r['states'])})" if r["states"] else "")
@@ -1257,37 +1198,24 @@ def execute_update_install(deps: CoreDependencies) -> dict[str, Any]:
         launched: bool
         error: str | None
     """
-    from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
-        SQLiteAuditLogRepository,
-    )
-    from yvy.infrastructure.updates.installer import UpdateInstaller
-
-    audit_repo = SQLiteAuditLogRepository(deps.factory)
-    installer = UpdateInstaller(
-        app_config_repo=deps.app_config_repo,
-        audit_repo=audit_repo,
-        root_path=deps.root,
-    )
-
-    pre = installer.prevalidate()
-    if not pre.ok:
+    pre = deps.updates_service.prevalidate()
+    if pre is None or not pre.ok:
         return {
             "ok": False,
             "prevalidation_ok": False,
-            "reason": pre.reason,
+            "reason": pre.reason if pre is not None else "prevalidación falló",
             "launched": False,
             "error": None,
         }
 
-    try:
-        installer.request_install(requested_by_user_id=None)
-    except RuntimeError as exc:
+    request = deps.updates_service.request_install(None)
+    if not request.ok:
         return {
             "ok": False,
             "prevalidation_ok": True,
             "reason": None,
             "launched": False,
-            "error": str(exc),
+            "error": request.error,
         }
 
     return {
@@ -1315,23 +1243,13 @@ def execute_rollback(
         to_version: str
         reason: str | None
     """
-    from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
-        SQLiteAuditLogRepository,
-    )
-    from yvy.infrastructure.updates.installer import UpdateInstaller
-
-    audit_repo = SQLiteAuditLogRepository(deps.factory)
-    installer = UpdateInstaller(
-        app_config_repo=deps.app_config_repo,
-        audit_repo=audit_repo,
-        root_path=deps.root,
-    )
-
-    result = installer.rollback(
+    result = deps.updates_service.rollback(
         to_version=to_version,
         reason=reason,
-        performed_by=None,
+        user_id=None,
     )
+    if result is None:
+        return {"ok": False, "to_version": to_version, "reason": "error interno en rollback"}
     return {
         "ok": result.ok,
         "to_version": result.to_version,
@@ -1354,23 +1272,9 @@ def execute_mark_stable(
         version: str
         error: str | None
     """
-    from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
-        SQLiteAuditLogRepository,
-    )
-    from yvy.infrastructure.updates.retention import ReleaseRetention
-
-    releases_dir = deps.root / "releases"
-    audit_repo = SQLiteAuditLogRepository(deps.factory)
-    retention = ReleaseRetention(
-        app_config_repo=deps.app_config_repo,
-        audit_repo=audit_repo,
-        releases_dir=releases_dir,
-    )
-
-    try:
-        retention.mark_stable_manual(version=version, user_id=None)
-    except Exception as exc:
-        return {"ok": False, "version": version, "error": str(exc)}
+    result = deps.updates_service.mark_stable(version, None)
+    if not result.ok:
+        return {"ok": False, "version": version, "error": result.error}
 
     return {"ok": True, "version": version, "error": None}
 

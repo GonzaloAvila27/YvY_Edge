@@ -85,14 +85,17 @@ def _make_downloader_context(root: Path, app_config_repo: AppConfigRepository) -
             return
 
         try:
-            creds = json.loads(creds_path.read_text(encoding="utf-8"))
+            # utf-8-sig: el archivo puede venir con BOM (lo escriben editores de
+            # Windows). Mismo encoding que usan los handlers del CLI.
+            creds = json.loads(creds_path.read_text(encoding="utf-8-sig"))
             station_uuid = UUID(creds["station_uuid"])
             key_version = int(creds["key_version"])
             key_bytes = bytes.fromhex(creds["key_hmac_hex"])
-        except Exception:
-            logger.exception("station_credentials.json ilegible; sin downloader")
-            yield None
-            return
+        except Exception as exc:
+            # Distinto de "no configurado": el archivo existe pero está roto.
+            # Se propaga para que el service lo reporte con diagnóstico.
+            logger.exception("station_credentials.json ilegible")
+            raise ValueError(f"credentials_invalid: {exc}") from exc
 
         http_client = HttpClient(server_url=server_url, verify=True)
         try:

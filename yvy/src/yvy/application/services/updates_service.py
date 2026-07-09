@@ -26,9 +26,22 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from contextlib import AbstractContextManager
+from dataclasses import dataclass
 from typing import Any, Protocol
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class OperationResult:
+    """Resultado de una operación que puede fallar sin excepción.
+
+    Lleva el mensaje de error porque el CLI lo reporta al operador; devolver
+    sólo un bool perdería el diagnóstico ("no hay paquete descargado", etc.).
+    """
+
+    ok: bool
+    error: str | None = None
 
 
 # ─── Puertos ──────────────────────────────────────────────────────────────────
@@ -139,14 +152,14 @@ class UpdatesService:
             logger.exception("Error en prevalidate")
             return None
 
-    def request_install(self, user_id: int | None) -> bool:
-        """Lanza la instalación. True si se pudo disparar."""
+    def request_install(self, user_id: int | None) -> OperationResult:
+        """Lanza la instalación. El error viaja en el resultado (lo usa el CLI)."""
         try:
             self._installer.request_install(user_id)
-            return True
-        except Exception:
+            return OperationResult(ok=True)
+        except Exception as exc:
             logger.exception("Error en request_install")
-            return False
+            return OperationResult(ok=False, error=str(exc))
 
     def has_pending_install_request(self) -> bool:
         try:
@@ -162,8 +175,8 @@ class UpdatesService:
             logger.exception("Error listando releases en disco")
             return []
 
-    def rollback(self, *, to_version: str, reason: str, user_id: int) -> Any | None:
-        """``RollbackResult``, o None si falló."""
+    def rollback(self, *, to_version: str, reason: str, user_id: int | None) -> Any | None:
+        """``RollbackResult``, o None si falló. ``user_id`` es None desde el CLI."""
         try:
             return self._installer.rollback(
                 to_version=to_version, reason=reason, performed_by=user_id
@@ -172,13 +185,14 @@ class UpdatesService:
             logger.exception("Error en rollback")
             return None
 
-    def mark_stable(self, version: str, user_id: int) -> bool:
+    def mark_stable(self, version: str, user_id: int | None) -> OperationResult:
+        """Marca un release como estable. El error viaja en el resultado."""
         try:
             self._retention.mark_stable_manual(version, user_id)
-            return True
-        except Exception:
+            return OperationResult(ok=True)
+        except Exception as exc:
             logger.exception("Error en mark_stable")
-            return False
+            return OperationResult(ok=False, error=str(exc))
 
     def write_boot_ok_flag(self) -> None:
         try:
@@ -194,30 +208,61 @@ class UpdatesService:
 
     # ─── Descarga ─────────────────────────────────────────────────────────
 
+    def _no_config(self) -> dict:
+        return {
+            "ok": False,
+            "already_downloaded": False,
+            "error": "sync_no_config",
+            "bytes_downloaded": 0,
+            "dest_path": None,
+        }
+
     def download(self, progress_callback: Callable[[int, int], None] | None = None) -> dict:
         """Descarga el paquete pendiente.
 
-        Devuelve ``{"ok", "error", "bytes_downloaded", "dest_path"}``. Nunca
-        lanza: los errores viajan en ``error`` (``"sync_no_config"`` si el nodo
-        no tiene credenciales/servidor configurados).
+        Devuelve siempre las mismas claves:
+        ``{"ok", "already_downloaded", "error", "bytes_downloaded", "dest_path"}``.
+
+        Nunca lanza. ``error`` distingue los casos que el operador necesita:
+        ``"sync_no_config"`` (nodo sin credenciales/servidor) vs
+        ``"credentials_invalid: ..."`` (archivo presente pero roto), que el
+        composition root propaga como excepción.
         """
         if self._downloader_context is None:
-            return {"ok": False, "error": "sync_no_config"}
+            return self._no_config()
 
         try:
             with self._downloader_context() as downloader:
                 if downloader is None:
-                    return {"ok": False, "error": "sync_no_config"}
+                    return self._no_config()
+
+                # Ya descargado y verificado: no se vuelve a bajar.
+                if downloader.is_already_downloaded():
+                    return {
+                        "ok": True,
+                        "already_downloaded": True,
+                        "error": None,
+                        "bytes_downloaded": 0,
+                        "dest_path": self._cfg.get("update_pending.local_path"),
+                    }
+
                 result = downloader.download(progress_callback=progress_callback)
                 return {
                     "ok": result.success,
+                    "already_downloaded": False,
                     "error": result.error,
                     "bytes_downloaded": result.bytes_downloaded,
                     "dest_path": str(result.dest_path) if result.success else None,
                 }
         except Exception as exc:
             logger.exception("Error en download")
-            return {"ok": False, "error": str(exc)}
+            return {
+                "ok": False,
+                "already_downloaded": False,
+                "error": str(exc),
+                "bytes_downloaded": 0,
+                "dest_path": None,
+            }
 
 
 __all__ = [
@@ -225,6 +270,7 @@ __all__ = [
     "DownloaderContext",
     "DownloaderPort",
     "InstallerPort",
+    "OperationResult",
     "RetentionPort",
     "UpdatesService",
 ]
