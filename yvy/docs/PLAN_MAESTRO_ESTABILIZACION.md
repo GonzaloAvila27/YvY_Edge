@@ -304,10 +304,28 @@ INI-5 ── espera trigger externo (sin release asignado)
 > `scripts/`. Mientras tanto, `domain/` y `application/` son strict y **todo el código
 > nuevo de INI-3 pasa mypy strict limpio** (`25678ef`).
 
-## INI-3 · Épica 3.3 — Reorganización del CLI (H6)
-| # | Tarea | Tamaño |
-|---|---|---|
-| 3.3.1 | Split `handlers.py` → paquete `handlers/` re-exportando (API intacta) | S |
+## INI-3 · Épica 3.3 — Reorganización del CLI (H6) ✅
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 3.3.1 | Split `handlers.py` → paquete `handlers/` re-exportando (API intacta) | S | ✅ `8f25fd3` — 1.425 líneas → 4 módulos (diagnostics/checks/updates/sync_config); cuerpos verificados idénticos al original |
+
+---
+
+## 🏁 INI-3 — cerrada
+
+Épicas 3.1, 3.2 y 3.3 completas. **3.2.4 pospuesta** con justificación (mypy no
+gatea; requiere su propia épica de adopción, espejo de la 1.5).
+
+Lo que resuelve, contra el objetivo declarado:
+
+- **RC-1** (Updates sin capa de aplicación) → `UpdatesService` + `RunPostBootCheckUseCase`.
+- **RC-2** (Composition Root sin formalizar) → `bootstrap` construye installer/retention
+  **una vez** con el root estable. Las 5 construcciones de `UpdateInstaller` y las 4
+  re-creaciones de `SQLiteConnectionFactory(root/"data"/…)` **ya no existen**: la clase
+  de bug que causó la pérdida de datos post-OTA quedó eliminada por construcción.
+- **H11** (repo con conn atada) y **H10** (pending no atómico): fix + test de regresión,
+  ambos con la carrera/mina **medida** antes y después.
+- **H6**: `handlers.py` partido por dominio, API intacta.
 
 ## INI-4 · Épica 4.1 — app.py por extracción incremental
 | # | Tarea | Tamaño |
@@ -483,6 +501,7 @@ el mismo release. Mitigación: la tabla §7 es contrato; un release = un caráct
 | 2026-07-09 | `stab/ini-1-higiene` `fb8ab8b` | **3.2.2** (post-boot) | `RunPostBootCheckUseCase` en application + 6 tests; `launch_app` queda shim. Fija que en `version_mismatch` NO se escribe `boot_ok.flag` (el watchdog debe revertir). 1096 passed. |
 | 2026-07-09 | `stab/ini-1-higiene` `25678ef` | tipado INI-3 | `updates_service` y `post_boot_check` pasan mypy **strict** limpio. Hallazgo: `mypy src` = 261 errores, sin job en CI → 3.2.4 pospuesta. |
 | 2026-07-09 | `stab/ini-1-higiene` `f6ae4fd` | **3.1.3** (H10) | Pending en una key JSON: escritura/lectura atómicas + tolerancia al formato viejo. Carrera **medida** antes/después (58/14.395 → 0/107.388). +6 tests. 1102 passed. **Cierra la épica 3.1.** |
+| 2026-07-09 | `stab/ini-1-higiene` `8f25fd3` | **3.3.1** (H6) | `handlers.py` (1.425 líneas) → paquete de 4 módulos por dominio, API intacta. Cuerpos verificados idénticos. mypy 261→251. **Cierra INI-3.** |
 
 ---
 *Plan de ingeniería — sin código, sin nuevas auditorías. Basado íntegramente en los
