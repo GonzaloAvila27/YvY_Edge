@@ -278,11 +278,11 @@ INI-5 ── espera trigger externo (sin release asignado)
 | 2.2.2 | `validar_sensor.py` → wrapper de `test_sensor`; probar `VALIDAR_SENSOR.bat` en nodo | S |
 
 ## INI-3 · Épica 3.1 — Contrato del bootstrap
-| # | Tarea | Tamaño |
-|---|---|---|
-| 3.1.1 | `UpdatesService` (application) con operaciones hoy dispersas: prevalidate/request-install/download/check/purge/estado; construido en bootstrap con installer/retention/downloader inyectados | M |
-| 3.1.2 | H11: `SQLiteEmpiricalRepository` a contrato factory (idéntico a los otros 7 repos) | S |
-| 3.1.3 | H10 completo: pending como valor atómico (una key JSON), con lectura tolerante a formato viejo durante 1 ciclo | M |
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 3.1.1 | `UpdatesService` (application) con operaciones hoy dispersas: prevalidate/request-install/download/check/purge/estado; construido en bootstrap con installer/retention/downloader inyectados | M | pendiente |
+| 3.1.2 | H11: `SQLiteEmpiricalRepository` a contrato factory (idéntico a los otros 7 repos) | S | ✅ `f66284f` — + test de regresión cross-thread; desbloquea el bloqueante #1 del diagnóstico web LAN |
+| 3.1.3 | H10 completo: pending como valor atómico (una key JSON), con lectura tolerante a formato viejo durante 1 ciclo | M | pendiente |
 
 ## INI-3 · Épica 3.2 — Los tres frentes consumen el service
 | # | Tarea | Tamaño |
@@ -465,6 +465,7 @@ el mismo release. Mitigación: la tabla §7 es contrato; un release = un caráct
 | 2026-07-03 | `stab/ini-1-higiene` `63f862a` | 1.5.2 (ruff a cero) | Fixes (F841/B023/B904/E741/B007) + baseline de ignores justificado. ~400→0. 1069 passed. |
 | 2026-07-03 | `stab/ini-1-higiene` `053b373` | 1.5.3 (CI gate) | `.github/workflows/ci.yml` con ruff bloqueante (el repo no tenía CI). |
 | 2026-07-08 | `stab/ini-1-higiene` `184e899` | 1.4.1 (consolidar CLIs) | Migra migrate/retention/**hero-rescue** a yvy.cli (brecha: hero-rescue no era alcanzable por `python -m yvy`); script→yvy.cli; main.py→shim. Verificado e2e. 1069 passed. |
+| 2026-07-09 | `stab/ini-1-higiene` `f66284f` | **3.1.2** (H11 · INI-3) | `SQLiteEmpiricalRepository` al contrato factory (era el único con conn cruda → inutilizable cross-thread). +test de regresión. Desbloquea el bloqueante #1 del web LAN. 1070 passed. |
 
 ---
 *Plan de ingeniería — sin código, sin nuevas auditorías. Basado íntegramente en los

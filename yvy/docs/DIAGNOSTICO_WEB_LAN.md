@@ -94,7 +94,7 @@ Performance **NO es bloqueante**. `sensor_raw` tiene **0 filas** (purgado por re
 
 ## 🔴 Bloqueantes para Fase 1
 
-1. **`empirical_repo` atado a un thread** (`bootstrap.py:120`, H11). El adaptador web **no puede** reusar el empirical_repo del bundle. → Construir un empirical_repo propio por-thread vía factory en el adaptador, **o** refactor a `factory` (fix H11). Esfuerzo **bajo**, obligatorio.
+1. ~~**`empirical_repo` atado a un thread** (`bootstrap.py:120`, H11).~~ ✅ **RESUELTO** (INI-3 · 3.1.2, commit `f66284f`): el repo ahora toma el `SQLiteConnectionFactory` como los otros 7, con conexión por-thread. El adaptador web **puede reusar el `empirical_repo` del bundle** directamente. Hay test de regresión cross-thread.
 2. **`AuditSource` sin `WEB`** + use case audita `UI` hardcodeado. → Para trazar `origin:web`: agregar `AuditSource.WEB` y parametrizar el `source` del use case (hoy fijo), **o** llevar el origen en `metadata` (sin migración). Decisión de diseño + cambio chico.
 3. **Serialización de escritura** con un 4º writer. WAL + busy_timeout 5s debería aguantar a bajo volumen, pero un POST web que escriba durante un flush del sensor puede pegar "database is locked". → Validar bajo carga concurrente; evaluar un mutex de escritura si el empírico-web coincide con daemons.
 4. **Regla de firewall** en `INSTALAR.bat` (ya elevado) — requerido para alcanzabilidad LAN. No es "blocker de código" pero sí de despliegue.
