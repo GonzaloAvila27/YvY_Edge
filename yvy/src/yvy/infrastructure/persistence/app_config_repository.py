@@ -89,7 +89,7 @@ class AppConfigRepository:
     def set_last_sync_version(self, version: int) -> None:
         self.set("last_sync_version", str(version))
 
-    def get_pending_update(self) -> dict | None:
+    def get_pending_update(self) -> dict[str, Any] | None:
         """Retorna la metadata del update pendiente, o None si no hay.
 
         Guarda de obsolescencia (ERR-003): si la versión pendiente es <= la
@@ -144,7 +144,7 @@ class AppConfigRepository:
             "detected_at": self.get("update_pending.detected_at"),
         }
 
-    def set_pending_update(self, metadata: dict) -> None:
+    def set_pending_update(self, metadata: dict[str, Any]) -> None:
         """Persiste la metadata de update recibida desde Core (H10: atómico).
 
         Orden deliberado:
