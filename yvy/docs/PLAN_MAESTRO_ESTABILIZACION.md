@@ -282,7 +282,11 @@ INI-5 ── espera trigger externo (sin release asignado)
 |---|---|---|---|
 | 3.1.1 | `UpdatesService` (application) con operaciones hoy dispersas: prevalidate/request-install/download/check/purge/estado; construido en bootstrap con installer/retention/downloader inyectados | M | ✅ `2d1c456` — puertos Protocol (application no importa infra); downloader tras context manager del composition root; 17 tests |
 | 3.1.2 | H11: `SQLiteEmpiricalRepository` a contrato factory (idéntico a los otros 7 repos) | S | ✅ `f66284f` — + test de regresión cross-thread; desbloquea el bloqueante #1 del diagnóstico web LAN |
-| 3.1.3 | H10 completo: pending como valor atómico (una key JSON), con lectura tolerante a formato viejo durante 1 ciclo | M | pendiente |
+| 3.1.3 | H10 completo: pending como valor atómico (una key JSON), con lectura tolerante a formato viejo durante 1 ciclo | M | ✅ `f6ae4fd` — carrera medida: lector viejo **58 lecturas mezcladas / 14.395**; lector nuevo **0 / 107.388**. Incluye la mitigación de 1 línea del peer review (`available` al final) |
+
+> **Deuda planificada:** el dual-write de las 9 keys legacy en `set_pending_update`
+> se mantiene un ciclo por compatibilidad. Retirarlo en el release siguiente
+> (y con él `_read_pending_legacy`), una vez que toda la flota escribió la key JSON.
 
 ## INI-3 · Épica 3.2 — Los tres frentes consumen el service
 | # | Tarea | Tamaño | Estado |
@@ -478,6 +482,7 @@ el mismo release. Mitigación: la tabla §7 es contrato; un release = un caráct
 | 2026-07-09 | `stab/ini-1-higiene` `9c167b3` | **3.2.3** (cli/handlers) | 5/6 sitios consumen el service. `OperationResult(ok, error)` para no perder el mensaje que el CLI reporta. **Bug corregido:** bootstrap leía credentials con `utf-8` vs `utf-8-sig` del CLI (BOM rompía la descarga desde GUI). 1090 passed. |
 | 2026-07-09 | `stab/ini-1-higiene` `fb8ab8b` | **3.2.2** (post-boot) | `RunPostBootCheckUseCase` en application + 6 tests; `launch_app` queda shim. Fija que en `version_mismatch` NO se escribe `boot_ok.flag` (el watchdog debe revertir). 1096 passed. |
 | 2026-07-09 | `stab/ini-1-higiene` `25678ef` | tipado INI-3 | `updates_service` y `post_boot_check` pasan mypy **strict** limpio. Hallazgo: `mypy src` = 261 errores, sin job en CI → 3.2.4 pospuesta. |
+| 2026-07-09 | `stab/ini-1-higiene` `f6ae4fd` | **3.1.3** (H10) | Pending en una key JSON: escritura/lectura atómicas + tolerancia al formato viejo. Carrera **medida** antes/después (58/14.395 → 0/107.388). +6 tests. 1102 passed. **Cierra la épica 3.1.** |
 
 ---
 *Plan de ingeniería — sin código, sin nuevas auditorías. Basado íntegramente en los
