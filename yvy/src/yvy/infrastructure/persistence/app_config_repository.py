@@ -9,10 +9,25 @@ station_uuid, CUE, school_name, hardware_fingerprint, onboarding_completed_at.
 
 from __future__ import annotations
 
+import json
+import logging
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
+
+logger = logging.getLogger(__name__)
+
+# Key única con el pending serializado a JSON (H10). Una escritura, una lectura:
+# el `UpdateCheckerDaemon` escribe desde su thread y el poll del header lee desde
+# el main thread cada 15 s; con 9 keys sueltas se podía leer un pending a medio
+# escribir (available=true con edge_version viejo).
+_PENDING_KEY = "update_pending"
+
+# OJO: `update_pending.downloaded/.downloaded_at/.local_path` NO son parte del
+# pending metadata — son flags de descarga que leen el downloader y el installer.
+# No se tocan acá.
 
 
 class AppConfigRepository:
@@ -84,14 +99,40 @@ class AppConfigRepository:
         manual (que no pasa por el cierre post-boot del flujo OTA) sin depender
         de que el server avise.
         """
-        if self.get("update_pending.available") != "true":
+        metadata = self._read_pending_atomic()
+        if metadata is None:
+            # Tolerancia de formato: nodo que venía con el pending en las 9 keys
+            # sueltas y todavía no pasó por un `set_pending_update` nuevo.
+            metadata = self._read_pending_legacy()
+        if metadata is None:
             return None
 
-        pending_version = self.get("update_pending.edge_version")
+        pending_version = metadata.get("edge_version")
         if pending_version and _pending_is_obsolete(pending_version):
             self.clear_pending_update()
             return None
 
+        return metadata
+
+    def _read_pending_atomic(self) -> dict[str, Any] | None:
+        """Lee el pending de la key JSON única. Un solo SELECT, valor completo."""
+        raw = self.get(_PENDING_KEY)
+        if not raw:
+            return None
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError, ValueError) as exc:
+            logger.warning("update_pending ilegible (%s); se cae al formato legacy", exc)
+            return None
+        if not isinstance(parsed, dict):
+            logger.warning("update_pending no es un objeto JSON; se cae al formato legacy")
+            return None
+        return parsed
+
+    def _read_pending_legacy(self) -> dict[str, Any] | None:
+        """Formato viejo: 9 keys sueltas. Se retira el próximo ciclo."""
+        if self.get("update_pending.available") != "true":
+            return None
         return {
             "edge_version": self.get("update_pending.edge_version"),
             "package_url": self.get("update_pending.package_url"),
@@ -104,19 +145,49 @@ class AppConfigRepository:
         }
 
     def set_pending_update(self, metadata: dict) -> None:
-        """Persiste la metadata de update recibida desde Core."""
+        """Persiste la metadata de update recibida desde Core (H10: atómico).
+
+        Orden deliberado:
+
+        1. ``available=false`` **antes** de tocar los campos legacy: si un lector
+           cae al fallback justo en el medio, ve "sin pending", nunca uno a medias.
+        2. Los campos legacy (dual-write de compatibilidad, se retira el próximo
+           ciclo — nadie los lee ya salvo el fallback).
+        3. La key JSON **al final**: es el punto de commit. El lector nuevo hace
+           un solo SELECT y obtiene o el pending anterior completo, o el nuevo
+           completo. Nunca una mezcla.
+        """
+        payload: dict[str, Any] = {
+            "edge_version": metadata["edge_version"],
+            "package_url": metadata["package_url"],
+            "package_sha256": metadata["package_sha256"],
+            "package_size_bytes": int(metadata["package_size_bytes"]),
+            "released_at": metadata["released_at"],
+            "min_edge_version": metadata.get("min_edge_version", ""),
+            "notes": metadata.get("notes", ""),
+            "detected_at": datetime.now(UTC).isoformat(),
+        }
+
+        self.set("update_pending.available", "false")
+        self.set("update_pending.edge_version", payload["edge_version"])
+        self.set("update_pending.package_url", payload["package_url"])
+        self.set("update_pending.package_sha256", payload["package_sha256"])
+        self.set("update_pending.package_size_bytes", str(payload["package_size_bytes"]))
+        self.set("update_pending.released_at", payload["released_at"])
+        self.set("update_pending.min_edge_version", payload["min_edge_version"])
+        self.set("update_pending.notes", payload["notes"])
+        self.set("update_pending.detected_at", payload["detected_at"])
         self.set("update_pending.available", "true")
-        self.set("update_pending.edge_version", metadata["edge_version"])
-        self.set("update_pending.package_url", metadata["package_url"])
-        self.set("update_pending.package_sha256", metadata["package_sha256"])
-        self.set("update_pending.package_size_bytes", str(metadata["package_size_bytes"]))
-        self.set("update_pending.released_at", metadata["released_at"])
-        self.set("update_pending.min_edge_version", metadata.get("min_edge_version", ""))
-        self.set("update_pending.notes", metadata.get("notes", ""))
-        self.set("update_pending.detected_at", datetime.now(UTC).isoformat())
+
+        self.set(_PENDING_KEY, json.dumps(payload, ensure_ascii=False))
 
     def clear_pending_update(self) -> None:
-        """Marca que no hay update pendiente (no borra las otras keys)."""
+        """Marca que no hay update pendiente.
+
+        Limpia AMBOS formatos: si sólo se borrara la key JSON, el fallback legacy
+        resucitaría el pending viejo.
+        """
+        self.delete(_PENDING_KEY)
         self.set("update_pending.available", "false")
 
     # ─── Helpers descarga (Sprint B) ─────────────────────────────────────
