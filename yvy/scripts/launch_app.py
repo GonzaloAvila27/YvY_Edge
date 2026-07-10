@@ -363,6 +363,7 @@ def main() -> int:
         help_repository=help_repo,
         app_config_repo=app_config_repo,
         empirical_controller=empirical_controller,
+        sensor_history=sensor_repo,
         sensor_status_fn=_sensor_status_fn,
         sync_controller=sync_controller,
         query_sensor_aggregated_uc=query_sensor_aggregated_uc,
