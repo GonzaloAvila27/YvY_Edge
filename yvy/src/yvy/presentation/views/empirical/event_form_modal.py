@@ -61,7 +61,7 @@ class EmpiricalEventFormModal(tk.Toplevel):
         current_user: User,
         observation_date: str,  # YYYY-MM-DD local
         observation_id,  # uuid.UUID | None
-        on_created: callable,  # type: ignore[type-arg]
+        on_created: callable,
     ) -> None:
         super().__init__(parent)
         self._controller = controller
@@ -77,7 +77,7 @@ class EmpiricalEventFormModal(tk.Toplevel):
         self.title("Cargar evento puntual")
         self.configure(bg=self._p["bg"])
         self.geometry("500x550")
-        self.transient(parent.winfo_toplevel())  # type: ignore[arg-type]
+        self.transient(parent.winfo_toplevel())
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self._close)
 

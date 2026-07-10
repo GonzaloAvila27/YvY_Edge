@@ -63,6 +63,7 @@ select = [
     "N",      # pep8-naming
     "SIM",    # flake8-simplify
     "RUF",    # ruff-specific
+    "PGH",    # pygrep-hooks: type:ignore/noqa deben llevar código específico (INI-6)
 ]
 ignore = [
     "E501",   # line too long (handled by formatter)

@@ -515,8 +515,8 @@ class SettingsView(tk.Frame):
         if self._sync_controller is None:
             return
         try:
-            update_info = self._sync_controller.get_update_info()  # type: ignore[union-attr]
-            releases = self._sync_controller.get_releases_on_disk()  # type: ignore[union-attr]
+            update_info = self._sync_controller.get_update_info()
+            releases = self._sync_controller.get_releases_on_disk()
         except Exception:
             return
         releases_simple = [
@@ -529,7 +529,7 @@ class SettingsView(tk.Frame):
         def _on_confirmed() -> None:
             w = self.winfo_toplevel()
             if hasattr(w, "_show_install_transition"):
-                w._show_install_transition()  # type: ignore[union-attr]
+                w._show_install_transition()
 
         from yvy.presentation.components.update_modal import UpdateModal
 
@@ -555,7 +555,7 @@ class SettingsView(tk.Frame):
         if self._sync_controller is None:
             return
         try:
-            result = self._sync_controller.rollback(  # type: ignore[union-attr]
+            result = self._sync_controller.rollback(
                 to_version=to_version,
                 reason=reason,
                 user_id=self._user_id,
@@ -568,7 +568,7 @@ class SettingsView(tk.Frame):
                 )
                 w = self.winfo_toplevel()
                 if hasattr(w, "_quit_for_install"):
-                    w._quit_for_install()  # type: ignore[union-attr]
+                    w._quit_for_install()
             else:
                 reason_str = result.reason if result else "error desconocido"
                 messagebox.showerror(
@@ -583,7 +583,7 @@ class SettingsView(tk.Frame):
         if self._sync_controller is None:
             return
         try:
-            update_info = self._sync_controller.get_update_info()  # type: ignore[union-attr]
+            update_info = self._sync_controller.get_update_info()
             current_ver = update_info.get("current_version", "")
         except Exception:
             current_ver = ""
@@ -597,7 +597,7 @@ class SettingsView(tk.Frame):
             parent=self,
         ):
             return
-        ok = self._sync_controller.mark_stable(current_ver, self._user_id)  # type: ignore[union-attr]
+        ok = self._sync_controller.mark_stable(current_ver, self._user_id)
         if ok:
             messagebox.showinfo(
                 "Listo",

@@ -181,11 +181,11 @@ class TestDownloadHelpers:
     def test_has_pending_download_true_before_download(self, app_config_repo, updates_dir):
         content, sha = _fake_package()
         _seed_pending_update(app_config_repo, sha, content)
-        dl = _make_downloader(None, app_config_repo, updates_dir)  # type: ignore
+        dl = _make_downloader(None, app_config_repo, updates_dir)
         assert dl.has_pending_download() is True
 
     def test_has_pending_download_false_when_no_metadata(self, app_config_repo, updates_dir):
-        dl = _make_downloader(None, app_config_repo, updates_dir)  # type: ignore
+        dl = _make_downloader(None, app_config_repo, updates_dir)
         assert dl.has_pending_download() is False
 
     def test_is_already_downloaded_true_after_successful_download(

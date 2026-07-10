@@ -29,8 +29,8 @@ class CloseInterceptModal(tk.Toplevel):
     def __init__(
         self,
         parent: tk.Tk,
-        on_change_user,  # type: ignore[no-untyped-def]
-        on_minimize,  # type: ignore[no-untyped-def]
+        on_change_user,
+        on_minimize,
     ) -> None:
         super().__init__(parent)
         self._on_change_user = on_change_user

@@ -384,7 +384,7 @@ class _SidebarItemWidget(tk.Frame):
         else:
             self._label.pack(side="left", fill="x", expand=True)
 
-    def _on_enter(self, _event: tk.Event) -> None:  # type: ignore[type-arg]
+    def _on_enter(self, _event: tk.Event) -> None:
         if not self._is_active:
             self._set_bg_recursive(self._bg_hover)
             if self._img_hover is not None:
@@ -392,7 +392,7 @@ class _SidebarItemWidget(tk.Frame):
         if self._is_collapsed:
             self._show_tooltip()
 
-    def _on_leave(self, _event: tk.Event) -> None:  # type: ignore[type-arg]
+    def _on_leave(self, _event: tk.Event) -> None:
         if not self._is_active:
             self._set_bg_recursive(self._bg_normal)
             if self._img_normal is not None:
@@ -503,10 +503,10 @@ class _ToggleButton(tk.Frame):
             self._icon.configure(text="◀")
             self._label.pack(side="left", fill="x", expand=True)
 
-    def _on_enter(self, _event: tk.Event) -> None:  # type: ignore[type-arg]
+    def _on_enter(self, _event: tk.Event) -> None:
         for w in (self._inner, self._icon, self._label):
             w.configure(bg=self._bg_hover)
 
-    def _on_leave(self, _event: tk.Event) -> None:  # type: ignore[type-arg]
+    def _on_leave(self, _event: tk.Event) -> None:
         for w in (self._inner, self._icon, self._label):
             w.configure(bg=self._bg_normal)

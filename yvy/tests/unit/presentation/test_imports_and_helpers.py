@@ -32,7 +32,7 @@ def test_components_import() -> None:
         Modal,
         Sidebar,
         SidebarItem,
-        StatusIndicator,  # noqa
+        StatusIndicator,  # noqa: F401
     )
 
     assert Header is not None

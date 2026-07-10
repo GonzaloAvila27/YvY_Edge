@@ -171,7 +171,7 @@ class StatusIndicator(tk.Frame):
         """Cambia el texto del label."""
         self._label.configure(text=label)
 
-    def _show_tooltip(self, _event: tk.Event) -> None:  # type: ignore[type-arg]
+    def _show_tooltip(self, _event: tk.Event) -> None:
         if not self._tooltip_text or self._tooltip_window is not None:
             return
 
@@ -196,7 +196,7 @@ class StatusIndicator(tk.Frame):
 
         self._tooltip_window = tw
 
-    def _hide_tooltip(self, _event: tk.Event) -> None:  # type: ignore[type-arg]
+    def _hide_tooltip(self, _event: tk.Event) -> None:
         if self._tooltip_window is not None:
             self._tooltip_window.destroy()
             self._tooltip_window = None

@@ -88,7 +88,7 @@ class MetricCarousel(tk.Frame):
     def __init__(
         self,
         parent: tk.Misc,
-        data_provider,  # type: ignore[no-untyped-def]
+        data_provider,
         rotation_interval_ms: int = ROTATION_INTERVAL_MS,
     ) -> None:
         super().__init__(

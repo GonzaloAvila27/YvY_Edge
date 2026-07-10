@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def download_update(
     deps: CoreDependencies,
-    progress_callback=None,  # type: ignore[no-untyped-def]
+    progress_callback=None,
 ) -> dict[str, Any]:
     """Descarga el paquete de update pendiente y verifica su integridad.
 

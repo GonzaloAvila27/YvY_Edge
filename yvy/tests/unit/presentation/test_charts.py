@@ -125,7 +125,7 @@ class TestSensorChartsRegistry:
         assert derived_keys.issubset(set(SENSOR_CHARTS.keys()))
 
     def test_registry_importable(self):
-        from yvy.presentation.charts import SENSOR_CHARTS  # noqa
+        from yvy.presentation.charts import SENSOR_CHARTS  # noqa: F401
 
 
 # ─── TimeSeriesChart ─────────────────────────────────────────────────────────

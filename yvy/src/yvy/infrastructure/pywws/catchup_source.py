@@ -212,7 +212,7 @@ class PywwsCatchupSource:
         """Lazy init de WeatherStation."""
         if self._ws is None:
             try:
-                from pywws.weatherstation import WeatherStation  # type: ignore[import-not-found]
+                from pywws.weatherstation import WeatherStation
             except ImportError as exc:
                 raise RuntimeError(
                     "pywws no está instalado. PywwsCatchupSource requiere pywws "

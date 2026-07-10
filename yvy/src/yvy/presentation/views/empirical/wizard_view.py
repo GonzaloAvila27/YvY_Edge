@@ -91,10 +91,10 @@ class EmpiricalWizardView(tk.Frame):
         parent: tk.Misc,
         controller: EmpiricalController,
         current_user: User,
-        on_complete: callable,  # type: ignore[type-arg]
-        on_cancel: callable,  # type: ignore[type-arg]
-        help_repository=None,  # type: ignore[no-untyped-def]
-        on_open_help=None,  # type: ignore[no-untyped-def]
+        on_complete: callable,
+        on_cancel: callable,
+        help_repository=None,
+        on_open_help=None,
     ) -> None:
         super().__init__(parent, bg=COLORS["bg"])
         self._controller = controller
@@ -275,7 +275,7 @@ class EmpiricalWizardView(tk.Frame):
 
     # ─── Ayuda contextual ([?] por campo) ─────────────────────────────────
 
-    def _help_btn(self, parent, article_key):  # type: ignore[no-untyped-def]
+    def _help_btn(self, parent, article_key):
         """HelpButton del campo, o None si no hay repo o el artículo no existe."""
         if self._help_repo is None:
             return None
@@ -301,7 +301,7 @@ class EmpiricalWizardView(tk.Frame):
         font=FONT_FORM_LABEL,
         fg=TEXT_PRIMARY,
         pady=(0, FORM_LABEL_MB),
-    ):  # type: ignore[no-untyped-def]
+    ):
         """Fila 'label + [?]' para encabezar un campo. Reemplaza un tk.Label simple."""
         hdr = tk.Frame(parent, bg=COLORS["bg"])
         hdr.pack(anchor="w", pady=pady)

@@ -475,7 +475,7 @@ class SyncAgentDaemon:
         if server_sv is None:
             return
         try:
-            last_known = self._app_config_repo.get_last_sync_version()  # type: ignore[union-attr]
+            last_known = self._app_config_repo.get_last_sync_version()
         except Exception:
             return
         if server_sv > last_known:

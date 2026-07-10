@@ -418,8 +418,8 @@ class MainApplication(tk.Tk):
         if self._login_view is not None and hasattr(self._login_view, "set_username"):
             try:
                 # Si LoginView soporta pre-fill, usarlo
-                self._login_view.set_username(  # type: ignore[attr-defined]
-                    self._auth_controller.current_user.username  # type: ignore[union-attr]
+                self._login_view.set_username(
+                    self._auth_controller.current_user.username
                     if self._auth_controller and self._auth_controller.current_user
                     else ""
                 )
@@ -927,7 +927,7 @@ class MainApplication(tk.Tk):
         if self._login_view is not None:
             # Delegamos al LoginView si tiene método; si no, modal genérico
             if hasattr(self._login_view, "show_error"):
-                self._login_view.show_error(message)  # type: ignore[attr-defined]
+                self._login_view.show_error(message)
                 return
 
         # Fallback: modal simple
@@ -969,7 +969,7 @@ class MainApplication(tk.Tk):
             return
         user_id = 0
         if self._current_user is not None and hasattr(self._current_user, "id"):
-            user_id = self._current_user.id or 0  # type: ignore[union-attr]
+            user_id = self._current_user.id or 0
 
         # Mostrar overlay de transición
         overlay = tk.Toplevel(self)

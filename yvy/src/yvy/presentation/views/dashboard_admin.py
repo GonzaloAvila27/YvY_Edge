@@ -374,7 +374,7 @@ class DashboardAdminView(tk.Frame):
         )
 
         # Mouse wheel — Windows
-        def _wheel(e: tk.Event) -> None:  # type: ignore[type-arg]
+        def _wheel(e: tk.Event) -> None:
             _canvas.yview_scroll(-1 * (e.delta // 120), "units")
 
         _canvas.bind_all("<MouseWheel>", _wheel)

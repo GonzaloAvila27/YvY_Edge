@@ -284,7 +284,7 @@ class LoginView(tk.Frame):
 
     # ─── Handlers ────────────────────────────────────────────────────────
 
-    def _toggle_password(self, _event: tk.Event) -> None:  # type: ignore[type-arg]
+    def _toggle_password(self, _event: tk.Event) -> None:
         self._password_visible = not self._password_visible
         self._pwd_entry.configure(show="" if self._password_visible else "●")
         self._eye_btn.configure(text="👁‍🗨" if self._password_visible else "👁")

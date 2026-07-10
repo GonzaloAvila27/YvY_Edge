@@ -55,7 +55,7 @@ class EmpiricalDetailModal(tk.Toplevel):
         self.title("Detalle de observación")
         self.configure(bg=COLORS["bg"])
         self.geometry("700x650")
-        self.transient(parent.winfo_toplevel())  # type: ignore[arg-type]
+        self.transient(parent.winfo_toplevel())
         self.grab_set()
 
         try:
