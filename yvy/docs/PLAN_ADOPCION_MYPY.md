@@ -214,22 +214,28 @@ Revisable a futuro; no en esta iniciativa.
 
 ## 7. Épicas y tareas (tamaño-PR)
 
-| # | Tarea | Tamaño | Depende de |
-|---|---|---|---|
-| 6.0.1 | Job `types` en CI (sólo `domain/`), mypy pinneado, niveles §5 en pyproject, `python_version` 3.12 | S | — |
-| 6.1.1 | `application/` a 0 strict (13 err; 2 decisiones de contrato documentadas) | M | 6.0.1 |
-| 6.2.1 | Barrido `unused-ignore` (−41) + ruff PGH003 | S | — |
-| 6.3.1 | `infrastructure/` a 0 strict-lite (12 err; puertos tipados) | M | 6.0.1 |
-| 6.3.2 | `cli/` a 0 strict-lite (11 err) | S | 6.0.1 |
-| 6.4.1 | `scripts/` al alcance y a 0 | M | 6.3.x |
-| 6.5.1 | `presentation/controllers/` al gate | S | 6.0.1 |
-| 6.5.2 | `presentation/views/` al gate | M→partir | 6.5.1 |
-| 6.5.3 | `presentation/components/` al gate | M | 6.5.1 |
-| 6.5.4 | `presentation/` raíz (`app.py`, `theme_manager.py`) — cierra INI-6 | M | 6.5.2, 6.5.3 |
+| # | Tarea | Tamaño | Depende de | Estado |
+|---|---|---|---|---|
+| 6.0.1 | Job `types` en CI (sólo `domain/`), mypy pinneado, niveles §5 en pyproject, `python_version` 3.12 | S | — | ✅ `cdc5911` |
+| 6.1.1 | `application/` a 0 strict (13 err; 2 decisiones de contrato documentadas) | M | 6.0.1 | pendiente |
+| 6.2.1 | Barrido `unused-ignore` (−41) + ruff PGH003 | S | — | pendiente |
+| 6.3.1 | `infrastructure/` a 0 strict-lite (12 err; puertos tipados) | M | 6.0.1 | pendiente |
+| 6.3.2 | `cli/` a 0 strict-lite (11 err) | S | 6.0.1 | pendiente |
+| 6.4.1 | `scripts/` al alcance y a 0 | M | 6.3.x | pendiente |
+| 6.5.1 | `presentation/controllers/` al gate | S | 6.0.1 | pendiente |
+| 6.5.2 | `presentation/views/` al gate | M→partir | 6.5.1 | pendiente |
+| 6.5.3 | `presentation/components/` al gate | M | 6.5.1 | pendiente |
+| 6.5.4 | `presentation/` raíz (`app.py`, `theme_manager.py`) — cierra INI-6 | M | 6.5.2, 6.5.3 | pendiente |
 
 Mismo protocolo que el resto del runbook: código y doc en commits separados,
 bitácora al día, cada bug real encontrado se documenta en el commit que lo
 corrige.
+
+### Bitácora de ejecución
+
+| fecha | commit | etapa | nota |
+|---|---|---|---|
+| 2026-07-10 | `cdc5911` | 6.0.1 (etapa 0) | Job `types` gateando `domain/` (0 err). Niveles §5 en pyproject; `mypy_path=["src"]` (job sin editable install); py 3.12; `warn_redundant_casts` a global. Total medido sin cambios: 254. Gate verificado: exit 0/1/0. |
 
 ---
 
