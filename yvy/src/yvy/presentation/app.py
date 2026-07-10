@@ -105,6 +105,10 @@ if TYPE_CHECKING:
     )
 
 from yvy.presentation.controllers.sync_controller import SyncDashboardData
+from yvy.presentation.controllers.update_flow_controller import (
+    InstallResultMessage,
+    UpdateFlowController,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -280,6 +284,17 @@ class MainApplication(tk.Tk):
         self._empirical_controller = empirical_controller
         self._sensor_status_fn = sensor_status_fn
         self._query_sensor_aggregated_uc = query_sensor_aggregated_uc
+
+        # El flujo de update necesita el subsistema; sin él la campana no existe.
+        self._update_flow: UpdateFlowController | None = (
+            UpdateFlowController(
+                updates=sync_controller,
+                app_config=app_config_repo,
+                schedule=lambda ms, fn: self.after(ms, fn),
+            )
+            if sync_controller is not None
+            else None
+        )
 
         # Use case de indicadores derivados (sin dependencia de DB propia)
         from yvy.application.use_cases.compute_derived import ComputeDerivedUseCase
@@ -508,54 +523,21 @@ class MainApplication(tk.Tk):
         # Oferta de catchup al arranque — delay 2 s para que la UI se asiente
         self.after(2000, self._maybe_offer_startup_catchup)
 
-        # Resultado de update post-instalación — delay 1.5s (antes del catchup)
-        self.after(1500, self._maybe_show_update_result)
+        # Resultado de update post-instalación (va antes que el catchup)
+        if self._update_flow is not None:
+            self._update_flow.schedule_install_result(self._present_install_result)
 
     # ─── Resultado de update post-instalación (C9) ──────────────────────
 
-    def _maybe_show_update_result(self) -> None:
-        """Muestra el resultado de la instalación si es el primer arranque post-update."""
-        if self._app_config_repo is None:
-            return
-        try:
-            result = self._app_config_repo.pop_show_result()
-        except Exception:
-            return
-        if not result:
-            return
-
+    def _present_install_result(self, message: InstallResultMessage) -> None:
+        """Pinta el mensaje que decidió el controller. Acá no se decide nada."""
         from tkinter import messagebox
 
-        to_ver = self._app_config_repo.get("update_install.to_version") or "nueva versión"
-        from_ver = self._app_config_repo.get("update_install.from_version") or "anterior"
-        error_detail = self._app_config_repo.get("update_install.error_detail") or ""
+        show = messagebox.showinfo if message.severity == "info" else messagebox.showerror
+        show(message.title, message.body, parent=self)
 
-        if result == "success":
-            messagebox.showinfo(
-                "Actualización completada",
-                f"El sistema se actualizó a la versión {to_ver} correctamente.\n"
-                "Funcionando normalmente.",
-                parent=self,
-            )
-            # Detener alerta de campana
-            if self._header is not None:
-                self._header.set_update_alert(False)
-        elif result == "rollback":
-            messagebox.showerror(
-                "La actualización falló",
-                f"No se pudo instalar la versión {to_ver}.\n"
-                f"El sistema volvió a la versión {from_ver} (funcionando normalmente).\n\n"
-                f"Detalle: {error_detail or 'watchdog timeout'}\n"
-                "Este error quedó registrado en la bitácora.",
-                parent=self,
-            )
-        elif result == "version_mismatch":
-            messagebox.showerror(
-                "Error de actualización",
-                f"Se esperaba la versión {to_ver} pero arrancó {from_ver}.\n"
-                "Contactar soporte técnico.",
-                parent=self,
-            )
+        if message.clear_update_alert and self._header is not None:
+            self._header.set_update_alert(False)
 
     # ─── Catchup al arranque ─────────────────────────────────────────────
 
@@ -708,10 +690,10 @@ class MainApplication(tk.Tk):
         self._header.set_connectivity_status(conn_s, conn_t)
 
         # ── Alerta de update (campana roja parpadeante) ──────────────────
+        if self._update_flow is None:
+            return
         try:
-            update_info = self._sync_controller.get_update_info()
-            has_alert = bool(update_info.get("pending") and update_info.get("is_downloaded"))
-            self._header.set_update_alert(has_alert)
+            self._header.set_update_alert(self._update_flow.has_update_alert())
         except Exception as exc:
             logger.debug("No se pudo actualizar la alerta de update en header (ignorado): %s", exc)
 
@@ -1098,10 +1080,7 @@ class MainApplication(tk.Tk):
 
     def _on_notifications(self) -> None:
         """Abre el modal de actualización si hay un update descargado."""
-        if self._sync_controller is None:
-            return
-        update_info = self._sync_controller.get_update_info()
-        if not update_info.get("pending"):
+        if self._update_flow is None:
             return
 
         user_role = "alumno"
@@ -1112,30 +1091,25 @@ class MainApplication(tk.Tk):
                 else self._current_user.role
             )
 
-        releases = self._sync_controller.get_releases_on_disk()
-        releases_simple = [
-            {"version": r["version"], "states": r.get("states", [])} for r in releases
-        ]
-
-        def _prevalidate():
-            return self._sync_controller.prevalidate_install()  # type: ignore[union-attr]
-
-        def _on_confirmed() -> None:
-            self._show_install_transition()
+        params = self._update_flow.build_modal_params(user_role)
+        if params is None:
+            return
 
         from yvy.presentation.components.update_modal import UpdateModal
 
         UpdateModal(
             self,
-            update_info=update_info,
-            releases_on_disk=releases_simple,
-            user_role=user_role,
-            on_install_confirmed=_on_confirmed,
-            prevalidate_fn=_prevalidate,
+            update_info=params.update_info,
+            releases_on_disk=params.releases_on_disk,
+            user_role=params.user_role,
+            on_install_confirmed=self._show_install_transition,
+            prevalidate_fn=self._update_flow.prevalidate_install,
         )
 
     def _show_install_transition(self) -> None:
         """C9.4: pantalla de transición antes de lanzar el instalador."""
+        if self._update_flow is None:
+            return
         user_id = 0
         if self._current_user is not None and hasattr(self._current_user, "id"):
             user_id = self._current_user.id or 0  # type: ignore[union-attr]
@@ -1180,19 +1154,17 @@ class MainApplication(tk.Tk):
             f"+{(overlay.winfo_screenwidth()-w)//2}+{(overlay.winfo_screenheight()-h)//2}"
         )
 
-        # Lanzar el bat después de 1s para que la UI se muestre
-        def _do_install() -> None:
-            ok = self._sync_controller.request_install(  # type: ignore[union-attr]
-                user_id=user_id,
-                on_done=self._quit_for_install,
-            )
-            if not ok:
-                overlay.destroy()
-                from tkinter import messagebox
+        def _on_failure() -> None:
+            overlay.destroy()
+            from tkinter import messagebox
 
-                messagebox.showerror("Error", "No se pudo iniciar la instalación.")
+            messagebox.showerror("Error", "No se pudo iniciar la instalación.")
 
-        self.after(1000, _do_install)
+        self._update_flow.schedule_install(
+            user_id=user_id,
+            on_done=self._quit_for_install,
+            on_failure=_on_failure,
+        )
 
     def _quit_for_install(self) -> None:
         """Cierra la app para que INSTALL_UPDATE.bat tome el control."""
