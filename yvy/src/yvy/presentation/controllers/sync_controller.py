@@ -28,6 +28,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, tzinfo
 from pathlib import Path
+from typing import Any
 
 from yvy.application.services.updates_service import UpdatesService
 from yvy.application.use_cases.sensor.run_catchup_recovery import (
@@ -317,7 +318,7 @@ class SyncController:
         self._update_check_trigger.set()
         return True
 
-    def get_update_info(self) -> dict:
+    def get_update_info(self) -> dict[str, Any]:
         """Datos para la sección de actualizaciones en SyncStatusView.
 
         Delega el estado en ``UpdatesService`` y sólo agrega lo que es propio
@@ -343,7 +344,7 @@ class SyncController:
     def start_update_download(
         self,
         progress_callback: Callable[[int, int], None] | None = None,
-        done_callback: Callable[[dict], None] | None = None,
+        done_callback: Callable[[dict[str, Any]], None] | None = None,
     ) -> bool:
         """Inicia la descarga del update pendiente en un thread separado.
 
@@ -373,7 +374,7 @@ class SyncController:
     def _run_download(
         self,
         progress_callback: Callable[[int, int], None] | None,
-        done_callback: Callable[[dict], None] | None,
+        done_callback: Callable[[dict[str, Any]], None] | None,
     ) -> None:
         """Corre la descarga en el thread de descarga. No construye nada.
 
@@ -411,7 +412,7 @@ class SyncController:
             on_done()
         return True
 
-    def get_releases_on_disk(self) -> list[dict]:
+    def get_releases_on_disk(self) -> list[dict[str, Any]]:
         """Lista releases en disco para el modal y settings."""
         if self._updates_service is None:
             return []
@@ -422,7 +423,7 @@ class SyncController:
         to_version: str,
         reason: str,
         user_id: int,
-    ):
+    ) -> Any:
         """Rollback a un release anterior. Retorna RollbackResult o None."""
         if self._updates_service is None:
             return None

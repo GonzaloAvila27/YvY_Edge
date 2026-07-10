@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from yvy.domain.sync.agent_state import AgentState, is_latched
+from yvy.presentation.components.status_indicator import State
 from yvy.presentation.controllers.sync_controller import SyncDashboardData
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ HEADER_POLL_MS: int = 15_000
 class Indicator:
     """(color, tooltip) de un semáforo del header."""
 
-    state: str
+    state: State
     tooltip: str
 
 
@@ -117,7 +118,7 @@ class HeaderController:
         schedule: Callable[[int, Callable[[], None]], Any],
         cancel: Callable[[Any], None],
         sync_controller: SyncDataPort | None = None,
-        sensor_status_fn: Callable[[], tuple[str, str]] | None = None,
+        sensor_status_fn: Callable[[], tuple[State, str]] | None = None,
         update_alert_fn: Callable[[], bool] | None = None,
         poll_ms: int = HEADER_POLL_MS,
     ) -> None:

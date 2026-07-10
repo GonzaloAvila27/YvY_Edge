@@ -37,8 +37,8 @@ INSTALL_LAUNCH_DELAY_MS: int = 1000
 class UpdateOperationsPort(Protocol):
     """Lo único que este flujo necesita del subsistema de updates."""
 
-    def get_update_info(self) -> dict: ...
-    def get_releases_on_disk(self) -> list[dict]: ...
+    def get_update_info(self) -> dict[str, Any]: ...
+    def get_releases_on_disk(self) -> list[dict[str, Any]]: ...
     def prevalidate_install(self) -> Any: ...
     def request_install(self, user_id: int, on_done: Callable[[], None] | None = None) -> bool: ...
 
@@ -65,8 +65,8 @@ class InstallResultMessage:
 class UpdateModalParams:
     """Datos ya normalizados para ``UpdateModal``."""
 
-    update_info: dict
-    releases_on_disk: list[dict]
+    update_info: dict[str, Any]
+    releases_on_disk: list[dict[str, Any]]
     user_role: str
 
 
@@ -123,12 +123,12 @@ def decide_install_result_message(
     return None
 
 
-def should_open_update_modal(update_info: dict | None) -> bool:
+def should_open_update_modal(update_info: dict[str, Any] | None) -> bool:
     """El campanazo sólo abre el modal si hay algo que instalar."""
     return bool(update_info and update_info.get("pending"))
 
 
-def has_update_alert(update_info: dict | None) -> bool:
+def has_update_alert(update_info: dict[str, Any] | None) -> bool:
     """La campana parpadea sólo con el update ya bajado: si no, no hay acción posible."""
     if not update_info:
         return False
