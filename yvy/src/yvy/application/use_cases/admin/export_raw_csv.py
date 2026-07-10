@@ -62,7 +62,7 @@ class ExportRawCsvUseCase:
     ) -> ExportRawResult:
         conn = self.factory.get_connection()
 
-        params: list = []
+        params: list[str] = []
         where_clauses: list[str] = []
         # sensor_raw usa received_at (no observed_at)
         if date_from is not None:

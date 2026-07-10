@@ -71,7 +71,7 @@ class OnboardingData:
     hardware_fingerprint: str | None = None  # None si no se pudo leer
     # Sync (Fase 9.2) — opcionales: el operador puede saltear este paso
     sync_server_url: str | None = None
-    station_credentials: dict | None = None  # dict con station_uuid, key_version, key_hmac_hex
+    station_credentials: dict[str, object] | None = None  # station_uuid, key_version, key_hmac_hex
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,7 +190,7 @@ class CompleteOnboardingUseCase:
             # Limpiar flag temporal si estaba seteado
             repo.delete(KEY_STATION_UUID_TEMPORARY)  # type: ignore[attr-defined]
 
-    def _write_credentials(self, creds: dict) -> None:
+    def _write_credentials(self, creds: dict[str, object]) -> None:
         """Escribe data/station_credentials.json en el filesystem."""
         creds_dir = self.credentials_root / "data"
         creds_dir.mkdir(parents=True, exist_ok=True)

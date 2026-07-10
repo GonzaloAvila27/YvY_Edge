@@ -170,7 +170,7 @@ class ImportDataCsvUseCase:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _row_to_params(row: dict[str, str]) -> tuple:
+def _row_to_params(row: dict[str, str]) -> tuple[object, ...]:
     """Convierte una fila del CSV a la tupla de parámetros para el INSERT."""
     event_id = row["event_id"].strip()
     if not event_id:

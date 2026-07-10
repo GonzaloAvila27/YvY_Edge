@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any
 
 from yvy.application.ports.time_provider import TimeProvider
+from yvy.application.use_cases.empirical._actor import require_persisted_actor_id
 from yvy.domain.auth.enums import AuditEventType, AuditSource
 from yvy.domain.auth.models import AuditLogEntry, User
 from yvy.domain.auth.repository import AuditLogRepository
@@ -101,6 +102,7 @@ class CreateEmpiricalObservationUseCase:
         self._time_provider = time_provider
 
     def execute(self, input_data: CreateObservationInput) -> CreateObservationResult:
+        actor_id = require_persisted_actor_id(input_data.actor)
         now_local = self._time_provider.now_local()
         validate_observation_date_window(input_data.observed_at_local, now_local)
 
@@ -111,6 +113,7 @@ class CreateEmpiricalObservationUseCase:
             is_valid=True,
             validation_notes=None,
             now_utc=self._time_provider.now_utc(),
+            created_by_user_id=actor_id,
         )
 
         missing_critical = detect_missing_critical_fields(tentative)
@@ -143,6 +146,7 @@ class CreateEmpiricalObservationUseCase:
             is_valid=True,
             validation_notes=validation_notes,
             now_utc=self._time_provider.now_utc(),
+            created_by_user_id=actor_id,
         )
 
         self._empirical_repo.save_observation(observation)
@@ -185,6 +189,7 @@ class CreateEmpiricalObservationUseCase:
         is_valid: bool,
         validation_notes: str | None,
         now_utc: datetime,
+        created_by_user_id: int,
     ) -> EmpiricalObservation:
         return EmpiricalObservation(
             observation_id=observation_id,
@@ -206,7 +211,7 @@ class CreateEmpiricalObservationUseCase:
             general_notes=input_data.general_notes,
             is_valid=is_valid,
             validation_notes=validation_notes,
-            created_by_user_id=input_data.actor.id,
+            created_by_user_id=created_by_user_id,
             created_at_utc=now_utc,
         )
 

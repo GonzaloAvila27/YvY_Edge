@@ -85,7 +85,7 @@ class ExportDataCsvUseCase:
         conn = self.factory.get_connection()
 
         # SQL con filtro condicional de fechas
-        params: list = []
+        params: list[str] = []
         where_clauses: list[str] = []
         if date_from is not None:
             where_clauses.append("observed_at >= ?")

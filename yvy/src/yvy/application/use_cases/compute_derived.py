@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from yvy.application.use_cases.query_sensor_aggregated import (
+        AggregatedSeries,
         QuerySensorAggregatedUseCase,
     )
 
@@ -99,7 +100,7 @@ def apparent_temp_c(
 
     # ── Wind Chill (métrico, Environment Canada) ─────────────────────
     if temp_c < 10.0 and wind_kmh > 5.0:
-        v016 = wind_kmh**0.16
+        v016: float = wind_kmh**0.16
         return 13.12 + 0.6215 * temp_c - 11.37 * v016 + 0.3965 * temp_c * v016
 
     # ── Temperatura seca ─────────────────────────────────────────────
@@ -321,22 +322,22 @@ class ComputeDerivedUseCase:
         try:
             temp_series = query_uc.execute("temp_out", period, station_uuid)
         except Exception:
-            temp_series = None  # type: ignore[assignment]
+            temp_series = None
 
         try:
             hum_series = query_uc.execute("hum_out", period, station_uuid)
         except Exception:
-            hum_series = None  # type: ignore[assignment]
+            hum_series = None
 
         try:
             wind_series = query_uc.execute("wind_speed", period, station_uuid)
         except Exception:
-            wind_series = None  # type: ignore[assignment]
+            wind_series = None
 
         try:
             pres_series = query_uc.execute("pressure_abs", period, station_uuid)
         except Exception:
-            pres_series = None  # type: ignore[assignment]
+            pres_series = None
 
         try:
             rain_daily = query_uc.execute_rain_daily(station_uuid, period)
@@ -345,7 +346,7 @@ class ComputeDerivedUseCase:
             today_rain_mm = None
 
         # ── Último valor no-None de cada serie ────────────────────────
-        def last_valid(series) -> float | None:  # type: ignore[no-untyped-def]
+        def last_valid(series: AggregatedSeries | None) -> float | None:
             if series is None or not series.values:
                 return None
             for v in reversed(series.values):

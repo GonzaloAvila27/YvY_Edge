@@ -7,6 +7,7 @@ import uuid
 from dataclasses import dataclass
 
 from yvy.application.ports.time_provider import TimeProvider
+from yvy.application.use_cases.empirical._actor import require_persisted_actor_id
 from yvy.domain.auth.enums import AuditEventType, AuditSource
 from yvy.domain.auth.models import AuditLogEntry, User
 from yvy.domain.auth.repository import AuditLogRepository
@@ -57,6 +58,7 @@ class CreateEmpiricalEventUseCase:
         self._time_provider = time_provider
 
     def execute(self, input_data: CreateEventInput) -> CreateEventResult:
+        actor_id = require_persisted_actor_id(input_data.actor)
         now_local = self._time_provider.now_local()
         validate_event_date_window(input_data.observation_date, now_local)
 
@@ -70,7 +72,7 @@ class CreateEmpiricalEventUseCase:
             hail_size=input_data.hail_size,
             description=input_data.description,
             is_valid=True,
-            created_by_user_id=input_data.actor.id,
+            created_by_user_id=actor_id,
             created_at_utc=self._time_provider.now_utc(),
         )
 
