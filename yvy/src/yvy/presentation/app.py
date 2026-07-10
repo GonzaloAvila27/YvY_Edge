@@ -31,7 +31,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, tzinfo
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 from yvy.domain.auth.exceptions import (
@@ -39,7 +39,6 @@ from yvy.domain.auth.exceptions import (
     UserInactiveError,
 )
 from yvy.domain.auth.models import User
-from yvy.domain.sync.agent_state import AgentState, is_latched
 from yvy.presentation.components import Header, Sidebar, SidebarItem
 from yvy.presentation.components.close_intercept_modal import CloseInterceptModal
 from yvy.presentation.components.pizarra_yvy import PizarraYvY
@@ -108,63 +107,16 @@ from yvy.presentation.controllers.catchup_controller import (
     CatchupController,
     LastObservationPort,
 )
-from yvy.presentation.controllers.sync_controller import SyncDashboardData
+from yvy.presentation.controllers.header_controller import (
+    HeaderController,
+    HeaderStatus,
+)
 from yvy.presentation.controllers.update_flow_controller import (
     InstallResultMessage,
     UpdateFlowController,
 )
 
 logger = logging.getLogger(__name__)
-
-_HEADER_POLL_MS: Final[int] = 15_000  # cada 15 segundos
-
-
-# ─── Funciones de derivación de estado del header ───────────────────────────
-
-
-def _derive_sync_status(data: SyncDashboardData) -> tuple[str, str]:
-    """(state, tooltip) para el indicador Sync."""
-    if data.agent_state is not None and is_latched(data.agent_state.state):
-        return "error", f"Sync: agent bloqueado ({data.agent_state.state.value})"
-    if data.error_count > 0:
-        return "error", f"Sync: {data.error_count} errores en cola"
-    if data.pending_count > 0:
-        return "warning", f"Sync: {data.pending_count} pendientes"
-    if data.agent_state is None:
-        return "neutral", "Sync: sin agent (modo dev)"
-    return "ok", f"Sync: al día · {data.sent_today_count} enviados hoy"
-
-
-def _derive_ntp_status(data: SyncDashboardData) -> tuple[str, str]:
-    """(state, tooltip) para el indicador NTP."""
-    if data.agent_state is None:
-        return "neutral", "NTP: sin datos (sin agent)"
-    offset = data.agent_state.clock_offset_seconds
-    sign = "+" if offset >= 0 else ""
-    tip = f"NTP: desfase {sign}{offset:.1f}s"
-    if abs(offset) < 5.0:
-        return "ok", tip
-    if abs(offset) < 60.0:
-        return "warning", tip
-    return "error", f"NTP: desfase crítico {sign}{offset:.1f}s"
-
-
-def _derive_connectivity_status(data: SyncDashboardData) -> tuple[str, str]:
-    """(state, tooltip) para el indicador de conectividad."""
-    if data.agent_state is None:
-        return "neutral", "Red: sin agent (modo dev)"
-    state = data.agent_state.state
-    if state == AgentState.HEALTHY:
-        return "ok", "Online · servidor accesible"
-    if state == AgentState.DEGRADED:
-        return "warning", "Red: conexión degradada"
-    if state == AgentState.DISCONNECTED:
-        return "warning", "Desconectado del servidor"
-    if state == AgentState.PAUSED:
-        return "neutral", "Agent pausado por operador"
-    if is_latched(state):
-        return "error", f"Error de conexión: {state.value}"
-    return "neutral", str(state)
 
 
 @dataclass(frozen=True)
@@ -307,7 +259,15 @@ class MainApplication(tk.Tk):
         self._compute_derived_uc = (
             ComputeDerivedUseCase() if self._query_sensor_aggregated_uc is not None else None
         )
-        self._header_poll_id: str | None = None
+        self._header_controller = HeaderController(
+            schedule=lambda ms, fn: self.after(ms, fn),
+            cancel=self.after_cancel,
+            sync_controller=sync_controller,
+            sensor_status_fn=sensor_status_fn,
+            update_alert_fn=(
+                self._update_flow.has_update_alert if self._update_flow is not None else None
+            ),
+        )
         self._empirical_wizard_active: bool = False  # bloquea navegación lateral
         self._iea_name = iea_name
         self._iea_cue = iea_cue
@@ -391,7 +351,7 @@ class MainApplication(tk.Tk):
 
     def show_login(self) -> None:
         """Pantalla de login. Limpia el main frame si existía."""
-        self._cancel_header_polling()
+        self._header_controller.stop()
         if self._wizard_view is not None:
             self._wizard_view.destroy()
             self._wizard_view = None
@@ -529,7 +489,7 @@ class MainApplication(tk.Tk):
             )
 
         # Arrancar polling de indicadores del header (actualiza cada 15s)
-        self._start_header_polling()
+        self._header_controller.start(self._apply_header_status)
 
         # Vista por defecto según rol
         default_view = "formulario" if user_role == "alumno" else "dashboard"
@@ -577,66 +537,22 @@ class MainApplication(tk.Tk):
 
     # ─── Polling de estado del header ───────────────────────────────────
 
-    def _start_header_polling(self) -> None:
-        """Cancela cualquier ciclo previo y dispara el primero inmediatamente."""
-        self._cancel_header_polling()
-        self._poll_header()
-
-    def _cancel_header_polling(self) -> None:
-        if self._header_poll_id is not None:
-            try:
-                self.after_cancel(self._header_poll_id)
-            except Exception as exc:
-                logger.debug("after_cancel de header polling falló (ignorado): %s", exc)
-            self._header_poll_id = None
-
-    def _poll_header(self) -> None:
-        """Actualiza indicadores y reprograma el próximo tick."""
+    def _apply_header_status(self, status: HeaderStatus) -> None:
+        """Pinta lo que el controller leyó. ``None`` = dejar como estaba."""
         if self._header is None:
             return
-        self._update_header_status()
-        self._header_poll_id = self.after(_HEADER_POLL_MS, self._poll_header)
-
-    def _update_header_status(self) -> None:
-        """Lee estado real de sensor + sync agent y lo refleja en el header."""
-        if self._header is None:
-            return
-
-        # ── Sensor ──────────────────────────────────────────────────────
-        if self._sensor_status_fn is not None:
-            sensor_state, sensor_tip = self._sensor_status_fn()
-        else:
-            sensor_state, sensor_tip = "neutral", "Sensor: sin datos"
-        self._header.set_sensor_status(sensor_state, sensor_tip)
-
-        # ── Sync / NTP / Conectividad — requieren sync_controller ───────
-        if self._sync_controller is None:
-            self._header.set_sync_status("neutral", "Sync: sin controller")
-            self._header.set_ntp_status("neutral", "NTP: sin datos")
-            self._header.set_connectivity_status("neutral", "Red: sin datos")
-            return
-
-        try:
-            data = self._sync_controller.get_dashboard_data(recent_limit=0)
-        except Exception:
-            logger.exception("Error en polling de indicadores del header")
-            return
-
-        sync_s, sync_t = _derive_sync_status(data)
-        ntp_s, ntp_t = _derive_ntp_status(data)
-        conn_s, conn_t = _derive_connectivity_status(data)
-
-        self._header.set_sync_status(sync_s, sync_t)
-        self._header.set_ntp_status(ntp_s, ntp_t)
-        self._header.set_connectivity_status(conn_s, conn_t)
-
-        # ── Alerta de update (campana roja parpadeante) ──────────────────
-        if self._update_flow is None:
-            return
-        try:
-            self._header.set_update_alert(self._update_flow.has_update_alert())
-        except Exception as exc:
-            logger.debug("No se pudo actualizar la alerta de update en header (ignorado): %s", exc)
+        if status.sensor is not None:
+            self._header.set_sensor_status(status.sensor.state, status.sensor.tooltip)
+        if status.sync is not None:
+            self._header.set_sync_status(status.sync.state, status.sync.tooltip)
+        if status.ntp is not None:
+            self._header.set_ntp_status(status.ntp.state, status.ntp.tooltip)
+        if status.connectivity is not None:
+            self._header.set_connectivity_status(
+                status.connectivity.state, status.connectivity.tooltip
+            )
+        if status.update_alert is not None:
+            self._header.set_update_alert(status.update_alert)
 
     def _get_iea_name(self, user: User | MockUser) -> str:
         if isinstance(user, MockUser):
