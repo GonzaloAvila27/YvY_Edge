@@ -349,7 +349,7 @@ Lo que resuelve, contra el objetivo declarado:
 | 4.1.1 | Move gratis: `CloseInterceptModal`, `UserMenuModal`, `_PlaceholderView` → `components/` (−200 líneas, cero lógica) | S | ✅ `a3954df` — app.py 1467→1256; las 3 instanciadas con Tk real |
 | 4.1.2 | Update-flow → controller con interfaz angosta (schedule + UpdatesService + navigate); decisiones como funciones puras con tests | M | ✅ `ee05356` — `UpdateFlowController`: 2 Protocols + `schedule` inyectado, sin `import tkinter`. 29 tests sin display |
 | 4.1.3 | Catchup-offer → ídem | M | ✅ `1fc2982` — `CatchupController`. Baja además el `SELECT MAX(observed_at)` de `app.py` al repositorio |
-| 4.1.4 | Header poller → ídem (último: threading + `after`) | M | pendiente |
+| 4.1.4 | Header poller → ídem (último: threading + `after`) | M | ✅ `eacca86` — `HeaderController`; el ciclo ya no puede morirse por una excepción. 32 tests + Tk real |
 
 ## INI-4 · Épica 4.2 — Capas y theming estructural
 | # | Tarea | Tamaño | Estado |
@@ -536,6 +536,7 @@ el mismo release. Mitigación: la tabla §7 es contrato; un release = un caráct
 | 2026-07-09 | `stab/ini-1-higiene` `a3954df` | **4.1.1** (H5) | 3 clases de `app.py` → `components/`. app.py 1467→1256 (−211). Instanciadas con Tk real. |
 | 2026-07-09 | `stab/ini-1-higiene` `5d27672` | **bug OTA** (hallado por 4.2.2) | `DATA_DIR`/`DB_DEFAULT_PATH` colgaban del slot: `hero-rescue` apuntaba a una DB vacía tras un OTA. `CODE_ROOT` vs `STABLE_ROOT` + 5 tests. |
 | 2026-07-09 | `stab/ini-1-higiene` `151ebe1` | **4.2.2** | Gate arquitectónico en CI (AST, 4 reglas, ratchet para la deuda de theming). Verificado inyectando violaciones: detecta las 4. 1162 passed. |
+| 2026-07-10 | `stab/ini-1-higiene` `eacca86` | **4.1.4** | `HeaderController`; cierra la épica 4.1. **Bug latente corregido:** si una excepción escapaba del tick, el poller no reagendaba y el header quedaba congelado en verde con el sync caído. El `finally` que lo arregla abría a su vez un ciclo zombi si `apply` llamaba a `stop()`; flag `_running`. 1255 passed. |
 | 2026-07-09 | `stab/ini-1-higiene` `1fc2982` | **4.1.3** | `CatchupController`. `app.py` ejecutaba SQL a mano contra el `db_factory`; ahora `SQLiteSensorRepository.last_valid_observation_at()`, con test de que ignora `is_valid=0` y devuelve aware. Nuevo en cobertura: timestamp futuro (NTP hacia atrás) ya no da lecturas negativas. 1223 passed. |
 | 2026-07-09 | `stab/ini-1-higiene` `ee05356` | **4.1.2** | `UpdateFlowController`. Decisiones puras + 2 Protocols + `schedule`; el controller no importa tkinter. Cubre la rama "flag `show_result` desconocido" (antes silencio) y unifica la regla de la campana (`pending AND is_downloaded`), que estaba duplicada inline en 2 lugares. |
 
