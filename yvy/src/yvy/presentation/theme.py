@@ -104,8 +104,20 @@ SPACE_4XL: Final[int] = 64
 PAD_INPUT_X: Final[int] = 16
 PAD_INPUT_Y: Final[int] = 12
 PAD_CARD: Final[int] = 24
+
+# Padding de botones (INI-4 · 4.2.4). Era una 2-tupla simétrica (24, 12): con
+# padding vertical igual arriba y abajo, en las netbooks de 1024×600 el texto
+# quedaba pegado a la base y los descendentes (g, p, y) parecían cortados.
+# ttk acepta una 4-tupla (left, top, right, bottom): se da más aire abajo.
 PAD_BUTTON_X: Final[int] = 24
-PAD_BUTTON_Y: Final[int] = 12
+PAD_BUTTON_TOP: Final[int] = 10
+PAD_BUTTON_BOTTOM: Final[int] = 16
+PAD_BUTTON: Final[tuple[int, int, int, int]] = (
+    PAD_BUTTON_X,
+    PAD_BUTTON_TOP,
+    PAD_BUTTON_X,
+    PAD_BUTTON_BOTTOM,
+)
 
 # Formularios (grid 2 columnas)
 FORM_PADDING_H: Final[int] = 20  # padding horizontal del contenedor
@@ -292,7 +304,7 @@ def apply_theme(root: tk.Tk) -> None:
         font=FONT_BUTTON,
         borderwidth=0,
         relief="flat",
-        padding=(PAD_BUTTON_X, PAD_BUTTON_Y),
+        padding=PAD_BUTTON,
         focuscolor=PRIMARY,
     )
     style.map(
@@ -316,7 +328,7 @@ def apply_theme(root: tk.Tk) -> None:
         borderwidth=1,
         relief="solid",
         bordercolor=BORDER,
-        padding=(PAD_BUTTON_X, PAD_BUTTON_Y),
+        padding=PAD_BUTTON,
         focuscolor=PRIMARY,
     )
     style.map(
@@ -343,7 +355,7 @@ def apply_theme(root: tk.Tk) -> None:
         font=FONT_BUTTON,
         borderwidth=0,
         relief="flat",
-        padding=(PAD_BUTTON_X, PAD_BUTTON_Y),
+        padding=PAD_BUTTON,
         focuscolor=DANGER,
     )
     style.map(
@@ -362,7 +374,7 @@ def apply_theme(root: tk.Tk) -> None:
         font=FONT_BUTTON,
         borderwidth=0,
         relief="flat",
-        padding=(PAD_BUTTON_X, PAD_BUTTON_Y),
+        padding=PAD_BUTTON,
         focuscolor=ACCENT_OLIVE,
     )
     style.map(
