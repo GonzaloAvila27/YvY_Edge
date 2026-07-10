@@ -27,10 +27,21 @@ C. El formato ISO-ms-Z se produce SÓLO en ``domain/shared/time_utils.py``. Es u
    formato-contrato: ``sent_at_utc`` es uno de los cuatro campos firmados con
    HMAC hacia el Core, y un byte de diferencia invalida la firma (INI-2 · 2.1.2).
 
-D. ``tk.Label`` / ``tk.Text`` se construyen con ``bg`` y ``fg`` explícitos. Sin
-   eso, el recoloreo del tema oscuro no los alcanza y quedan ilegibles (H1). Hay
-   deuda previa, así que esta regla es un **ratchet**: el conteo puede bajar,
-   nunca subir.
+D. Los widgets tk clásicos se construyen con ``bg`` explícito (INI-1 · 1.3).
+
+   ``recolor()`` recupera un ``fg`` faltante: si el color es negro o un
+   ``SystemXxxText``, lo trata como la clave "text". Para ``bg`` no puede hacer
+   lo mismo con seguridad — un ``SystemButtonFace`` no dice si el widget quería
+   el fondo general o el de una card — así que un widget sin ``bg`` se queda en
+   gris de sistema para siempre, ilegible en tema oscuro.
+
+   Por eso la regla pide ``bg`` y **no** pide ``fg``: exigir ``fg`` marcaba 19
+   sitios que el fallback ya resolvía, entre ellos 5 labels de imagen donde el
+   ``fg`` no significa nada. El invariante está fijado por
+   ``tests/unit/presentation/test_theme_recolor_fallbacks.py``.
+
+   ``tk.Toplevel`` queda afuera: los 3 del repo o se configuran en la línea
+   siguiente, o los tapa por completo un frame con ``bg``.
 """
 
 from __future__ import annotations
@@ -42,9 +53,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parent.parent / "src" / "yvy"
-
-# Regla D: deuda existente. Bajar este número al arreglar; nunca subirlo.
-TK_MISSING_COLOR_BASELINE = 19
 
 
 @dataclass
@@ -151,27 +159,33 @@ def check_iso_ms_z(report: Report) -> None:
                 )
 
 
-# ─── Regla D (ratchet) ────────────────────────────────────────────────────────
+# ─── Regla D ──────────────────────────────────────────────────────────────────
 
-_TK_COLORED = ("tk.Label", "tk.Text")
+# Toplevel afuera: ver el docstring. Los widgets ttk no van (usan estilos).
+_TK_NEEDS_BG = (
+    "tk.Label",
+    "tk.Text",
+    "tk.Frame",
+    "tk.Button",
+    "tk.Entry",
+    "tk.Canvas",
+    "tk.Listbox",
+)
 _BG = {"bg", "background"}
-_FG = {"fg", "foreground"}
 
 
-def check_tk_colors(report: Report) -> int:
-    found = 0
+def check_tk_bg(report: Report) -> None:
     for path in _py_files(SRC):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
-            if isinstance(node, ast.Call) and _call_name(node) in _TK_COLORED:
-                kwargs = {kw.arg for kw in node.keywords}
-                if not (_BG & kwargs) or not (_FG & kwargs):
-                    found += 1
-                    report.notes.append(
-                        f"  D  {path.relative_to(SRC.parent.parent).as_posix()}:"
-                        f"{node.lineno}  {_call_name(node)}(...) sin bg/fg"
+            if isinstance(node, ast.Call) and _call_name(node) in _TK_NEEDS_BG:
+                if not (_BG & {kw.arg for kw in node.keywords}):
+                    report.add(
+                        "D",
+                        path,
+                        node.lineno,
+                        f"{_call_name(node)}(...) sin bg — recolor() no lo puede recuperar",
                     )
-    return found
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
@@ -186,37 +200,19 @@ def main(argv: list[str] | None = None) -> int:
     check_updates_infra(report)
     check_layer_inversion(report)
     check_iso_ms_z(report)
-    tk_found = check_tk_colors(report)
+    check_tk_bg(report)
 
     for violation in report.violations:
         print(f"  {violation.rule}  {violation.path}:{violation.line}  {violation.detail}")
 
-    ratchet_broken = tk_found > TK_MISSING_COLOR_BASELINE
-    if ratchet_broken or args.list:
-        for note in report.notes:
-            print(note)
-
     print()
-    print(f"Reglas A/B/C: {len(report.violations)} violaciones (permitidas: 0)")
-    print(f"Regla D (ratchet): {tk_found} sin bg/fg (baseline: {TK_MISSING_COLOR_BASELINE})")
+    print(f"Reglas A/B/C/D: {len(report.violations)} violaciones (permitidas: 0)")
 
     if args.list:
         return 0
 
     if report.violations:
         print("\nFALLA: se violó una regla arquitectónica. Ver el docstring de este script.")
-        return 1
-    if ratchet_broken:
-        print(
-            f"\nFALLA: la regla D subió de {TK_MISSING_COLOR_BASELINE} a {tk_found}. "
-            "Los widgets nuevos deben pasar bg= y fg= explícitos."
-        )
-        return 1
-    if tk_found < TK_MISSING_COLOR_BASELINE:
-        print(
-            f"\nBajó la deuda de la regla D ({TK_MISSING_COLOR_BASELINE} -> {tk_found}). "
-            f"Actualizar TK_MISSING_COLOR_BASELINE a {tk_found}."
-        )
         return 1
 
     print("\nOK: todas las reglas arquitectónicas se cumplen.")

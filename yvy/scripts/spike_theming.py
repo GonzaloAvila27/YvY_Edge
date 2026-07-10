@@ -1,10 +1,27 @@
 """Spike de theming (INI-1 · 1.3). NO es parte de la app: se corre a mano.
 
-Pregunta que responde
----------------------
-Hay 19 llamadas a ``tk.Label``/``tk.Text`` sin ``bg``/``fg`` explícitos. Los
-que no declaran ``bg`` nacen con el gris del sistema (``SystemButtonFace``) y
-``recolor()`` no los reconoce, así que en tema oscuro quedan gris claro.
+RESULTADO (1.3 cerrada)
+-----------------------
+La app **no tenía** el problema que el plan suponía. Las 19 llamadas que el gate
+marcaba no declaran ``fg``, pero **todas declaran** ``bg``, y ``recolor()`` ya
+recupera un ``fg`` faltante. Fijado en
+``tests/unit/presentation/test_theme_recolor_fallbacks.py``.
+
+Lo que el spike sí dejó probado, y por eso se conserva:
+
+1. ``option_add`` NO es retroactivo: los widgets vivos no releen la option
+   database. No sirve para theming con toggle.
+2. Un ``bg`` faltante es irrecuperable — ``SystemButtonFace`` no dice si el
+   widget quería el fondo general o el de una card. De ahí la regla D del gate.
+3. El fallback de ``bg`` (estrategia C) funciona si algún día hiciera falta, pero
+   debe guardar el tag ``_yvy_bg_key``: sin él el toggle siguiente adivina la
+   clave desde el hex, y ``DARK["surface"] == DARK["border"]``.
+
+Pregunta original
+-----------------
+Hay 19 llamadas a ``tk.Label``/``tk.Text`` sin ``bg``/``fg`` explícitos. Un
+widget que no declara ``bg`` nace con el gris del sistema (``SystemButtonFace``)
+y ``recolor()`` no lo reconoce, así que en tema oscuro queda gris claro.
 
 ¿Se puede arreglar sin tocar los 19 call sites?
 
