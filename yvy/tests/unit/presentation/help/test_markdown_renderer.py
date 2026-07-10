@@ -10,12 +10,18 @@ import tkinter as tk
 
 import pytest
 
-from yvy.infrastructure.help.markdown_renderer import apply_markdown
+from yvy.presentation.help.markdown_renderer import apply_markdown
 
 
 @pytest.fixture
 def text_widget():
-    root = tk.Tk()
+    # Misma guardia que el resto de los tests de presentation: sin display,
+    # `tk.Tk()` lanza TclError. Sin esto el test daba ERROR intermitente en la
+    # suite completa (en vez de skipear limpiamente).
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("No display available")
     root.withdraw()
     text = tk.Text(root)
     yield text
