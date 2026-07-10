@@ -149,8 +149,16 @@ skip_covered = false
 # ──────────────────────────────────────────────────────────────────────────────
 # Mypy (type checking diferenciado por módulo)
 # ──────────────────────────────────────────────────────────────────────────────
+# Niveles de strictness por capa — INI-6 · §5. Se declaran acá TODOS desde la
+# etapa 0, aunque el gate de CI (job `types`) empiece corriendo sólo los
+# paquetes ya en 0. Así `mypy src` es la vara de medición real: la distancia de
+# cada capa a su objetivo es inequívoca. El conteo global NO gatea nada — el
+# ratchet es la lista de paquetes del job de CI (ver docs/PLAN_ADOPCION_MYPY.md).
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
+# src layout: resuelve el paquete `yvy` sin necesitar el install editable, para
+# que el job de CI corra con sólo `pip install mypy` (como lint y arch).
+mypy_path = ["src"]
 files = ["src/yvy"]
 exclude = [
     "tests/",
@@ -162,8 +170,12 @@ exclude = [
 warn_return_any = false
 warn_unused_configs = true
 ignore_missing_imports = true
+# Flag global (no válido en overrides por módulo). Barato y sin falsos positivos
+# medidos: 0 errores nuevos en todo src.
+warn_redundant_casts = true
 
-# ESTRICTO en domain/ y application/
+# domain/ + application/ — strict. Son el contrato del sistema; ya se pagó una
+# vez (Fase 9.2). application regresionó en silencio por no tener gate: INI-6 · §2.1.
 [[tool.mypy.overrides]]
 module = [
     "yvy.domain.*",
@@ -178,21 +190,29 @@ disallow_incomplete_defs = true
 check_untyped_defs = true
 disallow_untyped_decorators = true
 no_implicit_optional = true
-warn_redundant_casts = true
 warn_unused_ignores = true
 warn_return_any = true
 no_implicit_reexport = true
 
-# CASUAL en presentation/ (Tkinter no juega bien con strict)
+# infrastructure/ + cli/ — strict-lite. Los puertos quedan tipados; las llamadas
+# a libs externas (pywws, hid, httpx) no fuerzan genéricos exhaustivos, así que
+# NO se activa disallow_any_generics.
+[[tool.mypy.overrides]]
+module = [
+    "yvy.infrastructure.*",
+    "yvy.cli.*",
+]
+disallow_untyped_defs = true
+check_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+
+# presentation/ — base + check_untyped_defs + warn_unused_ignores. El pegamento
+# Tk tiene stubs mediocres; el valor está en las fronteras con application, que
+# el lado application ya verifica strict. No se exige disallow_untyped_defs.
 [[tool.mypy.overrides]]
 module = "yvy.presentation.*"
 ignore_errors = false
 disallow_untyped_defs = false
-check_untyped_defs = false
-
-# Infrastructure: intermedio
-[[tool.mypy.overrides]]
-module = "yvy.infrastructure.*"
-disallow_untyped_defs = true
 check_untyped_defs = true
-warn_return_any = true
+warn_unused_ignores = true

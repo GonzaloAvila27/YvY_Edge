@@ -1,15 +1,16 @@
 name: CI
 
-# Gates de calidad de YVY Edge, ambos BLOQUEANTES. Antes de esto el linter no
+# Gates de calidad de YVY Edge, todos BLOQUEANTES. Antes de esto el linter no
 # protegía nada (audit/peer-review §3.4: "quality gates invertidos"). El proyecto
 # vive en el subdirectorio `yvy/`.
 #
 #   lint       ruff (lint + formato)
 #   arch       reglas arquitectónicas del proyecto, que ningún linter conoce
 #              (ver scripts/check_arch_rules.py)
+#   types      mypy sobre los contratos de tipos (ver docs/PLAN_ADOPCION_MYPY.md)
 #
-# Follow-up (no incluido acá): jobs de mypy y pytest. Requieren validar el
-# entorno headless (MPLBACKEND=Agg, tkinter skip, refresh de poetry.lock).
+# Follow-up (no incluido acá): job de pytest. Requiere validar el entorno
+# headless (MPLBACKEND=Agg, tkinter skip, refresh de poetry.lock).
 
 on:
   push:
@@ -61,3 +62,34 @@ jobs:
       # cerrarla costó una iniciativa entera del plan de estabilización.
       - name: Check arch rules
         run: python scripts/check_arch_rules.py
+
+  types:
+    name: mypy (contratos y tipos)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: yvy
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Pinneado como ruff. Un bump de mypy es un PR deliberado, nunca implícito:
+      # cambiar de versión cambia la inferencia (INI-6 · §9).
+      - name: Install mypy
+        run: pip install mypy==1.20.2
+
+      # RATCHET DE ALCANCE (INI-6 · §4): esta lista de paquetes es el gate. Sólo
+      # crece, y cada paquete entra a 0 en su nivel de strictness (pyproject) y
+      # se queda en 0. Los niveles de las capas que todavía NO están acá ya están
+      # declarados en pyproject para poder medir la distancia con `mypy src`.
+      # NO se corre `mypy src`: eso incluiría la deuda todavía no saldada.
+      # domain/ resuelve con mypy_path=src (stdlib puro), sin instalar el proyecto.
+      #
+      # Próximas etapas — agregar a esta línea cuando el paquete llegue a 0:
+      #   etapa 1: src/yvy/application    etapa 3: src/yvy/infrastructure src/yvy/cli
+      #   etapa 4: scripts                etapa 5: src/yvy/presentation
+      - name: Check types (paquetes en el gate)
+        run: mypy src/yvy/domain
