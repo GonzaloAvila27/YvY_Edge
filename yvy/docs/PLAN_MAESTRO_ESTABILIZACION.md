@@ -229,11 +229,24 @@ INI-5 ── espera trigger externo (sin release asignado)
 > excluyen a propósito y se documentan; se abordarán al reescribir el theming
 > (INI-1.3/INI-4). Los ~26 discretos (one-shot) sí se loguean.
 
-## INI-1 · Épica 1.3 — Red de seguridad de theming (experimento)
-| # | Tarea | Tamaño |
-|---|---|---|
-| 1.3.1 | Spike: option-database/`tk_setPalette` al aplicar tema; probar toggle repetido claro↔oscuro | M |
-| 1.3.2 | Si funciona: adoptar + pasada visual completa ambos temas en resolución netbook. Si no: documentar y activar plan-factory en INI-4 | M |
+## INI-1 · Épica 1.3 — Red de seguridad de theming (experimento) ✅ CERRADA
+> **La premisa del plan era falsa.** El gate contaba 19 `tk.Label`/`tk.Text`
+> "sin bg/fg". Los 19 son **sin fg**: todos declaran `bg`. Y `recolor()` ya tiene
+> un fallback de `fg` (negro o `SystemXxxText` → clave `"text"`), así que esos 19
+> widgets siguen al tema **desde siempre**. Verificado contra Tk real, 4 toggles.
+> 5 de los 19 son labels de imagen, donde `fg` no significa nada.
+>
+> La asimetría que sí importa: un **`bg` faltante es irrecuperable** —
+> `SystemButtonFace` no dice si el widget quería el fondo general o el de una
+> card—. En el repo hay **0** widgets sin `bg` (salvo 3 `Toplevel`: 2 se
+> configuran en la línea siguiente, al 3.º lo tapa un frame).
+>
+> No hacía falta ni la option-database ni la factory. **4.2.3 se descarta.**
+
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 1.3.1 | Spike: option-database/`tk_setPalette` al aplicar tema; probar toggle repetido claro↔oscuro | M | ✅ `c63ae5b` — `scripts/spike_theming.py` (`--auto` mide, sin flags abre la ventana). Midió A=2/8, B=5/8, C=8/8. **`option_add` no es retroactivo**: los widgets vivos no releen la option database. Verificado visualmente por Gonzalo en 125/150/175% de escalado |
+| 1.3.2 | Si funciona: adoptar. Si no: activar plan-factory en INI-4 | M | ✅ `3d60d4d` — **rama A, sin escribir código de app**. Se corrige la regla D del gate: pide `bg` (irrecuperable), no `fg` (que `recolor` ya recupera). Deja de ser ratchet: 0 violaciones, bloqueante. + `test_theme_recolor_fallbacks.py` fija el invariante |
 
 ## INI-1 · Épica 1.4 — main.py ✅ (1.4.1)
 > **Al ejecutar resultó más grande que "sacar un fantasma":** había **dos CLIs
@@ -355,8 +368,8 @@ Lo que resuelve, contra el objetivo declarado:
 | # | Tarea | Tamaño | Estado |
 |---|---|---|---|
 | 4.2.1 | `markdown_renderer` → `presentation/help/` (move de import, única inversión de capas del repo) | S | ✅ `9e0bab2` — + corrige el flake de display del test |
-| 4.2.2 | Gate anti-regresión: check en CI que rechace `tk.Label(`/`tk.Text(` sin bg/fg y constructores de infra fuera del root | S | ✅ `151ebe1` — **AST, no greps**; 4 reglas; verificado inyectando violaciones. **Encontró un bug OTA real** (`5d27672`) |
-| 4.2.3 | (CONDICIONAL — solo si 1.3 falló) widget factory + migración boy-scout por view | L→partir | bloqueada por 1.3 |
+| 4.2.2 | Gate anti-regresión: check en CI que rechace `tk.Label(`/`tk.Text(` sin bg/fg y constructores de infra fuera del root | S | ✅ `151ebe1` — **AST, no greps**; 4 reglas; verificado inyectando violaciones. **Encontró un bug OTA real** (`5d27672`). Regla D corregida en `3d60d4d` (ver 1.3) |
+| 4.2.3 | (CONDICIONAL — solo si 1.3 falló) widget factory + migración boy-scout por view | L→partir | ⏸ **descartada** — 1.3 salió por la rama A. No hay widgets sin `bg` que migrar |
 | 4.2.4 | **Bottom-padding de botones**: pasar el padding de `*.TButton` a 4-tupla | S | ✅ `4ee0642` — `PAD_BUTTON=(24,10,24,16)`; verificado con Tk real (+2px de alto). Falta chequeo visual en netbook |
 
 > **Bug encontrado por el gate 4.2.2 (regla A), corregido en `5d27672`:**
@@ -536,6 +549,8 @@ el mismo release. Mitigación: la tabla §7 es contrato; un release = un caráct
 | 2026-07-09 | `stab/ini-1-higiene` `a3954df` | **4.1.1** (H5) | 3 clases de `app.py` → `components/`. app.py 1467→1256 (−211). Instanciadas con Tk real. |
 | 2026-07-09 | `stab/ini-1-higiene` `5d27672` | **bug OTA** (hallado por 4.2.2) | `DATA_DIR`/`DB_DEFAULT_PATH` colgaban del slot: `hero-rescue` apuntaba a una DB vacía tras un OTA. `CODE_ROOT` vs `STABLE_ROOT` + 5 tests. |
 | 2026-07-09 | `stab/ini-1-higiene` `151ebe1` | **4.2.2** | Gate arquitectónico en CI (AST, 4 reglas, ratchet para la deuda de theming). Verificado inyectando violaciones: detecta las 4. 1162 passed. |
+| 2026-07-10 | `stab/ini-1-higiene` `3d60d4d` | **1.3.2** | Cierra INI-1. La regla D pedía `fg`, que `recolor` ya recupera; ahora pide `bg`, que no. 0 violaciones, deja de ser ratchet. **4.2.3 descartada**: no existe la deuda que motivaba la widget factory. 1260 passed. |
+| 2026-07-10 | `stab/ini-1-higiene` `c63ae5b` | **1.3.1** | Spike de theming. `option_add` no es retroactivo (medido, no supuesto): arregla los modales tardíos y deja gris todo lo construido al arrancar. Gonzalo verificó en pantalla con escalado 125/150/175%. |
 | 2026-07-10 | `stab/ini-1-higiene` `eacca86` | **4.1.4** | `HeaderController`; cierra la épica 4.1. **Bug latente corregido:** si una excepción escapaba del tick, el poller no reagendaba y el header quedaba congelado en verde con el sync caído. El `finally` que lo arregla abría a su vez un ciclo zombi si `apply` llamaba a `stop()`; flag `_running`. 1255 passed. |
 | 2026-07-09 | `stab/ini-1-higiene` `1fc2982` | **4.1.3** | `CatchupController`. `app.py` ejecutaba SQL a mano contra el `db_factory`; ahora `SQLiteSensorRepository.last_valid_observation_at()`, con test de que ignora `is_valid=0` y devuelve aware. Nuevo en cobertura: timestamp futuro (NTP hacia atrás) ya no da lecturas negativas. 1223 passed. |
 | 2026-07-09 | `stab/ini-1-higiene` `ee05356` | **4.1.2** | `UpdateFlowController`. Decisiones puras + 2 Protocols + `schedule`; el controller no importa tkinter. Cubre la rama "flag `show_result` desconocido" (antes silencio) y unifica la regla de la campana (`pending AND is_downloaded`), que estaba duplicada inline en 2 lugares. |
