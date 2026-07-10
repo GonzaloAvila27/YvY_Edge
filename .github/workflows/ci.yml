@@ -1,8 +1,12 @@
 name: CI
 
-# Gate de calidad de YVY Edge. Arranca con ruff (lint + formato) como job
-# BLOQUEANTE — antes de esto el linter no protegía nada (audit/peer-review §3.4:
-# "quality gates invertidos"). El proyecto vive en el subdirectorio `yvy/`.
+# Gates de calidad de YVY Edge, ambos BLOQUEANTES. Antes de esto el linter no
+# protegía nada (audit/peer-review §3.4: "quality gates invertidos"). El proyecto
+# vive en el subdirectorio `yvy/`.
+#
+#   lint       ruff (lint + formato)
+#   arch       reglas arquitectónicas del proyecto, que ningún linter conoce
+#              (ver scripts/check_arch_rules.py)
 #
 # Follow-up (no incluido acá): jobs de mypy y pytest. Requieren validar el
 # entorno headless (MPLBACKEND=Agg, tkinter skip, refresh de poetry.lock).
@@ -38,3 +42,22 @@ jobs:
 
       - name: Ruff format check
         run: ruff format --check .
+
+  arch:
+    name: Reglas arquitectónicas
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: yvy
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Sólo usa la stdlib (ast): no hace falta instalar el proyecto ni sus deps.
+      # Cada regla existe porque su violación ya causó un incidente, o porque
+      # cerrarla costó una iniciativa entera del plan de estabilización.
+      - name: Check arch rules
+        run: python scripts/check_arch_rules.py
