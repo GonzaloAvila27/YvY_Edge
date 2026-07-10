@@ -83,12 +83,12 @@ jobs:
 
       # RATCHET DE ALCANCE (INI-6 · §4): esta lista de paquetes es el gate. Sólo
       # crece, y cada paquete entra a 0 en su nivel de strictness (pyproject) y
-      # se queda en 0. Los niveles de las capas que todavía NO están acá ya están
-      # declarados en pyproject para poder medir la distancia con `mypy src`.
-      # NO se corre `mypy src`: eso incluiría la deuda todavía no saldada.
-      # domain/ resuelve con mypy_path=src (stdlib puro), sin instalar el proyecto.
+      # se queda en 0. NO se corre `mypy src`: eso incluiría el leaf UI descartado.
       #
-      # Próximas etapas — agregar a esta línea cuando el paquete llegue a 0:
-      #   etapa 4: scripts                etapa 5: src/yvy/presentation
+      # Alcance CERRADO (INI-6, 2026-07-10): estos 4 paquetes tienen los contratos
+      # reales del sistema. presentation/{views,components,charts} y los scripts
+      # smoke_*/screenshot_* quedan fuera — pelea con stubs de matplotlib/PIL/Tk,
+      # costo sin contrato (mismo criterio que tests/). Ver docs/PLAN_ADOPCION_MYPY.md §11.
+      # Sumar presentation a futuro es válido (§10.1: el alcance sólo crece).
       - name: Check types (paquetes en el gate)
         run: mypy src/yvy/domain src/yvy/application src/yvy/infrastructure src/yvy/cli

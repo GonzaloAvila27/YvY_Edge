@@ -219,13 +219,22 @@ Revisable a futuro; no en esta iniciativa.
 | 6.0.1 | Job `types` en CI (sólo `domain/`), mypy pinneado, niveles §5 en pyproject, `python_version` 3.12 | S | — | ✅ `cdc5911` |
 | 6.1.1 | `application/` a 0 strict (13 err; 2 decisiones de contrato documentadas) | M | 6.0.1 | ✅ `9b9b1bc` |
 | 6.2.1 | Barrido `unused-ignore` (−36) + ruff PGH | S | — | ✅ `efe6f98` |
-| 6.3.1 | `infrastructure/` a 0 strict-lite (12 err; puertos tipados) | M | 6.0.1 | pendiente |
-| 6.3.2 | `cli/` a 0 strict-lite (11 err) | S | 6.0.1 | pendiente |
-| 6.4.1 | `scripts/` al alcance y a 0 | M | 6.3.x | pendiente |
-| 6.5.1 | `presentation/controllers/` al gate | S | 6.0.1 | pendiente |
-| 6.5.2 | `presentation/views/` al gate | M→partir | 6.5.1 | pendiente |
-| 6.5.3 | `presentation/components/` al gate | M | 6.5.1 | pendiente |
-| 6.5.4 | `presentation/` raíz (`app.py`, `theme_manager.py`) — cierra INI-6 | M | 6.5.2, 6.5.3 | pendiente |
+| 6.3.1 | `infrastructure/` a 0 strict-lite (12 err; puertos tipados) | M | 6.0.1 | ✅ `3689f1b` |
+| 6.3.2 | `cli/` a 0 strict-lite (11 err) | S | 6.0.1 | ✅ `3689f1b` |
+| 6.4.1 | `scripts/` al alcance y a 0 | M | 6.3.x | ⏸ **descartada** — ver §11 |
+| 6.5.1 | `presentation/controllers/` a 0 | S | 6.0.1 | ✅ `3d4ebb1` (no gateado — ver nota) |
+| 6.5.2 | `presentation/views/` al gate | M→partir | 6.5.1 | ⏸ **descartada** — ver §11 |
+| 6.5.3 | `presentation/components/` al gate | M | 6.5.1 | ⏸ **descartada** — ver §11 |
+| 6.5.4 | `presentation/` raíz (`app.py`, `theme_manager.py`) | M | 6.5.2, 6.5.3 | ⏸ **descartada** — ver §11 |
+
+> **Decisión de cierre (2026-07-10).** El gate queda en **domain + application +
+> infrastructure + cli**, los cuatro paquetes con contratos reales, todos en 0.
+> `presentation/controllers/` se llevó a 0 (`3d4ebb1`) como mejora de código pero
+> **no se agrega al gate**: mypy sigue los imports y controllers importa
+> `components` (leaf UI todavía con deuda), así que su verde depende de un
+> sub-paquete que se descartó. El resto de `presentation/` (views, components,
+> charts) y los scripts `smoke_*`/`screenshot_*` quedan **fuera del alcance** —
+> ver §11. INI-6 se da por cerrada en esta frontera.
 
 Mismo protocolo que el resto del runbook: código y doc en commits separados,
 bitácora al día, cada bug real encontrado se documenta en el commit que lo
@@ -238,6 +247,9 @@ corrige.
 | 2026-07-10 | `cdc5911` | 6.0.1 (etapa 0) | Job `types` gateando `domain/` (0 err). Niveles §5 en pyproject; `mypy_path=["src"]` (job sin editable install); py 3.12; `warn_redundant_casts` a global. Total medido sin cambios: 254. Gate verificado: exit 0/1/0. |
 | 2026-07-10 | `9b9b1bc` | 6.1.1 (etapa 1) | `application/` 13→0, entra al gate. Decisión de contrato: guard `require_persisted_actor_id` (empírico) en vez de cast — evita `created_by_user_id=0` silencioso; +3 tests. Resto anotaciones (6 type-arg, 2 no-any-return, 4 unused-ignore). Total 254→241. Suite 1263. |
 | 2026-07-10 | `efe6f98` | 6.2.1 (etapa 2) | −36 `type: ignore` inertes en todo src; ruff PGH activo (supresiones exigen código). PGH destapó 4 `# noqa` pelados + 2 `# type: ignore` inertes en tests. Total 241→205. Suite 1263. |
+| 2026-07-10 | `3689f1b` | 6.3 (etapa 3) | infra+cli 23→0, entran al gate. Puerto `SyncVersionReader` (sync_agent ya no toma `object`); `_Clock` en catchup_source; `utcoffset()` nullable defensivo; `verify` Path→str en httpx; `Role` desde su módulo real. Suite 1254. |
+| 2026-07-10 | `3d4ebb1` | 6.5.1 (parcial) | `presentation/controllers/` a 0. Contrato del header: `Indicator.state` pasa de `str` a `Literal` (`State`), arregla la regresión de 4.1.4. No gateado (importa components). |
+| 2026-07-10 | (doc) | **cierre** | Decisión de alcance: gate final = domain+application+infra+cli. views/components/charts + smoke scripts descartados (§11). INI-6 cerrada. |
 
 ---
 
@@ -289,9 +301,37 @@ Una etapa está cerrada cuando:
 ## 11. Descartes explícitos
 
 - **`tests/` en el alcance** — descartado (§6). Costo sin contrato que proteger.
+- **`presentation/{views,components,charts}` en el gate** — descartado
+  (2026-07-10). Medición: ~170 errores al nivel lenient de §5, de los cuales la
+  **mitad es pelea con stubs de terceros** —matplotlib sin tipar (20
+  `no-untyped-call` a `FigureCanvasTkAgg`/`draw`/`get_tk_widget`), inferencia de
+  lambdas en `bind()` de Tk (17 `misc`), y `attr-defined` contra PIL/Tk (el
+  idiom `label.image = photo`, `Image.LANCZOS`)—. Es la misma relación
+  costo/contrato que excluyó a `tests/`, y el propio §5 ya lo anticipaba: el
+  valor de presentation "está en las fronteras con application, que el lado
+  application ya verifica strict". Con application en el gate a 0, **esa frontera
+  ya está protegida desde el lado correcto**. `presentation/controllers/` sí se
+  llevó a 0 por tener lógica real, pero no se gatea (importa `components`).
+  Revisable si algún día mejoran los stubs de matplotlib/Tk.
+- **`scripts/smoke_*` y `screenshot_*` en el alcance** — descartado
+  (2026-07-10). Son herramientas de verificación manual que hurgan atributos
+  privados de widgets Tk (`_tree`, `_on_select`); nunca corren en la flota. Misma
+  categoría que `tests/`. (`launch_app.py` sí corre en cada boot, pero importa
+  todo `presentation`, así que no es gateable de forma independiente mientras
+  presentation esté fuera; sus 4 errores propios quedan como deuda menor.)
 - **Ratchet numérico de errores** — descartado (§4). No monótono; castiga al
   que mejora.
 - **Migración big-bang** — descartada por diseño de etapas.
 - **`disallow_any_explicit` global** — no se activa: rompería patrones
   legítimos (`dict[str, Any]` de payloads JSON hacia el Core). El control de
   `Any` es por revisión (§10.3), no por flag global.
+
+---
+
+## 12. Estado final (INI-6 cerrada 2026-07-10)
+
+Gate `types` en CI (bloqueante): **`domain` + `application` + `infrastructure` +
+`cli`**, los cuatro en 0 a su nivel de §5. `presentation/controllers/` en 0 sin
+gatear. Total `mypy src` bajó de 254 a ~170 (todo lo restante en el leaf UI
+descartado). Reglas §10 activas; ruff PGH activo. La regla §10.1 sigue en pie:
+el alcance sólo crece — sumar presentation es un trabajo futuro, no una regresión.
