@@ -217,8 +217,8 @@ Revisable a futuro; no en esta iniciativa.
 | # | Tarea | Tamaño | Depende de | Estado |
 |---|---|---|---|---|
 | 6.0.1 | Job `types` en CI (sólo `domain/`), mypy pinneado, niveles §5 en pyproject, `python_version` 3.12 | S | — | ✅ `cdc5911` |
-| 6.1.1 | `application/` a 0 strict (13 err; 2 decisiones de contrato documentadas) | M | 6.0.1 | pendiente |
-| 6.2.1 | Barrido `unused-ignore` (−41) + ruff PGH003 | S | — | pendiente |
+| 6.1.1 | `application/` a 0 strict (13 err; 2 decisiones de contrato documentadas) | M | 6.0.1 | ✅ `9b9b1bc` |
+| 6.2.1 | Barrido `unused-ignore` (−36) + ruff PGH | S | — | ✅ `efe6f98` |
 | 6.3.1 | `infrastructure/` a 0 strict-lite (12 err; puertos tipados) | M | 6.0.1 | pendiente |
 | 6.3.2 | `cli/` a 0 strict-lite (11 err) | S | 6.0.1 | pendiente |
 | 6.4.1 | `scripts/` al alcance y a 0 | M | 6.3.x | pendiente |
@@ -236,6 +236,8 @@ corrige.
 | fecha | commit | etapa | nota |
 |---|---|---|---|
 | 2026-07-10 | `cdc5911` | 6.0.1 (etapa 0) | Job `types` gateando `domain/` (0 err). Niveles §5 en pyproject; `mypy_path=["src"]` (job sin editable install); py 3.12; `warn_redundant_casts` a global. Total medido sin cambios: 254. Gate verificado: exit 0/1/0. |
+| 2026-07-10 | `9b9b1bc` | 6.1.1 (etapa 1) | `application/` 13→0, entra al gate. Decisión de contrato: guard `require_persisted_actor_id` (empírico) en vez de cast — evita `created_by_user_id=0` silencioso; +3 tests. Resto anotaciones (6 type-arg, 2 no-any-return, 4 unused-ignore). Total 254→241. Suite 1263. |
+| 2026-07-10 | `efe6f98` | 6.2.1 (etapa 2) | −36 `type: ignore` inertes en todo src; ruff PGH activo (supresiones exigen código). PGH destapó 4 `# noqa` pelados + 2 `# type: ignore` inertes en tests. Total 241→205. Suite 1263. |
 
 ---
 
