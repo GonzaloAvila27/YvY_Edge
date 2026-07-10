@@ -344,20 +344,29 @@ Lo que resuelve, contra el objetivo declarado:
 - **H6**: `handlers.py` partido por dominio, API intacta.
 
 ## INI-4 · Épica 4.1 — app.py por extracción incremental
-| # | Tarea | Tamaño |
-|---|---|---|
-| 4.1.1 | Move gratis: `CloseInterceptModal`, `UserMenuModal`, `_PlaceholderView` → `components/` (−200 líneas, cero lógica) | S |
-| 4.1.2 | Update-flow → controller con interfaz angosta (schedule + UpdatesService + navigate); decisiones como funciones puras con tests | M |
-| 4.1.3 | Catchup-offer → ídem | M |
-| 4.1.4 | Header poller → ídem (último: threading + `after`) | M |
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 4.1.1 | Move gratis: `CloseInterceptModal`, `UserMenuModal`, `_PlaceholderView` → `components/` (−200 líneas, cero lógica) | S | ✅ `a3954df` — app.py 1467→1256; las 3 instanciadas con Tk real |
+| 4.1.2 | Update-flow → controller con interfaz angosta (schedule + UpdatesService + navigate); decisiones como funciones puras con tests | M | pendiente |
+| 4.1.3 | Catchup-offer → ídem | M | pendiente |
+| 4.1.4 | Header poller → ídem (último: threading + `after`) | M | pendiente |
 
 ## INI-4 · Épica 4.2 — Capas y theming estructural
-| # | Tarea | Tamaño |
-|---|---|---|
-| 4.2.1 | `markdown_renderer` → `presentation/help/` (move de import, única inversión de capas del repo) | S |
-| 4.2.2 | Gate anti-regresión: check en CI que rechace `tk.Label(`/`tk.Text(` sin bg/fg y constructores de infra fuera del root (greps codificados) | S |
-| 4.2.3 | (CONDICIONAL — solo si 1.3 falló) widget factory + migración boy-scout por view | L→partir |
-| 4.2.4 | **Bottom-padding de botones**: en `theme.py` el padding de `*.TButton` es 2-tupla simétrica `(PAD_BUTTON_X=24, PAD_BUTTON_Y=12)`; el texto se ve pegado/cortado en la base en netbooks. Pasar a 4-tupla `(x, top, x, bottom+)` en las 4 `style.configure`. Trivial pero **global** → Gate D. Poco urgente. | S |
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 4.2.1 | `markdown_renderer` → `presentation/help/` (move de import, única inversión de capas del repo) | S | ✅ `9e0bab2` — + corrige el flake de display del test |
+| 4.2.2 | Gate anti-regresión: check en CI que rechace `tk.Label(`/`tk.Text(` sin bg/fg y constructores de infra fuera del root | S | ✅ `151ebe1` — **AST, no greps**; 4 reglas; verificado inyectando violaciones. **Encontró un bug OTA real** (`5d27672`) |
+| 4.2.3 | (CONDICIONAL — solo si 1.3 falló) widget factory + migración boy-scout por view | L→partir | bloqueada por 1.3 |
+| 4.2.4 | **Bottom-padding de botones**: pasar el padding de `*.TButton` a 4-tupla | S | ✅ `4ee0642` — `PAD_BUTTON=(24,10,24,16)`; verificado con Tk real (+2px de alto). Falta chequeo visual en netbook |
+
+> **Bug encontrado por el gate 4.2.2 (regla A), corregido en `5d27672`:**
+> `DB_DEFAULT_PATH` colgaba de `REPO_ROOT = parents[3]`, el root del **código**.
+> Tras un OTA ese root es el slot, así que apuntaba a `<slot>/data/yvy.sqlite` —
+> una base **vacía**. Los 3 comandos con `--db` por default (`migrate`,
+> `retention`, **`hero-rescue`**) quedaban apuntando ahí: la recuperación de
+> emergencia documentada fallaba justo después de un update. Venía de `main.py`.
+> Ahora `config/paths.py` separa `CODE_ROOT` (assets, migraciones) de
+> `STABLE_ROOT` (data, DB, logs), con 5 tests de regresión.
 
 ## INI-5 · Épica 5.1 — Tren de esquema (sin release asignado)
 | # | Tarea | Tamaño |
@@ -522,6 +531,11 @@ el mismo release. Mitigación: la tabla §7 es contrato; un release = un caráct
 | 2026-07-09 | `stab/ini-1-higiene` `d3ef009` | **2.1.3** (H8 sha256) | `sha256_file`/`verify_sha256_file` únicos. **Divergencia real:** installer comparaba case-sensitive, downloader no → un hex en mayúsculas descargaba pero no instalaba. +11 tests. 1146 passed. |
 | 2026-07-09 | `stab/ini-1-higiene` `2668847` | **2.1.2** (H3 iso_ms_z) | Formato-contrato del HMAC. **Golden byte-a-byte** contra ambas impls viejas sobre 5.000 datetimes: 0 diferencias. Rechaza naive, convierte aware. +11 tests. 1157 passed. **Cierra la épica 2.1.** |
 | 2026-07-09 | `stab/ini-1-higiene` `7dd0981` | **2.2.1** (H7) | `configure_sync.py` → wrapper del handler. **Bug corregido:** leía credentials con `utf-8` (BOM de Notepad rompía `CONFIGURAR_SYNC.bat`); el handler usa `utf-8-sig`. Verificado ejecutándolo. |
+| 2026-07-09 | `stab/ini-1-higiene` `9e0bab2` | **4.2.1** (peer §3.3) | `markdown_renderer` → `presentation/help/`: se elimina la única inversión de capas y el hack de imports lazy. Corrige de paso el flake de display del test. |
+| 2026-07-09 | `stab/ini-1-higiene` `4ee0642` | **4.2.4** | Padding de botones a 4-tupla `(24,10,24,16)`. Verificado con Tk real: +4px de aire abajo, botón sólo +2px. |
+| 2026-07-09 | `stab/ini-1-higiene` `a3954df` | **4.1.1** (H5) | 3 clases de `app.py` → `components/`. app.py 1467→1256 (−211). Instanciadas con Tk real. |
+| 2026-07-09 | `stab/ini-1-higiene` `5d27672` | **bug OTA** (hallado por 4.2.2) | `DATA_DIR`/`DB_DEFAULT_PATH` colgaban del slot: `hero-rescue` apuntaba a una DB vacía tras un OTA. `CODE_ROOT` vs `STABLE_ROOT` + 5 tests. |
+| 2026-07-09 | `stab/ini-1-higiene` `151ebe1` | **4.2.2** | Gate arquitectónico en CI (AST, 4 reglas, ratchet para la deuda de theming). Verificado inyectando violaciones: detecta las 4. 1162 passed. |
 
 ---
 *Plan de ingeniería — sin código, sin nuevas auditorías. Basado íntegramente en los
