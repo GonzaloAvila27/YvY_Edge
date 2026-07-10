@@ -20,6 +20,7 @@ import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from yvy import __version__
 from yvy.domain.auth.enums import AuditEventType, AuditSource
@@ -377,7 +378,7 @@ class UpdateInstaller:
     def has_pending_install_request(self) -> bool:
         return self._cfg.get_install_status() == "requested"
 
-    def get_releases_on_disk(self) -> list[dict]:
+    def get_releases_on_disk(self) -> list[dict[str, Any]]:
         """Lista releases en disco con su estado (current/previous/stable)."""
         releases_dir = self._root / "releases"
         if not releases_dir.is_dir():

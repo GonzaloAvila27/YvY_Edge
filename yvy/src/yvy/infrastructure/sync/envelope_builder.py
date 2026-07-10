@@ -103,9 +103,13 @@ def _format_sent_at_utc(sent_at_utc: datetime) -> str:
         )
     # Compare offsets, not the tzinfo object identity (datetime.timezone.utc
     # and zoneinfo.ZoneInfo('UTC') are both legitimate UTC representations).
-    if sent_at_utc.utcoffset().total_seconds() != 0:
+    # utcoffset() is Optional per the type: for a tz-aware datetime it returns a
+    # timedelta, but a pathological tzinfo could yield None — treat that as
+    # non-UTC and reject, same as any other bad offset.
+    offset = sent_at_utc.utcoffset()
+    if offset is None or offset.total_seconds() != 0:
         raise ValueError(
-            f"sent_at_utc must be in UTC; got offset {sent_at_utc.utcoffset()}. "
+            f"sent_at_utc must be in UTC; got offset {offset}. "
             f"Convert with .astimezone(UTC) before calling the builder."
         )
     # Formateo canónico (INI-2 · 2.1.2). Las validaciones de arriba son más

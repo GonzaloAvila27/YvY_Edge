@@ -97,7 +97,7 @@ class EdgeSyncResponse:
 
     sync_version: int
     update_available: bool
-    update_metadata: dict | None
+    update_metadata: dict[str, Any] | None
 
 
 class SendError(Exception):
@@ -260,10 +260,12 @@ class HttpClient:
             pool=_DEFAULT_POOL_TIMEOUT_S,
         )
 
+        # httpx.Client.verify no acepta Path: un path de CA bundle va como str.
+        verify_arg: bool | str = str(verify) if isinstance(verify, Path) else verify
         self._client = httpx.Client(
             base_url=server_url.rstrip("/"),
             timeout=timeout,
-            verify=verify,
+            verify=verify_arg,
             headers={
                 "User-Agent": user_agent,
                 "Content-Type": "application/json",
@@ -409,7 +411,7 @@ class HttpClient:
         updates = body.get("updates", {})
         update_available = updates.get("available") is True
 
-        update_metadata: dict | None = None
+        update_metadata: dict[str, Any] | None = None
         if update_available:
             update_metadata = {
                 "edge_version": updates.get("edge_version"),

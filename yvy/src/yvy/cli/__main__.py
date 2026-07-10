@@ -49,7 +49,7 @@ def _find_repo_root() -> Path:
     return Path.cwd()
 
 
-def _add_update_parser(subparsers: argparse._SubParsersAction) -> None:
+def _add_update_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Agrega el subparser ``update`` con sus subcomandos."""
     update_parser = subparsers.add_parser(
         "update",
@@ -90,7 +90,7 @@ def _add_update_parser(subparsers: argparse._SubParsersAction) -> None:
     )
 
 
-def _add_rollback_parser(subparsers: argparse._SubParsersAction) -> None:
+def _add_rollback_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Agrega el subparser ``rollback``."""
     rollback_parser = subparsers.add_parser(
         "rollback",
@@ -126,7 +126,7 @@ def _add_rollback_parser(subparsers: argparse._SubParsersAction) -> None:
     )
 
 
-def _add_test_parser(subparsers: argparse._SubParsersAction) -> None:
+def _add_test_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Agrega el subparser ``test`` con sus subcomandos."""
     test_parser = subparsers.add_parser(
         "test",
@@ -159,7 +159,9 @@ def _add_test_parser(subparsers: argparse._SubParsersAction) -> None:
     )
 
 
-def _add_configure_sync_parser(subparsers: argparse._SubParsersAction) -> None:
+def _add_configure_sync_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
     """Agrega el subparser ``configure-sync``."""
     p = subparsers.add_parser(
         "configure-sync",
@@ -244,7 +246,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _add_queue_parser(subparsers) -> None:
+def _add_queue_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     queue_parser = subparsers.add_parser(
         "queue",
         help="Operaciones sobre la cola de sincronización.",
@@ -624,7 +626,7 @@ def _cmd_queue_purge_stale_empirical(root: Path, no_migrate: bool, apply: bool) 
 # ─── migrate / retention / hero-rescue (migrados desde yvy.main · INI-1 · 1.4) ──
 
 
-def _add_migrate_parser(subparsers: argparse._SubParsersAction) -> None:
+def _add_migrate_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     from yvy.config.paths import DB_DEFAULT_PATH, MIGRATIONS_DIR
 
     p = subparsers.add_parser("migrate", help="Aplica migraciones SQL pendientes a la base local.")
@@ -638,7 +640,7 @@ def _add_migrate_parser(subparsers: argparse._SubParsersAction) -> None:
     )
 
 
-def _add_retention_parser(subparsers: argparse._SubParsersAction) -> None:
+def _add_retention_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     from yvy.config.paths import DB_DEFAULT_PATH
 
     p = subparsers.add_parser(
@@ -665,7 +667,7 @@ def _add_retention_parser(subparsers: argparse._SubParsersAction) -> None:
     )
 
 
-def _add_rescue_parser(subparsers: argparse._SubParsersAction) -> None:
+def _add_rescue_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     from yvy.config.paths import DB_DEFAULT_PATH
 
     p = subparsers.add_parser(
@@ -786,13 +788,12 @@ def _cmd_hero_rescue(
     """
     from dataclasses import replace
 
-    from yvy.domain.auth.enums import AuditEventType, AuditSource
+    from yvy.domain.auth.enums import AuditEventType, AuditSource, Role
     from yvy.domain.auth.exceptions import (
         WeakPasswordError,
     )
     from yvy.domain.auth.models import (
         AuditLogEntry,
-        Role,
         validate_password_strength,
     )
     from yvy.infrastructure.auth.bcrypt_hasher import BcryptPasswordHasher

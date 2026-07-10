@@ -89,7 +89,6 @@ jobs:
       # domain/ resuelve con mypy_path=src (stdlib puro), sin instalar el proyecto.
       #
       # Próximas etapas — agregar a esta línea cuando el paquete llegue a 0:
-      #   etapa 3: src/yvy/infrastructure src/yvy/cli
       #   etapa 4: scripts                etapa 5: src/yvy/presentation
       - name: Check types (paquetes en el gate)
-        run: mypy src/yvy/domain src/yvy/application
+        run: mypy src/yvy/domain src/yvy/application src/yvy/infrastructure src/yvy/cli

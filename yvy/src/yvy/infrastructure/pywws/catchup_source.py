@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Protocol
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +163,12 @@ def make_catchup_slot(
 _MAX_SLOTS_HARD_LIMIT = 5000
 
 
+class _Clock(Protocol):
+    """Puerto angosto del proveedor de tiempo, sin acoplar a su módulo concreto."""
+
+    def now_utc(self) -> datetime: ...
+
+
 class PywwsCatchupSource:
     """Lee del buffer histórico de la consola WH1081.
 
@@ -196,7 +202,7 @@ class PywwsCatchupSource:
     def __init__(
         self,
         pywws_data_dir: str | None = None,
-        clock: Any = None,  # TimeProvider; Any para no acoplar el módulo
+        clock: _Clock | None = None,
     ) -> None:
         self._data_dir = pywws_data_dir
         self._clock = clock

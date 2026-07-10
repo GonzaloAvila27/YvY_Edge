@@ -107,6 +107,17 @@ class TimeProvider(Protocol):
         ...
 
 
+class SyncVersionReader(Protocol):
+    """Puerto angosto: lo único que el agente lee de la config de la estación.
+
+    El canal Core→Edge dispara el UpdateChecker cuando el server reporta una
+    ``sync_version`` mayor que la última conocida localmente. El agente sólo
+    necesita ese entero; no debe depender de todo ``AppConfigRepository``.
+    """
+
+    def get_last_sync_version(self) -> int: ...
+
+
 # ─── Configuration ───────────────────────────────────────────────────────
 
 
@@ -215,7 +226,7 @@ class SyncAgentDaemon:
         key: bytes,
         config: SyncAgentConfig | None = None,
         update_check_trigger: threading.Event | None = None,
-        app_config_repo: object | None = None,
+        app_config_repo: SyncVersionReader | None = None,
     ) -> None:
         self._sync_repo = sync_repo
         self._agent_state_repo = agent_state_repo
@@ -227,7 +238,7 @@ class SyncAgentDaemon:
         self._config = config if config is not None else SyncAgentConfig()
         # Canal Core → Edge: trigger del UpdateCheckerDaemon + repo de config
         self._update_check_trigger = update_check_trigger
-        self._app_config_repo = app_config_repo  # AppConfigRepository | None
+        self._app_config_repo = app_config_repo
 
         # Thread control
         self._thread: threading.Thread | None = None

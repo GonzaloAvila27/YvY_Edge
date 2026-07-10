@@ -6,6 +6,7 @@ acá no se construye nada."""
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from yvy.bootstrap import CoreDependencies
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def download_update(
     deps: CoreDependencies,
-    progress_callback=None,
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> dict[str, Any]:
     """Descarga el paquete de update pendiente y verifica su integridad.
 

@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from yvy.application.use_cases.sensor.capture_live_reading import (
@@ -77,9 +77,9 @@ class SensorCollectorDaemon(threading.Thread):
         consecutive_failures = 0
 
         while not self._shutdown.is_set():
-            result_box: dict = {}
+            result_box: dict[str, Any] = {}
 
-            def _execute(box: dict = result_box) -> None:
+            def _execute(box: dict[str, Any] = result_box) -> None:
                 try:
                     box["result"] = self._use_case.execute()
                 except Exception as exc:
