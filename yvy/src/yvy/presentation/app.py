@@ -31,7 +31,6 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import tzinfo
-from tkinter import ttk
 from typing import TYPE_CHECKING, Final
 from zoneinfo import ZoneInfo
 
@@ -42,19 +41,19 @@ from yvy.domain.auth.exceptions import (
 from yvy.domain.auth.models import User
 from yvy.domain.sync.agent_state import AgentState, is_latched
 from yvy.presentation.components import Header, Sidebar, SidebarItem
+from yvy.presentation.components.close_intercept_modal import CloseInterceptModal
 from yvy.presentation.components.pizarra_yvy import PizarraYvY
+from yvy.presentation.components.placeholder_view import PlaceholderView
+from yvy.presentation.components.user_menu_modal import UserMenuModal
 from yvy.presentation.theme import (
     BG_CARD,
     BG_CREAM,
     DANGER,
     FONT_BODY,
     FONT_BODY_BOLD,
-    PRIMARY,
     SPACE_2XL,
-    SPACE_LG,
     SPACE_MD,
     SPACE_SM,
-    SPACE_XL,
     TEXT_PRIMARY,
     TEXT_SECONDARY,
     WINDOW_DEFAULT_HEIGHT,
@@ -1001,7 +1000,7 @@ class MainApplication(tk.Tk):
                 current_user_id=user_id,
             )
 
-        return _PlaceholderView(self._content, label=self._stub_label(key))
+        return PlaceholderView(self._content, label=self._stub_label(key))
 
     @staticmethod
     def _stub_label(key: str) -> str:
@@ -1238,216 +1237,6 @@ class MainApplication(tk.Tk):
         x = max(0, (sw - w) // 2)
         y = max(0, (sh - margin - h) // 2)
         self.geometry(f"{w}x{h}+{x}+{y}")
-
-
-# ─── Modales auxiliares ─────────────────────────────────────────────────
-
-
-class CloseInterceptModal(tk.Toplevel):
-    """Modal que aparece al apretar X. NO permite cerrar la app."""
-
-    def __init__(
-        self,
-        parent: tk.Tk,
-        on_change_user,  # type: ignore[no-untyped-def]
-        on_minimize,  # type: ignore[no-untyped-def]
-    ) -> None:
-        super().__init__(parent)
-        self._on_change_user = on_change_user
-        self._on_minimize = on_minimize
-
-        self.title("¿Qué querés hacer?")
-        self.transient(parent)
-        self.resizable(False, False)
-        self.configure(bg=BG_CARD)
-
-        # Header azul
-        header = tk.Frame(self, bg=PRIMARY, height=48)
-        header.pack(fill="x")
-        header.pack_propagate(False)
-        tk.Label(
-            header,
-            text="¿Qué querés hacer?",
-            bg=PRIMARY,
-            fg="#FFFFFF",
-            font=FONT_BODY_BOLD,
-            padx=SPACE_XL,
-        ).pack(side="left", fill="y")
-
-        # Body
-        body = tk.Frame(self, bg=BG_CARD, padx=SPACE_XL, pady=SPACE_XL)
-        body.pack(fill="both", expand=True)
-
-        tk.Label(
-            body,
-            text=(
-                "La aplicación funciona como servidor local. Los procesos "
-                "de recolección y sincronización deben seguir activos."
-            ),
-            bg=BG_CARD,
-            fg=TEXT_SECONDARY,
-            font=FONT_BODY,
-            wraplength=420,
-            justify="left",
-        ).pack(anchor="w", pady=(0, SPACE_LG))
-
-        # Footer botones
-        footer = tk.Frame(self, bg=BG_CREAM, padx=SPACE_XL, pady=SPACE_LG)
-        footer.pack(fill="x", side="bottom")
-
-        ttk.Button(
-            footer,
-            text="Cancelar",
-            command=self._close,
-            style="Secondary.TButton",
-        ).pack(side="right", padx=(SPACE_SM, 0))
-
-        ttk.Button(
-            footer,
-            text="Minimizar",
-            command=self._do_minimize,
-            style="Secondary.TButton",
-        ).pack(side="right", padx=(SPACE_SM, 0))
-
-        ttk.Button(
-            footer,
-            text="Cambiar usuario",
-            command=self._do_change_user,
-            style="Primary.TButton",
-        ).pack(side="right")
-
-        self.bind("<Escape>", lambda _e: self._close())
-        self.protocol("WM_DELETE_WINDOW", self._close)
-
-        # Centrar y bloquear interacción con la ventana padre
-        self.update_idletasks()
-        self._center_on_parent(parent)
-        self.grab_set()
-        self.focus_set()
-
-    def _do_change_user(self) -> None:
-        self._close()
-        self._on_change_user()
-
-    def _do_minimize(self) -> None:
-        self._close()
-        self._on_minimize()
-
-    def _close(self) -> None:
-        try:
-            self.grab_release()
-        except tk.TclError as exc:
-            logger.debug("Operación sobre modal destruido (ignorado): %s", exc)
-        self.destroy()
-
-    def _center_on_parent(self, parent: tk.Misc) -> None:
-        try:
-            px, py = parent.winfo_rootx(), parent.winfo_rooty()
-            pw, ph = parent.winfo_width(), parent.winfo_height()
-            mw = self.winfo_reqwidth()
-            mh = self.winfo_reqheight()
-            x = max(0, px + (pw - mw) // 2)
-            y = max(0, py + (ph - mh) // 2)
-            self.geometry(f"+{x}+{y}")
-        except tk.TclError as exc:
-            logger.debug("Operación sobre modal destruido (ignorado): %s", exc)
-
-
-class UserMenuModal(tk.Toplevel):
-    """Menú al click en avatar: cambiar usuario, ver perfil, etc."""
-
-    def __init__(self, parent: tk.Tk, on_change_user) -> None:  # type: ignore[no-untyped-def]
-        super().__init__(parent)
-        self._on_change_user = on_change_user
-
-        self.title("Sesión")
-        self.transient(parent)
-        self.resizable(False, False)
-        self.configure(bg=BG_CARD)
-
-        header = tk.Frame(self, bg=PRIMARY, height=48)
-        header.pack(fill="x")
-        header.pack_propagate(False)
-        tk.Label(
-            header,
-            text="Sesión",
-            bg=PRIMARY,
-            fg="#FFFFFF",
-            font=FONT_BODY_BOLD,
-            padx=SPACE_XL,
-        ).pack(side="left", fill="y")
-
-        body = tk.Frame(self, bg=BG_CARD, padx=SPACE_XL, pady=SPACE_XL)
-        body.pack(fill="both", expand=True)
-
-        tk.Label(
-            body,
-            text="Cambiar de usuario para iniciar sesión con otra cuenta.",
-            bg=BG_CARD,
-            fg=TEXT_SECONDARY,
-            font=FONT_BODY,
-            wraplength=380,
-            justify="left",
-        ).pack(anchor="w", pady=(0, SPACE_LG))
-
-        ttk.Button(
-            body,
-            text="Cambiar usuario",
-            command=self._do_change_user,
-            style="Primary.TButton",
-        ).pack(fill="x")
-
-        ttk.Button(
-            body,
-            text="Cerrar",
-            command=self._close,
-            style="Secondary.TButton",
-        ).pack(fill="x", pady=(SPACE_SM, 0))
-
-        self.bind("<Escape>", lambda _e: self._close())
-        self.protocol("WM_DELETE_WINDOW", self._close)
-
-        self.update_idletasks()
-        self._center_on_parent(parent)
-        self.grab_set()
-        self.focus_set()
-
-    def _do_change_user(self) -> None:
-        self._close()
-        self._on_change_user()
-
-    def _close(self) -> None:
-        try:
-            self.grab_release()
-        except tk.TclError as exc:
-            logger.debug("Operación sobre modal destruido (ignorado): %s", exc)
-        self.destroy()
-
-    def _center_on_parent(self, parent: tk.Misc) -> None:
-        try:
-            px, py = parent.winfo_rootx(), parent.winfo_rooty()
-            pw, ph = parent.winfo_width(), parent.winfo_height()
-            mw = self.winfo_reqwidth()
-            mh = self.winfo_reqheight()
-            x = max(0, px + (pw - mw) // 2)
-            y = max(0, py + (ph - mh) // 2)
-            self.geometry(f"+{x}+{y}")
-        except tk.TclError as exc:
-            logger.debug("Operación sobre modal destruido (ignorado): %s", exc)
-
-
-class _PlaceholderView(tk.Frame):
-    def __init__(self, parent: tk.Misc, label: str) -> None:
-        super().__init__(parent, bg=BG_CREAM)
-        inner = tk.Frame(self, bg=BG_CREAM)
-        inner.pack(expand=True)
-
-        ttk.Label(inner, text=label, style="H1.TLabel").pack()
-        ttk.Label(
-            inner,
-            text="Esta sección será implementada en una fase posterior.",
-            style="Secondary.TLabel",
-        ).pack(pady=(SPACE_2XL // 2, 0))
 
 
 # ─── Entry point ────────────────────────────────────────────────────────
