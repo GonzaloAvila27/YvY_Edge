@@ -76,6 +76,16 @@ jobs:
         with:
           python-version: "3.12"
 
+      # Las dependencias del proyecto SON parte del gate: sin ellas, mypy no
+      # resuelve los tipos de las libs de terceros (bcrypt, httpx…), todo cae a
+      # Any por `ignore_missing_imports`, y `warn_return_any` dispara errores que
+      # no existen en el código real. El gate debe ver los mismos tipos que el
+      # entorno que se despliega.
+      # Editable, igual que el entorno local (poetry): evita que `yvy` exista a la
+      # vez en site-packages y en mypy_path.
+      - name: Install project + deps
+        run: pip install -e .
+
       # Pinneado como ruff. Un bump de mypy es un PR deliberado, nunca implícito:
       # cambiar de versión cambia la inferencia (INI-6 · §9).
       - name: Install mypy

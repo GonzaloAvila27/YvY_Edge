@@ -157,8 +157,11 @@ skip_covered = false
 # ratchet es la lista de paquetes del job de CI (ver docs/PLAN_ADOPCION_MYPY.md).
 [tool.mypy]
 python_version = "3.12"
-# src layout: resuelve el paquete `yvy` sin necesitar el install editable, para
-# que el job de CI corra con sólo `pip install mypy` (como lint y arch).
+# La flota corre Windows: el análisis se hace para ESA plataforma, no para la del
+# runner. Sin esto, mypy en el CI (Ubuntu) no ve los atributos win32 del stdlib
+# —p. ej. `subprocess.CREATE_NEW_CONSOLE`, que el instalador OTA usa— y el gate
+# chequearía un programa distinto del que se despliega.
+platform = "win32"
 mypy_path = ["src"]
 files = ["src/yvy"]
 exclude = [
