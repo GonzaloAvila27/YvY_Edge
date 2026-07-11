@@ -250,6 +250,7 @@ corrige.
 | 2026-07-10 | `3689f1b` | 6.3 (etapa 3) | infra+cli 23→0, entran al gate. Puerto `SyncVersionReader` (sync_agent ya no toma `object`); `_Clock` en catchup_source; `utcoffset()` nullable defensivo; `verify` Path→str en httpx; `Role` desde su módulo real. Suite 1254. |
 | 2026-07-10 | `3d4ebb1` | 6.5.1 (parcial) | `presentation/controllers/` a 0. Contrato del header: `Indicator.state` pasa de `str` a `Literal` (`State`), arregla la regresión de 4.1.4. No gateado (importa components). |
 | 2026-07-10 | (doc) | **cierre** | Decisión de alcance: gate final = domain+application+infra+cli. views/components/charts + smoke scripts descartados (§11). INI-6 cerrada. |
+| 2026-07-11 | (fix CI) | **paridad de entorno** | El job falló en el primer push real con 4 errores **inexistentes en local**: 2 × `CREATE_NEW_CONSOLE` (atributo win32 del stdlib; el runner es Ubuntu) y 2 × `no-any-return` en bcrypt (el job instalaba sólo mypy, sin las deps → tipos de terceros a `Any`). Fix: `platform = "win32"` en pyproject + `pip install -e .` en el job. Reproducido y verificado localmente forzando `platform=linux`. Ver §9. |
 
 ---
 
@@ -276,6 +277,7 @@ Una etapa está cerrada cuando:
 | **`type: ignore` como alfombra** | supresiones sin auditoría | PGH003 (código de error obligatorio) + `warn_unused_ignores` en todos los niveles: la supresión que deja de suprimir se vuelve error |
 | **Stubs pobres de Tk/pywws/hid** | falsos positivos en presentation/infrastructure | niveles por capa (§5) decididos de antemano — no como concesión sobre la marcha; `ignore_missing_imports` ya cubre libs sin stubs |
 | **Drift de versión de mypy** | CI rojo sin cambio de código | versión pinneada en CI y en dev-deps, igual que ruff==0.7.4; los bumps de mypy son PRs deliberados |
+| **El gate chequea un programa distinto del que se despliega** | CI rojo con errores que no existen en local (o peor: verde sobre código roto) | **(1) Plataforma:** `platform = "win32"` en pyproject — la flota corre Windows, el runner Ubuntu; sin esto mypy no ve los atributos win32 del stdlib (`subprocess.CREATE_NEW_CONSOLE`). **(2) Dependencias:** el job **instala las deps del proyecto** (`pip install -e .`): sin ellas, las libs de terceros con tipos propios (bcrypt trae `py.typed`) caen a `Any` por `ignore_missing_imports` y `warn_return_any` dispara errores fantasma. El entorno del gate debe ver los mismos tipos que el que se despliega. |
 | **Fix de tipos que cambia comportamiento** | "arreglo" que introduce un bug | regla: si el fix no es puramente de anotación, lleva test que fije el comportamiento (protocolo ya usado en INI-2/INI-3) |
 | **Fatiga / iniciativa eterna** | presentation (218) se estanca | presentation va última, partida en 4 PRs, y el valor ya quedó asegurado en etapas 0–4; si 6.5 se pausa, todo lo anterior sigue protegido |
 
