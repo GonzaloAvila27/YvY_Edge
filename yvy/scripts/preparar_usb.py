@@ -82,9 +82,7 @@ def _sdist_specs(requirements: Path) -> list[str]:
         for line in requirements.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.lstrip().startswith("#") and _is_sdist_only(line)
     ]
-    missing = set(_SDIST_ONLY) - {
-        re.split(r"[=<>!~\[ ]", s, maxsplit=1)[0].lower() for s in specs
-    }
+    missing = set(_SDIST_ONLY) - {re.split(r"[=<>!~\[ ]", s, maxsplit=1)[0].lower() for s in specs}
     if missing:
         raise SystemExit(f"ERROR: {sorted(missing)} no está en requirements.prod.txt")
     return specs
