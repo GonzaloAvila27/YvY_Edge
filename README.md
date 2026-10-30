@@ -84,11 +84,6 @@ La suite de tests (`pytest`) **no** corre en CI: se ejecuta localmente.
 
 ---
 
-## Licencia
-
-`yvy/pyproject.toml` declara **Apache-2.0**, pero el repositorio todavía no incluye un archivo
-`LICENSE`.
-
 ## Autor
 
 **Gonzalo Rubens Avila** · Proyecto YVY · Pasantía INET / Ministerio de Educación / CGE Misiones · 2026
