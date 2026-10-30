@@ -41,9 +41,9 @@ def smoke_live(num_samples: int, station_uuid: uuid.UUID) -> int:
     logger.info("SMOKE LIVE · capturando %d samples del sensor", num_samples)
     logger.info("=" * 70)
 
+    from yvy.domain.shared.value_objects import StationUUID
     from yvy.infrastructure.pywws.live_source import PywwsLiveSource
     from yvy.infrastructure.pywws.parser import PywwsPayloadParser
-    from yvy.domain.shared.value_objects import StationUUID
 
     source = PywwsLiveSource()
     parser = PywwsPayloadParser()
@@ -79,10 +79,14 @@ def smoke_live(num_samples: int, station_uuid: uuid.UUID) -> int:
             captured += 1
             logger.info(
                 "[%d/%d] OK · event_id=%s · temp_out=%s°C · hum_out=%s%% · pres=%shPa · wind=%sm/s · is_valid=%s",
-                captured, num_samples,
+                captured,
+                num_samples,
                 str(raw_payload.event_id)[:8] + "...",
-                reading.temp_outdoor, reading.hum_outdoor, reading.pressure_abs,
-                reading.wind_speed, reading.is_valid,
+                reading.temp_outdoor,
+                reading.hum_outdoor,
+                reading.pressure_abs,
+                reading.wind_speed,
+                reading.is_valid,
             )
             if reading.validation_notes:
                 logger.info("    validation_notes: %s", reading.validation_notes)
@@ -94,7 +98,9 @@ def smoke_live(num_samples: int, station_uuid: uuid.UUID) -> int:
                 return 1
 
     logger.info("=" * 70)
-    logger.info("SMOKE LIVE OK · %d samples procesados (nulls=%d, fails=%d)", captured, nulls, failed)
+    logger.info(
+        "SMOKE LIVE OK · %d samples procesados (nulls=%d, fails=%d)", captured, nulls, failed
+    )
     return 0
 
 
@@ -104,9 +110,9 @@ def smoke_catchup(hours_back: float, station_uuid: uuid.UUID) -> int:
     logger.info("SMOKE CATCHUP · recuperando últimas %.1fh del buffer", hours_back)
     logger.info("=" * 70)
 
+    from yvy.domain.shared.value_objects import StationUUID
     from yvy.infrastructure.pywws.catchup_source import PywwsCatchupSource
     from yvy.infrastructure.pywws.parser import PywwsPayloadParser
-    from yvy.domain.shared.value_objects import StationUUID
     from yvy.infrastructure.system.clock import SystemClock
 
     source = PywwsCatchupSource(clock=SystemClock())
@@ -144,8 +150,10 @@ def smoke_catchup(hours_back: float, station_uuid: uuid.UUID) -> int:
             if processed <= 3 or processed % 10 == 0:
                 logger.info(
                     "[%d] OK · ts=%s · temp_out=%s°C · hum=%s%%",
-                    processed, reading.observed_at.isoformat(),
-                    reading.temp_outdoor, reading.hum_outdoor,
+                    processed,
+                    reading.observed_at.isoformat(),
+                    reading.temp_outdoor,
+                    reading.hum_outdoor,
                 )
         except Exception as exc:
             failed += 1
@@ -160,7 +168,8 @@ def smoke_catchup(hours_back: float, station_uuid: uuid.UUID) -> int:
     else:
         logger.info(
             "SMOKE CATCHUP OK · %d slots procesados (fails=%d)",
-            processed, failed,
+            processed,
+            failed,
         )
         logger.info("Rango temporal: %s → %s", first_ts, last_ts)
     return 0
@@ -171,19 +180,26 @@ def main() -> int:
         description="Smoke E2E Fase 2.5: valida adaptadores reales de pywws contra hardware."
     )
     parser.add_argument(
-        "--live", type=int, default=3,
+        "--live",
+        type=int,
+        default=3,
         help="Cantidad de samples live a capturar (default: 3, 0 para skip)",
     )
     parser.add_argument(
-        "--catchup", action="store_true",
+        "--catchup",
+        action="store_true",
         help="También probar catchup del buffer histórico",
     )
     parser.add_argument(
-        "--catchup-hours", type=float, default=2.0,
+        "--catchup-hours",
+        type=float,
+        default=2.0,
         help="Horas hacia atrás para catchup (default: 2.0)",
     )
     parser.add_argument(
-        "--station", type=str, default="11111111-1111-4111-8111-111111111111",
+        "--station",
+        type=str,
+        default="11111111-1111-4111-8111-111111111111",
         help="UUID de la estación (default: placeholder fijo)",
     )
     args = parser.parse_args()

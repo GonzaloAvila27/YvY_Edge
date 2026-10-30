@@ -11,11 +11,11 @@ No se abren ventanas. Usa backend Agg (sin display).
 
 from __future__ import annotations
 
-import os
 from datetime import UTC, date, datetime, timedelta
 from unittest.mock import MagicMock
 
 import matplotlib
+
 matplotlib.use("Agg")  # debe estar antes de cualquier import matplotlib.pyplot
 
 import pytest
@@ -70,11 +70,11 @@ def _mock_uc(
 
     def _execute(field, period, station_uuid, aggregation="avg"):
         field_map = {
-            "temp_out":    (temp_values,     "temp_outdoor", "°C"),
-            "hum_out":     (hum_values,      "hum_outdoor",  "%"),
-            "abs_pressure":(pressure_values, "pressure_abs", "hPa"),
-            "wind_speed":  (speed_values,    "wind_speed",   "m/s"),
-            "wind_gust":   (gust_values,     "wind_gust",    "m/s"),
+            "temp_out": (temp_values, "temp_outdoor", "°C"),
+            "hum_out": (hum_values, "hum_outdoor", "%"),
+            "abs_pressure": (pressure_values, "pressure_abs", "hPa"),
+            "wind_speed": (speed_values, "wind_speed", "m/s"),
+            "wind_gust": (gust_values, "wind_gust", "m/s"),
         }
         vals, fname, unit = field_map.get(field, (None, field, ""))
         if not vals:
@@ -125,7 +125,7 @@ class TestSensorChartsRegistry:
         assert derived_keys.issubset(set(SENSOR_CHARTS.keys()))
 
     def test_registry_importable(self):
-        from yvy.presentation.charts import SENSOR_CHARTS  # noqa
+        from yvy.presentation.charts import SENSOR_CHARTS  # noqa: F401
 
 
 # ─── TimeSeriesChart ─────────────────────────────────────────────────────────
@@ -134,9 +134,9 @@ class TestSensorChartsRegistry:
 class TestTimeSeriesChart:
     def test_render_with_data(self):
         from yvy.presentation.charts.time_series import TimeSeriesChart
+
         chart = TimeSeriesChart(
-            field="temp_out", unit="°C",
-            label="Temperatura", description="", color="#1E3A5F"
+            field="temp_out", unit="°C", label="Temperatura", description="", color="#1E3A5F"
         )
         uc = _mock_uc(temp_values=[20.0, 21.5, 19.8])
         fig, ax = _make_fig()
@@ -144,9 +144,9 @@ class TestTimeSeriesChart:
 
     def test_render_empty_raises_no_data_error(self):
         from yvy.presentation.charts.time_series import TimeSeriesChart
+
         chart = TimeSeriesChart(
-            field="temp_out", unit="°C",
-            label="Temperatura", description="", color="#1E3A5F"
+            field="temp_out", unit="°C", label="Temperatura", description="", color="#1E3A5F"
         )
         uc = _mock_uc()
         fig, ax = _make_fig()
@@ -156,9 +156,9 @@ class TestTimeSeriesChart:
     def test_render_none_values_no_crash(self):
         """None values se convierten a NaN sin explotar."""
         from yvy.presentation.charts.time_series import TimeSeriesChart
+
         chart = TimeSeriesChart(
-            field="temp_out", unit="°C",
-            label="Temperatura", description="", color="#1E3A5F"
+            field="temp_out", unit="°C", label="Temperatura", description="", color="#1E3A5F"
         )
         uc = _mock_uc(temp_values=[20.0, None, None, 22.0])
         fig, ax = _make_fig()
@@ -166,9 +166,9 @@ class TestTimeSeriesChart:
 
     def test_render_all_periods(self):
         from yvy.presentation.charts.time_series import TimeSeriesChart
+
         chart = TimeSeriesChart(
-            field="temp_out", unit="°C",
-            label="Temperatura", description="", color="#1E3A5F"
+            field="temp_out", unit="°C", label="Temperatura", description="", color="#1E3A5F"
         )
         for period in ("24h", "7d", "30d"):
             uc = _mock_uc(temp_values=[20.0, 21.0])
@@ -177,10 +177,13 @@ class TestTimeSeriesChart:
 
     def test_label_and_description_set(self):
         from yvy.presentation.charts.time_series import TimeSeriesChart
+
         chart = TimeSeriesChart(
-            field="hum_out", unit="%",
-            label="Humedad relativa", description="Porcentaje",
-            color="#9AA223"
+            field="hum_out",
+            unit="%",
+            label="Humedad relativa",
+            description="Porcentaje",
+            color="#9AA223",
         )
         assert chart.label == "Humedad relativa"
         assert chart.description == "Porcentaje"
@@ -196,6 +199,7 @@ class TestRainDailyChart:
 
     def test_render_with_data(self):
         from yvy.presentation.charts.rain_daily import RainDailyChart
+
         chart = RainDailyChart()
         dates = [self._today(2), self._today(1), self._today(0)]
         uc = _mock_uc(rain_dates=dates, rain_mm=[5.0, 0.0, 3.2])
@@ -204,6 +208,7 @@ class TestRainDailyChart:
 
     def test_render_empty_raises_no_data_error(self):
         from yvy.presentation.charts.rain_daily import RainDailyChart
+
         chart = RainDailyChart()
         uc = _mock_uc()
         fig, ax = _make_fig()
@@ -212,6 +217,7 @@ class TestRainDailyChart:
 
     def test_render_single_day(self):
         from yvy.presentation.charts.rain_daily import RainDailyChart
+
         chart = RainDailyChart()
         uc = _mock_uc(rain_dates=[self._today()], rain_mm=[2.5])
         fig, ax = _make_fig()
@@ -219,6 +225,7 @@ class TestRainDailyChart:
 
     def test_label_attribute(self):
         from yvy.presentation.charts.rain_daily import RainDailyChart
+
         assert RainDailyChart.label == "Lluvia diaria"
 
 
@@ -228,6 +235,7 @@ class TestRainDailyChart:
 class TestWindSpeedChart:
     def test_render_both_series(self):
         from yvy.presentation.charts.wind_speed import WindSpeedChart
+
         chart = WindSpeedChart()
         uc = _mock_uc(speed_values=[3.0, 4.5, 2.8], gust_values=[5.0, 7.0, 4.0])
         fig, ax = _make_fig()
@@ -236,6 +244,7 @@ class TestWindSpeedChart:
     def test_render_only_speed(self):
         """Sólo wind_speed disponible — no explota."""
         from yvy.presentation.charts.wind_speed import WindSpeedChart
+
         chart = WindSpeedChart()
         uc = _mock_uc(speed_values=[3.0, 4.5])
         fig, ax = _make_fig()
@@ -244,6 +253,7 @@ class TestWindSpeedChart:
     def test_render_only_gust(self):
         """Sólo wind_gust disponible — no explota."""
         from yvy.presentation.charts.wind_speed import WindSpeedChart
+
         chart = WindSpeedChart()
         uc = _mock_uc(gust_values=[5.0, 7.0])
         fig, ax = _make_fig()
@@ -251,6 +261,7 @@ class TestWindSpeedChart:
 
     def test_render_empty_raises_no_data_error(self):
         from yvy.presentation.charts.wind_speed import WindSpeedChart
+
         chart = WindSpeedChart()
         uc = _mock_uc()
         fig, ax = _make_fig()
@@ -259,6 +270,7 @@ class TestWindSpeedChart:
 
     def test_label_attribute(self):
         from yvy.presentation.charts.wind_speed import WindSpeedChart
+
         assert WindSpeedChart.label == "Velocidad del viento"
 
 
@@ -268,17 +280,19 @@ class TestWindSpeedChart:
 class TestWindRoseChart:
     def test_render_with_data(self):
         from yvy.presentation.charts.wind_rose import WindRoseChart
+
         chart = WindRoseChart()
         freqs = [0] * 16
-        freqs[0] = 10   # Norte
-        freqs[4] = 5    # Este
-        freqs[8] = 3    # Sur
+        freqs[0] = 10  # Norte
+        freqs[4] = 5  # Este
+        freqs[8] = 3  # Sur
         uc = _mock_uc(rose_frequencies=freqs)
         fig, ax = _make_fig()
         chart.render(fig, ax, "7d", _STATION, uc)
 
     def test_render_empty_raises_no_data_error(self):
         from yvy.presentation.charts.wind_rose import WindRoseChart
+
         chart = WindRoseChart()
         uc = _mock_uc(rose_frequencies=[0] * 16)
         fig, ax = _make_fig()
@@ -288,6 +302,7 @@ class TestWindRoseChart:
     def test_render_single_sector(self):
         """Un solo sector con viento — no explota."""
         from yvy.presentation.charts.wind_rose import WindRoseChart
+
         chart = WindRoseChart()
         freqs = [0] * 16
         freqs[0] = 1
@@ -297,6 +312,7 @@ class TestWindRoseChart:
 
     def test_label_attribute(self):
         from yvy.presentation.charts.wind_rose import WindRoseChart
+
         assert WindRoseChart.label == "Rosa de vientos"
 
 
@@ -306,12 +322,14 @@ class TestWindRoseChart:
 class TestApplyYvyStyle:
     def test_applies_without_error(self):
         from yvy.presentation.components.chart_widget import apply_yvy_style
+
         fig = Figure()
         ax = fig.add_subplot(111)
         apply_yvy_style(ax)
 
     def test_only_bottom_left_spines_visible(self):
         from yvy.presentation.components.chart_widget import apply_yvy_style
+
         fig = Figure()
         ax = fig.add_subplot(111)
         apply_yvy_style(ax)

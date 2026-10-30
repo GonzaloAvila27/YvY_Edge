@@ -169,12 +169,8 @@ class SQLiteUserRepository:
 
 def _row_to_user(row: Any) -> User:
     """Mapea fila de DB a User entity."""
-    last_login = (
-        datetime.fromisoformat(row["last_login"]) if row["last_login"] else None
-    )
-    created_at = (
-        datetime.fromisoformat(row["created_at"]) if row["created_at"] else None
-    )
+    last_login = datetime.fromisoformat(row["last_login"]) if row["last_login"] else None
+    created_at = datetime.fromisoformat(row["created_at"]) if row["created_at"] else None
     return User(
         id=row["id"],
         user_uuid=UUID(row["user_uuid"]),

@@ -15,10 +15,9 @@ import json
 import logging
 import sys
 import tempfile
-import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from uuid import UUID, uuid4
+from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 # Importamos lo necesario para wirear el backend
@@ -47,7 +46,7 @@ TZ_AR = ZoneInfo("America/Argentina/Cordoba")
 def _seed_fake_data(factory: SQLiteConnectionFactory) -> None:
     """Inserta filas fake en sync_queue para que la view muestre algo."""
     conn = factory.get_connection()
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
     station = "12345678-1234-4123-8123-123456789012"
 
     # Mix de statuses

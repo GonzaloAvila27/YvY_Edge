@@ -73,7 +73,7 @@ class MetricSnapshot:
 
     current: float | None  # valor más reciente
     avg_24h: float | None  # promedio últimas 24hs
-    trend: str = "flat"    # "up" | "down" | "flat"
+    trend: str = "flat"  # "up" | "down" | "flat"
 
 
 # Tipo del callable inyectado: () -> dict[str, MetricSnapshot]
@@ -88,7 +88,7 @@ class MetricCarousel(tk.Frame):
     def __init__(
         self,
         parent: tk.Misc,
-        data_provider,  # type: ignore[no-untyped-def]
+        data_provider,
         rotation_interval_ms: int = ROTATION_INTERVAL_MS,
     ) -> None:
         super().__init__(
@@ -120,11 +120,11 @@ class MetricCarousel(tk.Frame):
 
     def _render_current(self) -> None:
         p = self._palette
-        bg      = p["surface"]     if p else BG_CARD
-        fg_text = p["text"]        if p else TEXT_PRIMARY
-        fg_muted= p["text_muted"]  if p else TEXT_SECONDARY
-        fg_acc  = p.get("gold", PRIMARY) if p else PRIMARY
-        bd      = p["border"]      if p else BORDER
+        bg = p["surface"] if p else BG_CARD
+        fg_text = p["text"] if p else TEXT_PRIMARY
+        fg_muted = p["text_muted"] if p else TEXT_SECONDARY
+        fg_acc = p.get("gold", PRIMARY) if p else PRIMARY
+        bd = p["border"] if p else BORDER
 
         for w in self._inner.winfo_children():
             w.destroy()
@@ -145,11 +145,16 @@ class MetricCarousel(tk.Frame):
         tk.Label(
             self._inner,
             text=metric.label.upper(),
-            bg=bg, fg=fg_acc,
+            bg=bg,
+            fg=fg_acc,
             font=FONT_SMALL,
         ).pack(anchor="w")
 
-        value_str = "—" if (snap is None or snap.current is None) else self._format_value(snap.current, metric)
+        value_str = (
+            "—"
+            if (snap is None or snap.current is None)
+            else self._format_value(snap.current, metric)
+        )
 
         value_row = tk.Frame(self._inner, bg=bg)
         value_row.pack(anchor="w", pady=(SPACE_SM, SPACE_MD))
@@ -158,8 +163,11 @@ class MetricCarousel(tk.Frame):
 
         if metric.unit and snap and snap.current is not None:
             tk.Label(
-                value_row, text=" " + metric.unit,
-                bg=bg, fg=fg_muted, font=FONT_BODY,
+                value_row,
+                text=" " + metric.unit,
+                bg=bg,
+                fg=fg_muted,
+                font=FONT_BODY,
             ).pack(side="left", padx=(SPACE_SM, 0))
 
         sub_row = tk.Frame(self._inner, bg=bg)
@@ -173,14 +181,19 @@ class MetricCarousel(tk.Frame):
                 arrow_color = SUCCESS if snap.trend == "up" else WARNING
                 arrow_text = " ↑ subiendo" if snap.trend == "up" else " ↓ bajando"
                 tk.Label(
-                    sub_row, text=arrow_text,
-                    bg=bg, fg=arrow_color, font=FONT_BODY_BOLD,
+                    sub_row,
+                    text=arrow_text,
+                    bg=bg,
+                    fg=arrow_color,
+                    font=FONT_BODY_BOLD,
                 ).pack(side="left", padx=(SPACE_LG, 0))
         else:
             tk.Label(
                 sub_row,
                 text="Sin datos suficientes para promedio (24hs)",
-                bg=bg, fg=fg_muted, font=FONT_SMALL,
+                bg=bg,
+                fg=fg_muted,
+                font=FONT_SMALL,
             ).pack(side="left")
 
         dots_row = tk.Frame(self._inner, bg=bg)
@@ -214,7 +227,7 @@ class MetricCarousel(tk.Frame):
         if self._after_id is not None:
             try:
                 self.after_cancel(self._after_id)
-            except tk.TclError:
-                pass
+            except tk.TclError as exc:
+                logger.debug("Widget destruido durante callback (ignorado): %s", exc)
             self._after_id = None
         super().destroy()

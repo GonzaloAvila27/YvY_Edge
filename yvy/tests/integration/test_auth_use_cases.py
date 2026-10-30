@@ -6,7 +6,7 @@ estos tests validan que el use case + repos + hasher funcionan juntos.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -38,7 +38,6 @@ from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
 from yvy.infrastructure.persistence.sqlite_user_repository import SQLiteUserRepository
 from yvy.infrastructure.system.clock import FrozenClock
 
-
 # ─── Fixtures de use cases ───────────────────────────────────────────────
 
 
@@ -52,9 +51,7 @@ def login_use_case(
         user_repo=user_repo,
         audit_repo=audit_log_repo,
         hasher=fast_hasher,
-        time_provider=FrozenClock(
-            datetime(2026, 5, 1, 10, 0, 0, tzinfo=timezone.utc)
-        ),
+        time_provider=FrozenClock(datetime(2026, 5, 1, 10, 0, 0, tzinfo=UTC)),
     )
 
 
@@ -113,9 +110,7 @@ def toggle_export_use_case(
 
 @pytest.mark.integration
 class TestCreateUser:
-    def test_creates_alumno(
-        self, create_user_use_case: CreateUserUseCase
-    ) -> None:
+    def test_creates_alumno(self, create_user_use_case: CreateUserUseCase) -> None:
         user = create_user_use_case.execute(
             username="alice",
             full_name="Alice Smith",
@@ -127,9 +122,7 @@ class TestCreateUser:
         assert user.is_active is True
         assert user.can_export_raw is False
 
-    def test_rejects_weak_password(
-        self, create_user_use_case: CreateUserUseCase
-    ) -> None:
+    def test_rejects_weak_password(self, create_user_use_case: CreateUserUseCase) -> None:
         with pytest.raises(WeakPasswordError):
             create_user_use_case.execute(
                 username="alice",
@@ -138,9 +131,7 @@ class TestCreateUser:
                 role=Role.ALUMNO,
             )
 
-    def test_rejects_duplicate_username(
-        self, create_user_use_case: CreateUserUseCase
-    ) -> None:
+    def test_rejects_duplicate_username(self, create_user_use_case: CreateUserUseCase) -> None:
         create_user_use_case.execute(
             username="alice",
             full_name="Alice",
@@ -155,9 +146,7 @@ class TestCreateUser:
                 role=Role.PROFESOR,
             )
 
-    def test_enforces_max_common_admins(
-        self, create_user_use_case: CreateUserUseCase
-    ) -> None:
+    def test_enforces_max_common_admins(self, create_user_use_case: CreateUserUseCase) -> None:
         """Superadmin + 2 admins comunes OK; el 3er admin común falla."""
         create_user_use_case.execute(
             username="superuser",
@@ -188,9 +177,7 @@ class TestCreateUser:
                 role=Role.ADMIN,
             )
 
-    def test_superadmin_is_singleton(
-        self, create_user_use_case: CreateUserUseCase
-    ) -> None:
+    def test_superadmin_is_singleton(self, create_user_use_case: CreateUserUseCase) -> None:
         """No se puede crear un segundo superadmin desde el use case."""
         create_user_use_case.execute(
             username="superuser",
@@ -249,9 +236,7 @@ class TestLogin:
         assert user.username == "alice"
         assert user.role == Role.PROFESOR
 
-    def test_unknown_user_raises_invalid_credentials(
-        self, login_use_case: LoginUseCase
-    ) -> None:
+    def test_unknown_user_raises_invalid_credentials(self, login_use_case: LoginUseCase) -> None:
         with pytest.raises(InvalidCredentialsError):
             login_use_case.execute("ghost", "anything")
 
@@ -344,8 +329,11 @@ class TestLogin:
         recent = audit_log_repo.list_recent(limit=5)
         # Buscamos el LOGIN_FAILED de alice
         failed = next(
-            (e for e in recent if e.event_type == AuditEventType.LOGIN_FAILED
-             and e.username == "alice"),
+            (
+                e
+                for e in recent
+                if e.event_type == AuditEventType.LOGIN_FAILED and e.username == "alice"
+            ),
             None,
         )
         assert failed is not None
@@ -507,9 +495,7 @@ class TestSetUserActive:
         )
 
         with pytest.raises(SuperadminProtectedError):
-            set_active_use_case.execute(
-                target_user_id=u.id, is_active=False
-            )
+            set_active_use_case.execute(target_user_id=u.id, is_active=False)
 
     def test_cannot_deactivate_last_common_admin(
         self,
@@ -525,9 +511,7 @@ class TestSetUserActive:
         )
 
         with pytest.raises(CannotDeactivateLastAdminError):
-            set_active_use_case.execute(
-                target_user_id=u.id, is_active=False
-            )
+            set_active_use_case.execute(target_user_id=u.id, is_active=False)
 
     def test_can_deactivate_admin_when_another_active_exists(
         self,
@@ -604,6 +588,4 @@ class TestToggleExport:
             role=Role.ALUMNO,
         )
         with pytest.raises(ValueError, match="Alumnos no pueden"):
-            toggle_export_use_case.execute(
-                target_user_id=u.id, can_export=True
-            )
+            toggle_export_use_case.execute(target_user_id=u.id, can_export=True)

@@ -32,23 +32,18 @@ import tkinter as tk
 from tkinter import ttk
 
 from yvy.infrastructure.help.help_repository import HelpArticle, HelpRepository
-from yvy.infrastructure.help.markdown_renderer import apply_markdown
+from yvy.presentation.help.markdown_renderer import apply_markdown
 from yvy.presentation.theme import (
     ACCENT_GOLD,
     BG_CARD,
     BG_CREAM,
     BORDER,
     FONT_BODY,
-    FONT_BODY_BOLD,
     FONT_H1,
-    FONT_SMALL,
-    PRIMARY,
     SPACE_LG,
     SPACE_MD,
-    SPACE_SM,
     SPACE_XL,
     TEXT_PRIMARY,
-    TEXT_SECONDARY,
 )
 
 logger = logging.getLogger(__name__)
@@ -80,8 +75,12 @@ class HelpView(tk.Frame):
 
         # Header — tk.Label para poder pintar de gold en dark mode
         self._title_lbl = tk.Label(
-            container, text="Pizarra",
-            bg=BG_CREAM, fg=TEXT_PRIMARY, font=FONT_H1, anchor="w",
+            container,
+            text="Pizarra",
+            bg=BG_CREAM,
+            fg=TEXT_PRIMARY,
+            font=FONT_H1,
+            anchor="w",
         )
         self._title_lbl.pack(anchor="w")
         ttk.Label(
@@ -122,7 +121,9 @@ class HelpView(tk.Frame):
         # Tree con categorías + artículos
         self._tree = ttk.Treeview(parent, show="tree", height=20)
         scrollbar = ttk.Scrollbar(
-            parent, orient="vertical", command=self._tree.yview,
+            parent,
+            orient="vertical",
+            command=self._tree.yview,
         )
         self._tree.configure(yscrollcommand=scrollbar.set)
 
@@ -132,11 +133,16 @@ class HelpView(tk.Frame):
         # Cargar categorías
         for category in self._repo.list_categories():
             cat_iid = self._tree.insert(
-                "", "end", text=category.label, open=True,
+                "",
+                "end",
+                text=category.label,
+                open=True,
             )
             for article in category.articles:
                 art_iid = self._tree.insert(
-                    cat_iid, "end", text="  " + article.title,
+                    cat_iid,
+                    "end",
+                    text="  " + article.title,
                 )
                 self._article_iid_map[article.key] = art_iid
 
@@ -180,9 +186,12 @@ class HelpView(tk.Frame):
 
     def apply_theme(self, palette: dict) -> None:
         from yvy.presentation.theme_manager import recolor, theme_manager
+
         recolor(self, palette)
         if self._title_lbl is not None:
-            title_fg = palette.get("gold", ACCENT_GOLD) if theme_manager.mode == "dark" else TEXT_PRIMARY
+            title_fg = (
+                palette.get("gold", ACCENT_GOLD) if theme_manager.mode == "dark" else TEXT_PRIMARY
+            )
             self._title_lbl.configure(bg=palette.get("bg", BG_CREAM), fg=title_fg)
         if self._text is not None:
             self._text.configure(

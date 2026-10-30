@@ -3,8 +3,6 @@
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-import pytest
-
 from yvy.domain.observatorio.period_range import PeriodRange
 from yvy.domain.observatorio.range_clamp import clamp_to_data_range
 

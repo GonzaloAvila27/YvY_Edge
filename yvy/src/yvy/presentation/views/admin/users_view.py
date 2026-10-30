@@ -38,19 +38,11 @@ from yvy.presentation.theme import (
     BG_CARD,
     BG_CREAM,
     BORDER,
-    DANGER,
-    FONT_BODY,
     FONT_BODY_BOLD,
-    FONT_H1,
-    FONT_SMALL,
     SPACE_LG,
-    SPACE_MD,
     SPACE_SM,
     SPACE_XL,
-    SUCCESS,
-    TEXT_PRIMARY,
     TEXT_SECONDARY,
-    WARNING,
 )
 
 logger = logging.getLogger(__name__)
@@ -162,9 +154,7 @@ class UsersView(tk.Frame):
         self._tree.tag_configure("inactive", foreground=TEXT_SECONDARY)
         self._tree.tag_configure("admin_row", font=FONT_BODY_BOLD)
 
-        scrollbar = ttk.Scrollbar(
-            inner, orient="vertical", command=self._tree.yview
-        )
+        scrollbar = ttk.Scrollbar(inner, orient="vertical", command=self._tree.yview)
         self._tree.configure(yscrollcommand=scrollbar.set)
 
         self._tree.pack(side="left", fill="both", expand=True)
@@ -268,9 +258,7 @@ class UsersView(tk.Frame):
         if u is not None:
             for btn in self._action_buttons:
                 btn.state(["!disabled"])
-            self._toggle_btn.configure(
-                text="Reactivar" if not u.is_active else "Desactivar"
-            )
+            self._toggle_btn.configure(text="Reactivar" if not u.is_active else "Desactivar")
             # El superadmin no se desactiva desde la UI (solo CLI hero-rescue).
             if u.role == Role.SUPERADMIN:
                 self._toggle_btn.state(["disabled"])

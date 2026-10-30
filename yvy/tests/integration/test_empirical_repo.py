@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import sqlite3
+import threading
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -21,10 +21,10 @@ from yvy.domain.empirical.enums import (
     WindDirection,
 )
 from yvy.domain.empirical.models import EmpiricalEvent, EmpiricalObservation
+from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
 from yvy.infrastructure.persistence.sqlite_empirical_repository import (
     SQLiteEmpiricalRepository,
 )
-
 
 # ════════════════════════════════════════════════════════════════════════
 # Fixtures
@@ -32,12 +32,11 @@ from yvy.infrastructure.persistence.sqlite_empirical_repository import (
 
 
 @pytest.fixture
-def conn(tmp_path: Path, request) -> sqlite3.Connection:
-    """Conexión SQLite con migraciones aplicadas (incluye v11)."""
+def factory(tmp_path: Path):
+    """Factory con DB migrada (incluye v11) + user dummy para el FK."""
     db_path = tmp_path / "test_yvy.sqlite"
-    conn = sqlite3.connect(str(db_path), isolation_level=None)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
+    factory = SQLiteConnectionFactory(path=db_path)
+    conn = factory.get_connection()
 
     # Aplicar migraciones desde el directorio del proyecto
     migrations_dir = Path(__file__).parent.parent.parent / "migrations"
@@ -53,13 +52,13 @@ def conn(tmp_path: Path, request) -> sqlite3.Connection:
     )
     conn.commit()
 
-    yield conn
-    conn.close()
+    yield factory
+    factory.close_thread_connection()
 
 
 @pytest.fixture
-def repo(conn: sqlite3.Connection) -> SQLiteEmpiricalRepository:
-    return SQLiteEmpiricalRepository(conn)
+def repo(factory: SQLiteConnectionFactory) -> SQLiteEmpiricalRepository:
+    return SQLiteEmpiricalRepository(factory)
 
 
 def make_observation(**overrides) -> EmpiricalObservation:
@@ -101,13 +100,20 @@ class TestSaveAndFindObservation:
 
     def test_save_with_all_fields(self, repo):
         obs = make_observation(
-            rain_mm=12.5, temp_c=22.3, wind_beaufort=4,
-            wind_direction=WindDirection.SE, humidity_percept=HumidityPercept.ALTA,
-            sky_coverage_pct=75, cloud_type=CloudType.CUMULOS,
-            soil_state=SoilState.HUMEDO, visibility=Visibility.BUENA,
+            rain_mm=12.5,
+            temp_c=22.3,
+            wind_beaufort=4,
+            wind_direction=WindDirection.SE,
+            humidity_percept=HumidityPercept.ALTA,
+            sky_coverage_pct=75,
+            cloud_type=CloudType.CUMULOS,
+            soil_state=SoilState.HUMEDO,
+            visibility=Visibility.BUENA,
             precipitation_now=PrecipitationNow.LLOVIZNA,
-            phenology_notes="maíz en floración", livestock_state=LivestockState.NORMAL,
-            livestock_notes="todos comiendo", general_notes="día nublado pero tranquilo",
+            phenology_notes="maíz en floración",
+            livestock_state=LivestockState.NORMAL,
+            livestock_notes="todos comiendo",
+            general_notes="día nublado pero tranquilo",
         )
         repo.save_observation(obs)
         found = repo.find_observation_by_id(obs.observation_id)
@@ -150,25 +156,35 @@ class TestListObservations:
         assert result[1].observation_id == obs_old.observation_id
 
     def test_filtro_date_from(self, repo):
-        repo.save_observation(make_observation(
-            observation_id=uuid.uuid4(),
-            observed_at_local=datetime(2026, 5, 1, 10, 0, tzinfo=UTC),
-        ))
-        repo.save_observation(make_observation(
-            observation_id=uuid.uuid4(),
-            observed_at_local=datetime(2026, 5, 12, 10, 0, tzinfo=UTC),
-        ))
+        repo.save_observation(
+            make_observation(
+                observation_id=uuid.uuid4(),
+                observed_at_local=datetime(2026, 5, 1, 10, 0, tzinfo=UTC),
+            )
+        )
+        repo.save_observation(
+            make_observation(
+                observation_id=uuid.uuid4(),
+                observed_at_local=datetime(2026, 5, 12, 10, 0, tzinfo=UTC),
+            )
+        )
         result = repo.list_observations(date_from=datetime(2026, 5, 10, tzinfo=UTC))
         assert len(result) == 1
 
     def test_filtro_only_valid(self, repo):
-        repo.save_observation(make_observation(
-            observation_id=uuid.uuid4(), is_valid=True,
-        ))
-        repo.save_observation(make_observation(
-            observation_id=uuid.uuid4(), is_valid=False,
-            validation_notes="range:temp_c_out_of_range",
-        ))
+        repo.save_observation(
+            make_observation(
+                observation_id=uuid.uuid4(),
+                is_valid=True,
+            )
+        )
+        repo.save_observation(
+            make_observation(
+                observation_id=uuid.uuid4(),
+                is_valid=False,
+                validation_notes="range:temp_c_out_of_range",
+            )
+        )
         all_results = repo.list_observations(only_valid=False)
         valid_results = repo.list_observations(only_valid=True)
         assert len(all_results) == 2
@@ -177,10 +193,12 @@ class TestListObservations:
 
     def test_limit_se_respeta(self, repo):
         for i in range(5):
-            repo.save_observation(make_observation(
-                observation_id=uuid.uuid4(),
-                observed_at_local=datetime(2026, 5, 12, 10 + i, 0, tzinfo=UTC),
-            ))
+            repo.save_observation(
+                make_observation(
+                    observation_id=uuid.uuid4(),
+                    observed_at_local=datetime(2026, 5, 12, 10 + i, 0, tzinfo=UTC),
+                )
+            )
         result = repo.list_observations(limit=3)
         assert len(result) == 3
 
@@ -198,8 +216,12 @@ class TestListObservations:
 
 class TestSaveAndListEvents:
     def test_save_and_find_evento(self, repo):
-        evt = make_event(event_type=EventType.GRANIZO, hail_size=HailSize.POROTO,
-                         started_at_local="03:15", ended_at_local="03:45")
+        evt = make_event(
+            event_type=EventType.GRANIZO,
+            hail_size=HailSize.POROTO,
+            started_at_local="03:15",
+            ended_at_local="03:45",
+        )
         repo.save_event(evt)
         found = repo.find_event_by_id(evt.event_record_id)
         assert found.event_type == EventType.GRANIZO
@@ -207,14 +229,21 @@ class TestSaveAndListEvents:
 
     def test_multiples_eventos_mismo_dia(self, repo):
         # Dos heladas el mismo día, horarios distintos
-        repo.save_event(make_event(
-            event_record_id=uuid.uuid4(),
-            event_type=EventType.HELADA, started_at_local="04:00", ended_at_local="06:30",
-        ))
-        repo.save_event(make_event(
-            event_record_id=uuid.uuid4(),
-            event_type=EventType.HELADA, started_at_local="20:00",
-        ))
+        repo.save_event(
+            make_event(
+                event_record_id=uuid.uuid4(),
+                event_type=EventType.HELADA,
+                started_at_local="04:00",
+                ended_at_local="06:30",
+            )
+        )
+        repo.save_event(
+            make_event(
+                event_record_id=uuid.uuid4(),
+                event_type=EventType.HELADA,
+                started_at_local="20:00",
+            )
+        )
         events = repo.list_events_for_date("2026-05-12")
         assert len(events) == 2
 
@@ -242,3 +271,28 @@ class TestSaveAndListEvents:
         repo.save_event(evt)
         repo.save_event(evt)  # no rompe
         assert len(repo.list_events_for_date(evt.observation_date)) == 1
+
+
+@pytest.mark.integration
+def test_repo_usable_desde_otro_thread(factory: SQLiteConnectionFactory) -> None:
+    """H11: el repo toma el factory (conn por-thread), no una conn atada.
+
+    Antes recibía una ``sqlite3.Connection`` cruda: con ``check_same_thread=True``
+    usarlo desde otro thread (daemons, futuro adaptador web LAN) lanzaba
+    ``ProgrammingError``. Este test fija el contrato de construcción.
+    """
+    repo = SQLiteEmpiricalRepository(factory)
+    result: dict[str, object] = {}
+
+    def worker() -> None:
+        try:
+            result["count"] = repo.count_observations()
+        except Exception as exc:
+            result["error"] = f"{type(exc).__name__}: {exc}"
+
+    thread = threading.Thread(target=worker)
+    thread.start()
+    thread.join(timeout=5)
+
+    assert "error" not in result, result.get("error")
+    assert result["count"] == 0

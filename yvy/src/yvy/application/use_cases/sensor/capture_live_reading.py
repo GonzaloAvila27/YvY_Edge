@@ -99,9 +99,7 @@ class CaptureLiveReadingUseCase:
         raw_dict = self._sensor.read_live()
         if raw_dict is None:
             logger.debug("No live reading available")
-            return CaptureResult(
-                captured=False, was_new=False, skip_reason="no_data_available"
-            )
+            return CaptureResult(captured=False, was_new=False, skip_reason="no_data_available")
 
         # 2. Parsear a dominio
         try:
@@ -113,19 +111,13 @@ class CaptureLiveReadingUseCase:
             )
         except MismatchedStationError as exc:
             logger.warning("Payload de otra estación, skip: %s", exc)
-            return CaptureResult(
-                captured=False, was_new=False, skip_reason="mismatched_station"
-            )
+            return CaptureResult(captured=False, was_new=False, skip_reason="mismatched_station")
         except FuturisticTimestampError as exc:
             logger.warning("Timestamp del futuro (clock roto?), skip: %s", exc)
-            return CaptureResult(
-                captured=False, was_new=False, skip_reason="futuristic_timestamp"
-            )
+            return CaptureResult(captured=False, was_new=False, skip_reason="futuristic_timestamp")
         except (MalformedPayloadError, InvalidTimestampError) as exc:
             logger.warning("Payload inválido, skip: %s", exc)
-            return CaptureResult(
-                captured=False, was_new=False, skip_reason="malformed_payload"
-            )
+            return CaptureResult(captured=False, was_new=False, skip_reason="malformed_payload")
 
         # 3. Persistir raw → obtener id
         prev_count_raw = self._sensor_repo.count_raw()

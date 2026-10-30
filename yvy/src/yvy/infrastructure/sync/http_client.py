@@ -49,13 +49,14 @@ The single legitimate "retry" — TCP-level reconnects — happens inside
 ``httpx``'s transport, which we leave on by default. That's a socket
 detail, not a business-policy retry.
 """
+
 from __future__ import annotations
 
 import hashlib
 import logging
 import secrets
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -96,7 +97,7 @@ class EdgeSyncResponse:
 
     sync_version: int
     update_available: bool
-    update_metadata: dict | None
+    update_metadata: dict[str, Any] | None
 
 
 class SendError(Exception):
@@ -118,7 +119,7 @@ class NetworkError(SendError):
     """
 
 
-class TimeoutError(SendError):
+class HttpTimeoutError(SendError):
     """The request was sent but no response (or no complete response)
     arrived within the configured timeouts.
 
@@ -131,6 +132,12 @@ class TimeoutError(SendError):
     Maps to ``FailureClass.NETWORK`` in the agent (same handling as
     network failures, but worth distinguishing in logs).
     """
+
+
+# Compat (audit H9): el nombre viejo ``TimeoutError`` sombreaba el builtin, una
+# trampa para cualquier ``except TimeoutError`` escrito de memoria. Migrar los
+# imports a ``HttpTimeoutError``; retirar este alias el próximo ciclo.
+TimeoutError = HttpTimeoutError
 
 
 class AuthError(SendError):
@@ -175,9 +182,6 @@ class DownloadResult:
 
 # Chunk size para streaming (64 KB)
 _DOWNLOAD_CHUNK_SIZE = 65536
-
-# Timeout de descarga: connect corto, read generoso por chunk (no total)
-_DOWNLOAD_TIMEOUT = None  # se construye en el método para poder pasarlo
 
 
 # ─── Client ──────────────────────────────────────────────────────────────
@@ -256,10 +260,12 @@ class HttpClient:
             pool=_DEFAULT_POOL_TIMEOUT_S,
         )
 
+        # httpx.Client.verify no acepta Path: un path de CA bundle va como str.
+        verify_arg: bool | str = str(verify) if isinstance(verify, Path) else verify
         self._client = httpx.Client(
             base_url=server_url.rstrip("/"),
             timeout=timeout,
-            verify=verify,
+            verify=verify_arg,
             headers={
                 "User-Agent": user_agent,
                 "Content-Type": "application/json",
@@ -297,28 +303,22 @@ class HttpClient:
             NetworkError: Could not establish connection, DNS failed,
                 cert validation failed, server reset the connection
                 mid-request, etc.
-            TimeoutError: Connect/read/write timeout fired.
+            HttpTimeoutError: Connect/read/write timeout fired.
             MalformedResponseError: Response body wasn't JSON, or
                 parsing it failed.
         """
         try:
             response = self._client.post(path, json=envelope)
         except httpx.TimeoutException as exc:
-            raise TimeoutError(
-                f"timeout during POST {path}: {exc}"
-            ) from exc
+            raise HttpTimeoutError(f"timeout during POST {path}: {exc}") from exc
         except httpx.ConnectError as exc:
             # Connection refused, DNS, TLS handshake failures
-            raise NetworkError(
-                f"connection failed for POST {path}: {exc}"
-            ) from exc
+            raise NetworkError(f"connection failed for POST {path}: {exc}") from exc
         except httpx.HTTPError as exc:
             # Catch-all for other httpx-level transport problems
             # (NetworkError, ProxyError, ReadError, etc.). All of these
             # mean we never got a structured response.
-            raise NetworkError(
-                f"network error during POST {path}: {exc}"
-            ) from exc
+            raise NetworkError(f"network error during POST {path}: {exc}") from exc
 
         return self._build_send_result(response)
 
@@ -377,22 +377,14 @@ class HttpClient:
                 timeout=timeout_s,
             )
         except httpx.TimeoutException as exc:
-            raise NetworkError(
-                f"timeout during GET /api/v1/edge/sync: {exc}"
-            ) from exc
+            raise NetworkError(f"timeout during GET /api/v1/edge/sync: {exc}") from exc
         except httpx.ConnectError as exc:
-            raise NetworkError(
-                f"connection failed for GET /api/v1/edge/sync: {exc}"
-            ) from exc
+            raise NetworkError(f"connection failed for GET /api/v1/edge/sync: {exc}") from exc
         except httpx.HTTPError as exc:
-            raise NetworkError(
-                f"network error during GET /api/v1/edge/sync: {exc}"
-            ) from exc
+            raise NetworkError(f"network error during GET /api/v1/edge/sync: {exc}") from exc
 
         if response.status_code in (401, 403):
-            raise AuthError(
-                f"HTTP {response.status_code} from GET /api/v1/edge/sync"
-            )
+            raise AuthError(f"HTTP {response.status_code} from GET /api/v1/edge/sync")
         if response.status_code == 404:
             raise StationNotFoundError(
                 "station_uuid desconocido en el servidor — verificar credentials"
@@ -407,9 +399,7 @@ class HttpClient:
             ) from exc
 
         if not isinstance(body, dict):
-            raise MalformedResponseError(
-                "response from GET /api/v1/edge/sync is not a JSON object"
-            )
+            raise MalformedResponseError("response from GET /api/v1/edge/sync is not a JSON object")
 
         try:
             sync_version = int(body["sync_version"])
@@ -421,7 +411,7 @@ class HttpClient:
         updates = body.get("updates", {})
         update_available = updates.get("available") is True
 
-        update_metadata: dict | None = None
+        update_metadata: dict[str, Any] | None = None
         if update_available:
             update_metadata = {
                 "edge_version": updates.get("edge_version"),
@@ -485,8 +475,7 @@ class HttpClient:
         }
 
         # Timeout: connect y write cortos; read por chunk 60s (redes IEA lentas)
-        import httpx as _httpx
-        dl_timeout = _httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
+        dl_timeout = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
 
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         bytes_downloaded = 0
@@ -534,10 +523,10 @@ class HttpClient:
                         if progress_callback is not None:
                             try:
                                 progress_callback(bytes_downloaded, total)
-                            except Exception:
-                                pass
+                            except Exception as exc:
+                                log.debug("progress_callback falló (ignorado): %s", exc)
 
-        except _httpx.TimeoutException as exc:
+        except httpx.TimeoutException as exc:
             self._cleanup_partial(dest_path)
             return DownloadResult(
                 success=False,
@@ -546,7 +535,7 @@ class HttpClient:
                 dest_path=dest_path,
                 error=f"network: timeout — {exc}",
             )
-        except _httpx.ConnectError as exc:
+        except httpx.ConnectError as exc:
             self._cleanup_partial(dest_path)
             return DownloadResult(
                 success=False,
@@ -555,7 +544,7 @@ class HttpClient:
                 dest_path=dest_path,
                 error=f"network: connection failed — {exc}",
             )
-        except _httpx.HTTPError as exc:
+        except httpx.HTTPError as exc:
             self._cleanup_partial(dest_path)
             return DownloadResult(
                 success=False,
@@ -584,8 +573,7 @@ class HttpClient:
                 sha256_verified=False,
                 dest_path=dest_path,
                 error=(
-                    f"hash_mismatch: expected {expected_sha256[:16]}… "
-                    f"got {actual_sha256[:16]}…"
+                    f"hash_mismatch: expected {expected_sha256[:16]}… " f"got {actual_sha256[:16]}…"
                 ),
             )
 
@@ -596,10 +584,7 @@ class HttpClient:
                 bytes_downloaded=bytes_downloaded,
                 sha256_verified=False,
                 dest_path=dest_path,
-                error=(
-                    f"size_mismatch: expected {expected_size_bytes} "
-                    f"got {bytes_downloaded}"
-                ),
+                error=(f"size_mismatch: expected {expected_size_bytes} " f"got {bytes_downloaded}"),
             )
 
         return DownloadResult(
@@ -615,14 +600,14 @@ class HttpClient:
         try:
             if path.exists():
                 path.unlink()
-        except OSError:
-            pass
+        except OSError as exc:
+            log.debug("No se pudo borrar parcial %s (ignorado): %s", path, exc)
 
     def close(self) -> None:
         """Close the underlying ``httpx.Client`` and its connection pool."""
         self._client.close()
 
-    def __enter__(self) -> "HttpClient":
+    def __enter__(self) -> HttpClient:
         return self
 
     def __exit__(self, *_exc_info: object) -> None:
@@ -672,7 +657,7 @@ class HttpClient:
         return SendResult(
             status_code=response.status_code,
             body_json=body_json,
-            headers={k: v for k, v in response.headers.items()},
+            headers=dict(response.headers.items()),
             server_time_utc=server_time_utc,
             server_sync_version=server_sync_version,
         )

@@ -10,6 +10,7 @@ Contrato verificado: el payload es un DICT a lo largo de
 ``enqueue → claim → build_envelope``, para sensor y empírico. El path viejo
 (payload pre-serializado a str) rompe el builder.
 """
+
 from __future__ import annotations
 
 import json

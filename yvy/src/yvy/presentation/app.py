@@ -27,37 +27,32 @@ from __future__ import annotations
 import logging
 import threading
 import tkinter as tk
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import tzinfo
-from tkinter import ttk
-import uuid
-from typing import TYPE_CHECKING, Final
-from uuid import uuid4
+from datetime import datetime, tzinfo
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
-from yvy.domain.auth.enums import Role
 from yvy.domain.auth.exceptions import (
     InvalidCredentialsError,
     UserInactiveError,
 )
 from yvy.domain.auth.models import User
-from yvy.domain.sync.agent_state import AgentState, is_latched
 from yvy.presentation.components import Header, Sidebar, SidebarItem
+from yvy.presentation.components.close_intercept_modal import CloseInterceptModal
 from yvy.presentation.components.pizarra_yvy import PizarraYvY
+from yvy.presentation.components.placeholder_view import PlaceholderView
+from yvy.presentation.components.user_menu_modal import UserMenuModal
 from yvy.presentation.theme import (
     BG_CARD,
     BG_CREAM,
-    BORDER,
     DANGER,
     FONT_BODY,
     FONT_BODY_BOLD,
-    PRIMARY,
     SPACE_2XL,
-    SPACE_LG,
     SPACE_MD,
     SPACE_SM,
-    SPACE_XL,
     TEXT_PRIMARY,
     TEXT_SECONDARY,
     WINDOW_DEFAULT_HEIGHT,
@@ -108,59 +103,20 @@ if TYPE_CHECKING:
         UsersAdminController,
     )
 
-from yvy.presentation.controllers.sync_controller import SyncDashboardData
+from yvy.presentation.controllers.catchup_controller import (
+    CatchupController,
+    LastObservationPort,
+)
+from yvy.presentation.controllers.header_controller import (
+    HeaderController,
+    HeaderStatus,
+)
+from yvy.presentation.controllers.update_flow_controller import (
+    InstallResultMessage,
+    UpdateFlowController,
+)
 
 logger = logging.getLogger(__name__)
-
-_HEADER_POLL_MS: Final[int] = 15_000  # cada 15 segundos
-
-
-# ─── Funciones de derivación de estado del header ───────────────────────────
-
-
-def _derive_sync_status(data: SyncDashboardData) -> tuple[str, str]:
-    """(state, tooltip) para el indicador Sync."""
-    if data.agent_state is not None and is_latched(data.agent_state.state):
-        return "error", f"Sync: agent bloqueado ({data.agent_state.state.value})"
-    if data.error_count > 0:
-        return "error", f"Sync: {data.error_count} errores en cola"
-    if data.pending_count > 0:
-        return "warning", f"Sync: {data.pending_count} pendientes"
-    if data.agent_state is None:
-        return "neutral", "Sync: sin agent (modo dev)"
-    return "ok", f"Sync: al día · {data.sent_today_count} enviados hoy"
-
-
-def _derive_ntp_status(data: SyncDashboardData) -> tuple[str, str]:
-    """(state, tooltip) para el indicador NTP."""
-    if data.agent_state is None:
-        return "neutral", "NTP: sin datos (sin agent)"
-    offset = data.agent_state.clock_offset_seconds
-    sign = "+" if offset >= 0 else ""
-    tip = f"NTP: desfase {sign}{offset:.1f}s"
-    if abs(offset) < 5.0:
-        return "ok", tip
-    if abs(offset) < 60.0:
-        return "warning", tip
-    return "error", f"NTP: desfase crítico {sign}{offset:.1f}s"
-
-
-def _derive_connectivity_status(data: SyncDashboardData) -> tuple[str, str]:
-    """(state, tooltip) para el indicador de conectividad."""
-    if data.agent_state is None:
-        return "neutral", "Red: sin agent (modo dev)"
-    state = data.agent_state.state
-    if state == AgentState.HEALTHY:
-        return "ok", "Online · servidor accesible"
-    if state == AgentState.DEGRADED:
-        return "warning", "Red: conexión degradada"
-    if state == AgentState.DISCONNECTED:
-        return "warning", "Desconectado del servidor"
-    if state == AgentState.PAUSED:
-        return "neutral", "Agent pausado por operador"
-    if is_latched(state):
-        return "error", f"Error de conexión: {state.value}"
-    return "neutral", str(state)
 
 
 @dataclass(frozen=True)
@@ -180,15 +136,15 @@ class MockUser:
 
 
 _SIDEBAR_ITEMS: list[SidebarItem] = [
-    SidebarItem(key="inicio",     label="Inicio",        icon_name="inicio"),
-    SidebarItem(key="formulario", label="Cuaderno",      icon_name="Cuaderno"),
-    SidebarItem(key="dashboard",  label="Observatorio",  icon_name="observatorio"),
-    SidebarItem(key="sync",       label="Enlace",        icon_name="enlace",        alumno_hidden=True),
-    SidebarItem(key="ayuda",      label="Pizarra",       icon_name="pizarra"),
-    SidebarItem(key="usuarios",   label="Usuarios",      icon_name="usuarios",      admin_only=True),
-    SidebarItem(key="logs",       label="Bitácora",      icon_name="bitacora",      admin_only=True),
-    SidebarItem(key="datos",      label="Mediciones",    icon_name="mediciones",    admin_only=True),
-    SidebarItem(key="config",     label="Configuración", icon_name="configuracion", admin_only=True),
+    SidebarItem(key="inicio", label="Inicio", icon_name="inicio"),
+    SidebarItem(key="formulario", label="Cuaderno", icon_name="Cuaderno"),
+    SidebarItem(key="dashboard", label="Observatorio", icon_name="observatorio"),
+    SidebarItem(key="sync", label="Enlace", icon_name="enlace", alumno_hidden=True),
+    SidebarItem(key="ayuda", label="Pizarra", icon_name="pizarra"),
+    SidebarItem(key="usuarios", label="Usuarios", icon_name="usuarios", admin_only=True),
+    SidebarItem(key="logs", label="Bitácora", icon_name="bitacora", admin_only=True),
+    SidebarItem(key="datos", label="Mediciones", icon_name="mediciones", admin_only=True),
+    SidebarItem(key="config", label="Configuración", icon_name="configuracion", admin_only=True),
 ]
 
 
@@ -223,6 +179,7 @@ class MainApplication(tk.Tk):
         app_config_repo: AppConfigRepository | None = None,
         hardware_fingerprint: str | None = None,
         empirical_controller: EmpiricalController | None = None,
+        sensor_history: LastObservationPort | None = None,
         sensor_status_fn: Callable[[], tuple[str, str]] | None = None,
         query_sensor_aggregated_uc: QuerySensorAggregatedUseCase | None = None,
         iea_name: str = "IEA — sin configurar",
@@ -244,18 +201,21 @@ class MainApplication(tk.Tk):
         self.minsize(min(WINDOW_MIN_WIDTH, _sw), min(WINDOW_MIN_HEIGHT, _sh - _margin))
 
         from yvy.config.paths import RESOURCES_DIR
+
         _ico = RESOURCES_DIR / "yvy.ico"
         if _ico.exists():
             self.iconbitmap(str(_ico))
 
         # Cargar tema guardado ANTES de aplicar ttk styles
         from yvy.presentation.theme_manager import theme_manager, update_ttk_styles
+
         if app_config_repo is not None:
             try:
                 from yvy.config.paths import DATA_DIR
+
                 theme_manager.load(DATA_DIR)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("No se pudo cargar el tema guardado, se usa default: %s", exc)
 
         apply_theme(self)
         if theme_manager.mode == "dark":
@@ -282,16 +242,47 @@ class MainApplication(tk.Tk):
         self._sensor_status_fn = sensor_status_fn
         self._query_sensor_aggregated_uc = query_sensor_aggregated_uc
 
+        # El flujo de update necesita el subsistema; sin él la campana no existe.
+        self._update_flow: UpdateFlowController | None = (
+            UpdateFlowController(
+                updates=sync_controller,
+                app_config=app_config_repo,
+                schedule=lambda ms, fn: self.after(ms, fn),
+            )
+            if sync_controller is not None
+            else None
+        )
+
         # Use case de indicadores derivados (sin dependencia de DB propia)
         from yvy.application.use_cases.compute_derived import ComputeDerivedUseCase
+
         self._compute_derived_uc = (
             ComputeDerivedUseCase() if self._query_sensor_aggregated_uc is not None else None
         )
-        self._header_poll_id: str | None = None
+        self._header_controller = HeaderController(
+            schedule=lambda ms, fn: self.after(ms, fn),
+            cancel=self.after_cancel,
+            sync_controller=sync_controller,
+            sensor_status_fn=sensor_status_fn,
+            update_alert_fn=(
+                self._update_flow.has_update_alert if self._update_flow is not None else None
+            ),
+        )
         self._empirical_wizard_active: bool = False  # bloquea navegación lateral
         self._iea_name = iea_name
         self._iea_cue = iea_cue
         self._local_tz = local_tz or ZoneInfo("America/Argentina/Cordoba")
+
+        # El catchup necesita el sensor (para el modal) y la base (para el gap).
+        self._catchup: CatchupController | None = (
+            CatchupController(
+                sensor_history=sensor_history,
+                local_tz=self._local_tz,
+                schedule=lambda ms, fn: self.after(ms, fn),
+            )
+            if sensor_history is not None and sync_controller is not None
+            else None
+        )
 
         # Estado de sesión
         self._current_user: User | MockUser | None = None
@@ -360,7 +351,7 @@ class MainApplication(tk.Tk):
 
     def show_login(self) -> None:
         """Pantalla de login. Limpia el main frame si existía."""
-        self._cancel_header_polling()
+        self._header_controller.stop()
         if self._wizard_view is not None:
             self._wizard_view.destroy()
             self._wizard_view = None
@@ -384,9 +375,9 @@ class MainApplication(tk.Tk):
 
     def show_onboarding(self) -> None:
         """Wizard de onboarding (primera vez)."""
-        assert self._onboarding_use_case is not None, (
-            "show_onboarding requiere onboarding_use_case inyectado"
-        )
+        assert (
+            self._onboarding_use_case is not None
+        ), "show_onboarding requiere onboarding_use_case inyectado"
 
         if self._login_view is not None:
             self._login_view.destroy()
@@ -427,13 +418,13 @@ class MainApplication(tk.Tk):
         if self._login_view is not None and hasattr(self._login_view, "set_username"):
             try:
                 # Si LoginView soporta pre-fill, usarlo
-                self._login_view.set_username(  # type: ignore[attr-defined]
-                    self._auth_controller.current_user.username  # type: ignore[union-attr]
+                self._login_view.set_username(
+                    self._auth_controller.current_user.username
                     if self._auth_controller and self._auth_controller.current_user
                     else ""
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Pre-fill de username en login falló (ignorado): %s", exc)
 
     def show_main(self, user: User | MockUser) -> None:
         """App autenticada con header + sidebar + content."""
@@ -498,103 +489,45 @@ class MainApplication(tk.Tk):
             )
 
         # Arrancar polling de indicadores del header (actualiza cada 15s)
-        self._start_header_polling()
+        self._header_controller.start(self._apply_header_status)
 
         # Vista por defecto según rol
         default_view = "formulario" if user_role == "alumno" else "dashboard"
         self._navigate(default_view)
         self._sidebar.set_active(default_view)
 
-        # Oferta de catchup al arranque — delay 2 s para que la UI se asiente
-        self.after(2000, self._maybe_offer_startup_catchup)
+        # Oferta de catchup al arranque
+        if self._catchup is not None:
+            self._catchup.schedule_startup_offer(
+                ask=self._ask_catchup, open_modal=self._open_catchup_modal
+            )
 
-        # Resultado de update post-instalación — delay 1.5s (antes del catchup)
-        self.after(1500, self._maybe_show_update_result)
+        # Resultado de update post-instalación (va antes que el catchup)
+        if self._update_flow is not None:
+            self._update_flow.schedule_install_result(self._present_install_result)
 
     # ─── Resultado de update post-instalación (C9) ──────────────────────
 
-    def _maybe_show_update_result(self) -> None:
-        """Muestra el resultado de la instalación si es el primer arranque post-update."""
-        if self._app_config_repo is None:
-            return
-        try:
-            result = self._app_config_repo.pop_show_result()
-        except Exception:
-            return
-        if not result:
-            return
-
+    def _present_install_result(self, message: InstallResultMessage) -> None:
+        """Pinta el mensaje que decidió el controller. Acá no se decide nada."""
         from tkinter import messagebox
-        to_ver = self._app_config_repo.get("update_install.to_version") or "nueva versión"
-        from_ver = self._app_config_repo.get("update_install.from_version") or "anterior"
-        error_detail = self._app_config_repo.get("update_install.error_detail") or ""
 
-        if result == "success":
-            messagebox.showinfo(
-                "Actualización completada",
-                f"El sistema se actualizó a la versión {to_ver} correctamente.\n"
-                "Funcionando normalmente.",
-                parent=self,
-            )
-            # Detener alerta de campana
-            if self._header is not None:
-                self._header.set_update_alert(False)
-        elif result == "rollback":
-            messagebox.showerror(
-                "La actualización falló",
-                f"No se pudo instalar la versión {to_ver}.\n"
-                f"El sistema volvió a la versión {from_ver} (funcionando normalmente).\n\n"
-                f"Detalle: {error_detail or 'watchdog timeout'}\n"
-                "Este error quedó registrado en la bitácora.",
-                parent=self,
-            )
-        elif result == "version_mismatch":
-            messagebox.showerror(
-                "Error de actualización",
-                f"Se esperaba la versión {to_ver} pero arrancó {from_ver}.\n"
-                "Contactar soporte técnico.",
-                parent=self,
-            )
+        show = messagebox.showinfo if message.severity == "info" else messagebox.showerror
+        show(message.title, message.body, parent=self)
+
+        if message.clear_update_alert and self._header is not None:
+            self._header.set_update_alert(False)
 
     # ─── Catchup al arranque ─────────────────────────────────────────────
 
-    def _maybe_offer_startup_catchup(self) -> None:
-        """Ofrece recuperar el buffer histórico si hay un gap desde el último dato.
-
-        Se llama 2 s después de show_main() para dar tiempo a que la UI se
-        asiente. Si el último registro del sensor tiene más de 10 minutos de
-        antigüedad (o no hay ninguno), muestra un diálogo de confirmación.
-        Si el usuario acepta, abre CatchupModal en modo automático (sin date picker).
-        """
-        if self._sync_controller is None or self._db_factory is None:
-            return
-
-        since_utc, last_ts_local = self._calculate_catchup_since()
-        if since_utc is None:
-            return  # Gap insignificante — no molestar
-
-        from datetime import UTC, datetime, timedelta
+    def _ask_catchup(self, message: str) -> bool:
         from tkinter import messagebox
 
-        if last_ts_local is not None:
-            last_str = last_ts_local.strftime("%d/%m/%Y %H:%M")
-            est_slots = int((datetime.now(UTC) - since_utc).total_seconds() / 300)
-            msg = (
-                f"Último dato registrado: {last_str}\n\n"
-                f"Hay aproximadamente {est_slots} lecturas pendientes de recuperar "
-                f"del buffer del sensor.\n\n"
-                f"¿Desea realizar el recupero ahora?"
-            )
-        else:
-            msg = (
-                "No hay datos del sensor registrados en la base de datos.\n\n"
-                "¿Desea recuperar el buffer histórico del sensor (hasta 14 días)?"
-            )
+        return bool(messagebox.askyesno("Recuperar datos del sensor", message, parent=self))
 
-        if not messagebox.askyesno("Recuperar datos del sensor", msg, parent=self):
-            return
-
+    def _open_catchup_modal(self, since_utc: datetime) -> None:
         from yvy.presentation.components.catchup_modal import CatchupModal
+
         CatchupModal(
             parent=self,
             controller=self._sync_controller,
@@ -602,118 +535,24 @@ class MainApplication(tk.Tk):
             auto_since=since_utc,
         )
 
-    def _calculate_catchup_since(self):  # type: ignore[return]
-        """Calcula el datetime desde donde hacer catchup.
-
-        Returns:
-            (since_utc, last_ts_local) si hay gap > 10 minutos.
-            (None, None) si no es necesario ofrecer catchup.
-
-        Lógica:
-            - Lee MAX(observed_at) de sensor_data.
-            - Si no hay datos: since = ahora - 14 días (límite del buffer WH1081).
-            - Si hay datos y el gap > 10 min: since = último observed_at.
-            - Si el último dato es más antiguo que 14 días: since = ahora - 14 días.
-        """
-        from datetime import UTC, datetime, timedelta
-
-        MAX_BUFFER_DAYS = 14
-        GAP_THRESHOLD_S  = 600   # 10 minutos
-
-        now_utc   = datetime.now(UTC)
-        max_since = now_utc - timedelta(days=MAX_BUFFER_DAYS)
-
-        # Consultar último registro válido
-        last_ts_utc = None
-        try:
-            conn = self._db_factory.get_connection()  # type: ignore[union-attr]
-            row = conn.execute(
-                "SELECT MAX(observed_at) FROM sensor_data WHERE is_valid = 1"
-            ).fetchone()
-            raw = row[0] if row else None
-            if raw is not None:
-                ts = datetime.fromisoformat(str(raw).replace(" ", "T"))
-                last_ts_utc = ts.replace(tzinfo=UTC) if ts.tzinfo is None else ts
-        except Exception:
-            logger.warning("startup_catchup: no se pudo consultar sensor_data")
-            return None, None
-
-        if last_ts_utc is None:
-            # DB vacía: ofrecer recupero completo del buffer
-            return max_since, None
-
-        gap_s = (now_utc - last_ts_utc).total_seconds()
-        if gap_s < GAP_THRESHOLD_S:
-            return None, None  # Datos frescos — no hay nada que recuperar
-
-        since_utc   = max(last_ts_utc, max_since)
-        last_local  = last_ts_utc.astimezone(self._local_tz)
-        return since_utc, last_local
-
     # ─── Polling de estado del header ───────────────────────────────────
 
-    def _start_header_polling(self) -> None:
-        """Cancela cualquier ciclo previo y dispara el primero inmediatamente."""
-        self._cancel_header_polling()
-        self._poll_header()
-
-    def _cancel_header_polling(self) -> None:
-        if self._header_poll_id is not None:
-            try:
-                self.after_cancel(self._header_poll_id)
-            except Exception:
-                pass
-            self._header_poll_id = None
-
-    def _poll_header(self) -> None:
-        """Actualiza indicadores y reprograma el próximo tick."""
+    def _apply_header_status(self, status: HeaderStatus) -> None:
+        """Pinta lo que el controller leyó. ``None`` = dejar como estaba."""
         if self._header is None:
             return
-        self._update_header_status()
-        self._header_poll_id = self.after(_HEADER_POLL_MS, self._poll_header)
-
-    def _update_header_status(self) -> None:
-        """Lee estado real de sensor + sync agent y lo refleja en el header."""
-        if self._header is None:
-            return
-
-        # ── Sensor ──────────────────────────────────────────────────────
-        if self._sensor_status_fn is not None:
-            sensor_state, sensor_tip = self._sensor_status_fn()
-        else:
-            sensor_state, sensor_tip = "neutral", "Sensor: sin datos"
-        self._header.set_sensor_status(sensor_state, sensor_tip)
-
-        # ── Sync / NTP / Conectividad — requieren sync_controller ───────
-        if self._sync_controller is None:
-            self._header.set_sync_status("neutral", "Sync: sin controller")
-            self._header.set_ntp_status("neutral", "NTP: sin datos")
-            self._header.set_connectivity_status("neutral", "Red: sin datos")
-            return
-
-        try:
-            data = self._sync_controller.get_dashboard_data(recent_limit=0)
-        except Exception:
-            logger.exception("Error en polling de indicadores del header")
-            return
-
-        sync_s, sync_t = _derive_sync_status(data)
-        ntp_s, ntp_t = _derive_ntp_status(data)
-        conn_s, conn_t = _derive_connectivity_status(data)
-
-        self._header.set_sync_status(sync_s, sync_t)
-        self._header.set_ntp_status(ntp_s, ntp_t)
-        self._header.set_connectivity_status(conn_s, conn_t)
-
-        # ── Alerta de update (campana roja parpadeante) ──────────────────
-        try:
-            update_info = self._sync_controller.get_update_info()
-            has_alert = bool(
-                update_info.get("pending") and update_info.get("is_downloaded")
+        if status.sensor is not None:
+            self._header.set_sensor_status(status.sensor.state, status.sensor.tooltip)
+        if status.sync is not None:
+            self._header.set_sync_status(status.sync.state, status.sync.tooltip)
+        if status.ntp is not None:
+            self._header.set_ntp_status(status.ntp.state, status.ntp.tooltip)
+        if status.connectivity is not None:
+            self._header.set_connectivity_status(
+                status.connectivity.state, status.connectivity.tooltip
             )
-            self._header.set_update_alert(has_alert)
-        except Exception:
-            pass
+        if status.update_alert is not None:
+            self._header.set_update_alert(status.update_alert)
 
     def _get_iea_name(self, user: User | MockUser) -> str:
         if isinstance(user, MockUser):
@@ -735,6 +574,7 @@ class MainApplication(tk.Tk):
     def _user_is_alumno(user: User | MockUser) -> bool:
         if isinstance(user, User):
             from yvy.domain.auth.enums import Role
+
             return user.role == Role.ALUMNO
         return user.role.lower() == "alumno"
 
@@ -743,6 +583,7 @@ class MainApplication(tk.Tk):
     def _toggle_theme(self) -> None:
         """Cambia entre light/dark y propaga a todos los componentes."""
         from yvy.presentation.theme_manager import theme_manager, update_ttk_styles
+
         theme_manager.toggle()
         palette = theme_manager.palette
         update_ttk_styles(self, palette)
@@ -777,12 +618,14 @@ class MainApplication(tk.Tk):
                 # Best-effort para vistas sin apply_theme explícito
                 try:
                     from yvy.presentation.theme_manager import recolor
+
                     recolor(view, palette)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("recolor best-effort falló en vista (ignorado): %s", exc)
         # Propagar a vistas activas no cacheadas (ej. EmpiricalWizardView)
         if self._content is not None:
             from yvy.presentation.theme_manager import recolor
+
             for child in self._content.winfo_children():
                 if child not in cached and hasattr(child, "apply_theme"):
                     try:
@@ -835,6 +678,7 @@ class MainApplication(tk.Tk):
                     self._header.set_theme_toggle_enabled(True)
             else:
                 from tkinter import messagebox
+
                 salir = messagebox.askyesno(
                     "Carga en progreso",
                     "Hay una carga de formulario en progreso.\n\n"
@@ -856,14 +700,15 @@ class MainApplication(tk.Tk):
             view = self._build_view(key)
             self._view_cache[key] = view
             # Si la vista se construye después de un cambio de tema, aplicar paleta
-            from yvy.presentation.theme_manager import theme_manager, recolor
+            from yvy.presentation.theme_manager import recolor, theme_manager
+
             if theme_manager.mode == "dark":
                 palette = theme_manager.palette
                 if hasattr(view, "apply_theme"):
                     try:
                         view.apply_theme(palette)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.debug("apply_theme en vista nueva falló (ignorado): %s", exc)
                 else:
                     recolor(view, palette)
 
@@ -890,7 +735,8 @@ class MainApplication(tk.Tk):
                 query_sensor_aggregated_uc=self._query_sensor_aggregated_uc,
                 current_user=self._current_user,
                 station_uuid=self._app_config_repo.get("station_uuid")
-                if self._app_config_repo is not None else None,
+                if self._app_config_repo is not None
+                else None,
                 compute_derived_uc=self._compute_derived_uc,
                 help_repository=self._help_repository,
                 open_pizarra=self.open_pizarra if self._pizarra is not None else None,
@@ -905,7 +751,8 @@ class MainApplication(tk.Tk):
                 query_sensor_aggregated_uc=self._query_sensor_aggregated_uc,
                 current_user=self._current_user,
                 station_uuid=self._app_config_repo.get("station_uuid")
-                if self._app_config_repo is not None else None,
+                if self._app_config_repo is not None
+                else None,
                 compute_derived_uc=self._compute_derived_uc,
                 help_repository=self._help_repository,
                 open_pizarra=self.open_pizarra if self._pizarra is not None else None,
@@ -945,9 +792,7 @@ class MainApplication(tk.Tk):
             and self._db_factory is not None
         ):
             current_user = (
-                self._auth_controller.current_user
-                if self._auth_controller is not None
-                else None
+                self._auth_controller.current_user if self._auth_controller is not None else None
             )
             return DataView(
                 self._content,
@@ -960,9 +805,7 @@ class MainApplication(tk.Tk):
 
         if key == "formulario" and self._empirical_controller is not None:
             current_user = (
-                self._auth_controller.current_user
-                if self._auth_controller is not None
-                else None
+                self._auth_controller.current_user if self._auth_controller is not None else None
             )
             if isinstance(current_user, User):
                 return EmpiricalListView(
@@ -977,12 +820,10 @@ class MainApplication(tk.Tk):
             is_superadmin = False
             user_role = "alumno"
             user_id = 0
-            if (
-                self._auth_controller is not None
-                and self._auth_controller.current_user is not None
-            ):
+            if self._auth_controller is not None and self._auth_controller.current_user is not None:
                 u = self._auth_controller.current_user
                 from yvy.domain.auth.enums import Role
+
                 is_superadmin = u.role == Role.SUPERADMIN
                 user_role = u.role.value
                 user_id = u.id
@@ -998,7 +839,7 @@ class MainApplication(tk.Tk):
                 current_user_id=user_id,
             )
 
-        return _PlaceholderView(self._content, label=self._stub_label(key))
+        return PlaceholderView(self._content, label=self._stub_label(key))
 
     @staticmethod
     def _stub_label(key: str) -> str:
@@ -1018,9 +859,7 @@ class MainApplication(tk.Tk):
         if self._content is None or self._empirical_controller is None:
             return
         current_user = (
-            self._auth_controller.current_user
-            if self._auth_controller is not None
-            else None
+            self._auth_controller.current_user if self._auth_controller is not None else None
         )
         if not isinstance(current_user, User):
             return
@@ -1044,6 +883,7 @@ class MainApplication(tk.Tk):
             self._sidebar.set_active("formulario")
         # Aplicar dark mode si está activo al momento de abrir el wizard
         from yvy.presentation.theme_manager import theme_manager
+
         if theme_manager.mode == "dark":
             wizard.apply_theme(theme_manager.palette)
 
@@ -1087,19 +927,17 @@ class MainApplication(tk.Tk):
         if self._login_view is not None:
             # Delegamos al LoginView si tiene método; si no, modal genérico
             if hasattr(self._login_view, "show_error"):
-                self._login_view.show_error(message)  # type: ignore[attr-defined]
+                self._login_view.show_error(message)
                 return
 
         # Fallback: modal simple
         from tkinter import messagebox
+
         messagebox.showerror("Error de inicio de sesión", message)
 
     def _on_notifications(self) -> None:
         """Abre el modal de actualización si hay un update descargado."""
-        if self._sync_controller is None:
-            return
-        update_info = self._sync_controller.get_update_info()
-        if not update_info.get("pending"):
+        if self._update_flow is None:
             return
 
         user_role = "alumno"
@@ -1110,33 +948,28 @@ class MainApplication(tk.Tk):
                 else self._current_user.role
             )
 
-        releases = self._sync_controller.get_releases_on_disk()
-        releases_simple = [
-            {"version": r["version"], "states": r.get("states", [])}
-            for r in releases
-        ]
-
-        def _prevalidate():
-            return self._sync_controller.prevalidate_install()  # type: ignore[union-attr]
-
-        def _on_confirmed() -> None:
-            self._show_install_transition()
+        params = self._update_flow.build_modal_params(user_role)
+        if params is None:
+            return
 
         from yvy.presentation.components.update_modal import UpdateModal
+
         UpdateModal(
             self,
-            update_info=update_info,
-            releases_on_disk=releases_simple,
-            user_role=user_role,
-            on_install_confirmed=_on_confirmed,
-            prevalidate_fn=_prevalidate,
+            update_info=params.update_info,
+            releases_on_disk=params.releases_on_disk,
+            user_role=params.user_role,
+            on_install_confirmed=self._show_install_transition,
+            prevalidate_fn=self._update_flow.prevalidate_install,
         )
 
     def _show_install_transition(self) -> None:
         """C9.4: pantalla de transición antes de lanzar el instalador."""
+        if self._update_flow is None:
+            return
         user_id = 0
         if self._current_user is not None and hasattr(self._current_user, "id"):
-            user_id = self._current_user.id or 0  # type: ignore[union-attr]
+            user_id = self._current_user.id or 0
 
         # Mostrar overlay de transición
         overlay = tk.Toplevel(self)
@@ -1147,27 +980,48 @@ class MainApplication(tk.Tk):
 
         frame = tk.Frame(overlay, bg=BG_CARD, padx=SPACE_2XL, pady=SPACE_2XL)
         frame.pack(fill="both", expand=True)
-        tk.Label(frame, text="Instalando actualización...", bg=BG_CARD, fg=TEXT_PRIMARY, font=FONT_BODY_BOLD).pack(pady=(0, SPACE_MD))
-        tk.Label(frame, text="El sistema se va a cerrar y reiniciar automáticamente.", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY).pack()
-        tk.Label(frame, text="NO apagues la computadora.", bg=BG_CARD, fg=DANGER, font=FONT_BODY_BOLD).pack(pady=SPACE_SM)
-        tk.Label(frame, text="Esto puede tomar 2-3 minutos.", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY).pack()
+        tk.Label(
+            frame,
+            text="Instalando actualización...",
+            bg=BG_CARD,
+            fg=TEXT_PRIMARY,
+            font=FONT_BODY_BOLD,
+        ).pack(pady=(0, SPACE_MD))
+        tk.Label(
+            frame,
+            text="El sistema se va a cerrar y reiniciar automáticamente.",
+            bg=BG_CARD,
+            fg=TEXT_SECONDARY,
+            font=FONT_BODY,
+        ).pack()
+        tk.Label(
+            frame, text="NO apagues la computadora.", bg=BG_CARD, fg=DANGER, font=FONT_BODY_BOLD
+        ).pack(pady=SPACE_SM)
+        tk.Label(
+            frame,
+            text="Esto puede tomar 2-3 minutos.",
+            bg=BG_CARD,
+            fg=TEXT_SECONDARY,
+            font=FONT_BODY,
+        ).pack()
         overlay.update_idletasks()
         # Centrar
         w, h = overlay.winfo_width(), overlay.winfo_height()
-        overlay.geometry(f"+{(overlay.winfo_screenwidth()-w)//2}+{(overlay.winfo_screenheight()-h)//2}")
+        overlay.geometry(
+            f"+{(overlay.winfo_screenwidth()-w)//2}+{(overlay.winfo_screenheight()-h)//2}"
+        )
 
-        # Lanzar el bat después de 1s para que la UI se muestre
-        def _do_install() -> None:
-            ok = self._sync_controller.request_install(  # type: ignore[union-attr]
-                user_id=user_id,
-                on_done=self._quit_for_install,
-            )
-            if not ok:
-                overlay.destroy()
-                from tkinter import messagebox
-                messagebox.showerror("Error", "No se pudo iniciar la instalación.")
+        def _on_failure() -> None:
+            overlay.destroy()
+            from tkinter import messagebox
 
-        self.after(1000, _do_install)
+            messagebox.showerror("Error", "No se pudo iniciar la instalación.")
+
+        self._update_flow.schedule_install(
+            user_id=user_id,
+            on_done=self._quit_for_install,
+            on_failure=_on_failure,
+        )
 
     def _quit_for_install(self) -> None:
         """Cierra la app para que INSTALL_UPDATE.bat tome el control."""
@@ -1212,216 +1066,6 @@ class MainApplication(tk.Tk):
         x = max(0, (sw - w) // 2)
         y = max(0, (sh - margin - h) // 2)
         self.geometry(f"{w}x{h}+{x}+{y}")
-
-
-# ─── Modales auxiliares ─────────────────────────────────────────────────
-
-
-class CloseInterceptModal(tk.Toplevel):
-    """Modal que aparece al apretar X. NO permite cerrar la app."""
-
-    def __init__(
-        self,
-        parent: tk.Tk,
-        on_change_user,  # type: ignore[no-untyped-def]
-        on_minimize,  # type: ignore[no-untyped-def]
-    ) -> None:
-        super().__init__(parent)
-        self._on_change_user = on_change_user
-        self._on_minimize = on_minimize
-
-        self.title("¿Qué querés hacer?")
-        self.transient(parent)
-        self.resizable(False, False)
-        self.configure(bg=BG_CARD)
-
-        # Header azul
-        header = tk.Frame(self, bg=PRIMARY, height=48)
-        header.pack(fill="x")
-        header.pack_propagate(False)
-        tk.Label(
-            header,
-            text="¿Qué querés hacer?",
-            bg=PRIMARY,
-            fg="#FFFFFF",
-            font=FONT_BODY_BOLD,
-            padx=SPACE_XL,
-        ).pack(side="left", fill="y")
-
-        # Body
-        body = tk.Frame(self, bg=BG_CARD, padx=SPACE_XL, pady=SPACE_XL)
-        body.pack(fill="both", expand=True)
-
-        tk.Label(
-            body,
-            text=(
-                "La aplicación funciona como servidor local. Los procesos "
-                "de recolección y sincronización deben seguir activos."
-            ),
-            bg=BG_CARD,
-            fg=TEXT_SECONDARY,
-            font=FONT_BODY,
-            wraplength=420,
-            justify="left",
-        ).pack(anchor="w", pady=(0, SPACE_LG))
-
-        # Footer botones
-        footer = tk.Frame(self, bg=BG_CREAM, padx=SPACE_XL, pady=SPACE_LG)
-        footer.pack(fill="x", side="bottom")
-
-        ttk.Button(
-            footer,
-            text="Cancelar",
-            command=self._close,
-            style="Secondary.TButton",
-        ).pack(side="right", padx=(SPACE_SM, 0))
-
-        ttk.Button(
-            footer,
-            text="Minimizar",
-            command=self._do_minimize,
-            style="Secondary.TButton",
-        ).pack(side="right", padx=(SPACE_SM, 0))
-
-        ttk.Button(
-            footer,
-            text="Cambiar usuario",
-            command=self._do_change_user,
-            style="Primary.TButton",
-        ).pack(side="right")
-
-        self.bind("<Escape>", lambda _e: self._close())
-        self.protocol("WM_DELETE_WINDOW", self._close)
-
-        # Centrar y bloquear interacción con la ventana padre
-        self.update_idletasks()
-        self._center_on_parent(parent)
-        self.grab_set()
-        self.focus_set()
-
-    def _do_change_user(self) -> None:
-        self._close()
-        self._on_change_user()
-
-    def _do_minimize(self) -> None:
-        self._close()
-        self._on_minimize()
-
-    def _close(self) -> None:
-        try:
-            self.grab_release()
-        except tk.TclError:
-            pass
-        self.destroy()
-
-    def _center_on_parent(self, parent: tk.Misc) -> None:
-        try:
-            px, py = parent.winfo_rootx(), parent.winfo_rooty()
-            pw, ph = parent.winfo_width(), parent.winfo_height()
-            mw = self.winfo_reqwidth()
-            mh = self.winfo_reqheight()
-            x = max(0, px + (pw - mw) // 2)
-            y = max(0, py + (ph - mh) // 2)
-            self.geometry(f"+{x}+{y}")
-        except tk.TclError:
-            pass
-
-
-class UserMenuModal(tk.Toplevel):
-    """Menú al click en avatar: cambiar usuario, ver perfil, etc."""
-
-    def __init__(self, parent: tk.Tk, on_change_user) -> None:  # type: ignore[no-untyped-def]
-        super().__init__(parent)
-        self._on_change_user = on_change_user
-
-        self.title("Sesión")
-        self.transient(parent)
-        self.resizable(False, False)
-        self.configure(bg=BG_CARD)
-
-        header = tk.Frame(self, bg=PRIMARY, height=48)
-        header.pack(fill="x")
-        header.pack_propagate(False)
-        tk.Label(
-            header,
-            text="Sesión",
-            bg=PRIMARY,
-            fg="#FFFFFF",
-            font=FONT_BODY_BOLD,
-            padx=SPACE_XL,
-        ).pack(side="left", fill="y")
-
-        body = tk.Frame(self, bg=BG_CARD, padx=SPACE_XL, pady=SPACE_XL)
-        body.pack(fill="both", expand=True)
-
-        tk.Label(
-            body,
-            text="Cambiar de usuario para iniciar sesión con otra cuenta.",
-            bg=BG_CARD,
-            fg=TEXT_SECONDARY,
-            font=FONT_BODY,
-            wraplength=380,
-            justify="left",
-        ).pack(anchor="w", pady=(0, SPACE_LG))
-
-        ttk.Button(
-            body,
-            text="Cambiar usuario",
-            command=self._do_change_user,
-            style="Primary.TButton",
-        ).pack(fill="x")
-
-        ttk.Button(
-            body,
-            text="Cerrar",
-            command=self._close,
-            style="Secondary.TButton",
-        ).pack(fill="x", pady=(SPACE_SM, 0))
-
-        self.bind("<Escape>", lambda _e: self._close())
-        self.protocol("WM_DELETE_WINDOW", self._close)
-
-        self.update_idletasks()
-        self._center_on_parent(parent)
-        self.grab_set()
-        self.focus_set()
-
-    def _do_change_user(self) -> None:
-        self._close()
-        self._on_change_user()
-
-    def _close(self) -> None:
-        try:
-            self.grab_release()
-        except tk.TclError:
-            pass
-        self.destroy()
-
-    def _center_on_parent(self, parent: tk.Misc) -> None:
-        try:
-            px, py = parent.winfo_rootx(), parent.winfo_rooty()
-            pw, ph = parent.winfo_width(), parent.winfo_height()
-            mw = self.winfo_reqwidth()
-            mh = self.winfo_reqheight()
-            x = max(0, px + (pw - mw) // 2)
-            y = max(0, py + (ph - mh) // 2)
-            self.geometry(f"+{x}+{y}")
-        except tk.TclError:
-            pass
-
-
-class _PlaceholderView(tk.Frame):
-    def __init__(self, parent: tk.Misc, label: str) -> None:
-        super().__init__(parent, bg=BG_CREAM)
-        inner = tk.Frame(self, bg=BG_CREAM)
-        inner.pack(expand=True)
-
-        ttk.Label(inner, text=label, style="H1.TLabel").pack()
-        ttk.Label(
-            inner,
-            text="Esta sección será implementada en una fase posterior.",
-            style="Secondary.TLabel",
-        ).pack(pady=(SPACE_2XL // 2, 0))
 
 
 # ─── Entry point ────────────────────────────────────────────────────────

@@ -187,8 +187,8 @@ class PywwsLiveSource:
         #   _paused    : live confirma que el WS fue liberado
         #   _resume    : catchup indica que terminó y el live puede continuar
         self._pause_req = threading.Event()
-        self._paused    = threading.Event()
-        self._resume    = threading.Event()
+        self._paused = threading.Event()
+        self._resume = threading.Event()
 
     # ── API de pausa para catchup ─────────────────────────────────────────
 
@@ -266,7 +266,7 @@ class PywwsLiveSource:
         """
         if self._ws is None:
             try:
-                from pywws.weatherstation import WeatherStation  # type: ignore[import-not-found]
+                from pywws.weatherstation import WeatherStation
             except ImportError as exc:
                 raise RuntimeError(
                     "pywws no está instalado. PywwsLiveSource solo funciona con "
@@ -343,7 +343,8 @@ class PywwsLiveSource:
             elif n % 30 == 0:
                 logger.warning(
                     "PywwsLiveSource: sensor ocupado (%d intentos consecutivos): %s",
-                    n, exc,
+                    n,
+                    exc,
                 )
             self._invalidate_iter()
             return None
@@ -354,7 +355,9 @@ class PywwsLiveSource:
                 logger.exception("PywwsLiveSource: error inesperado (intento %d): %s", n, exc)
             elif n % 30 == 0:
                 logger.error(
-                    "PywwsLiveSource: error inesperado (%d consecutivo): %s", n, exc,
+                    "PywwsLiveSource: error inesperado (%d consecutivo): %s",
+                    n,
+                    exc,
                 )
             self._invalidate_iter()
             return None
@@ -367,7 +370,8 @@ class PywwsLiveSource:
         if data is None:
             logger.warning(
                 "PywwsLiveSource: emisión con shape inesperado: type=%s, value=%r",
-                type(emission).__name__, emission,
+                type(emission).__name__,
+                emission,
             )
             return None
 

@@ -15,11 +15,11 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
-from tkinter import ttk
 from collections.abc import Callable
+from tkinter import ttk
 
 from yvy.infrastructure.help.help_repository import HelpArticle, HelpRepository
-from yvy.infrastructure.help.markdown_renderer import apply_markdown
+from yvy.presentation.help.markdown_renderer import apply_markdown
 from yvy.presentation.theme import (
     BG_CARD,
     BG_CREAM,
@@ -38,7 +38,7 @@ from yvy.presentation.theme import (
 
 logger = logging.getLogger(__name__)
 
-_PRIMARY_HOVER = "#1A4D8C"   # PRIMARY levemente más oscuro para hover en chips
+_PRIMARY_HOVER = "#1A4D8C"  # PRIMARY levemente más oscuro para hover en chips
 
 
 class PizarraYvY(tk.Frame):
@@ -75,7 +75,7 @@ class PizarraYvY(tk.Frame):
         self._repo = help_repository
         self._on_close = on_close
         self._content_sibling = content_sibling  # widget antes del que se empaqueta
-        self._stack: list[str] = []   # historial de keys
+        self._stack: list[str] = []  # historial de keys
         self._is_open = False
 
         # Subestructura fija — se construye una vez
@@ -120,6 +120,7 @@ class PizarraYvY(tk.Frame):
     def apply_theme(self, palette: dict) -> None:
         """Aplica paleta de colores y re-renderiza el artículo actual."""
         from yvy.presentation.theme_manager import recolor
+
         recolor(self, palette)
         if self._body_text is not None:
             self._body_text.configure(
@@ -225,9 +226,7 @@ class PizarraYvY(tk.Frame):
             pady=SPACE_LG,
             cursor="arrow",
         )
-        scroll = ttk.Scrollbar(
-            body_frame, orient="vertical", command=self._body_text.yview
-        )
+        scroll = ttk.Scrollbar(body_frame, orient="vertical", command=self._body_text.yview)
         self._body_text.configure(yscrollcommand=scroll.set)
         scroll.pack(side="right", fill="y")
         self._body_text.pack(side="left", fill="both", expand=True)
@@ -242,9 +241,7 @@ class PizarraYvY(tk.Frame):
 
         # Back button visible solo si hay más de 1 en el stack
         if self._back_btn is not None:
-            self._back_btn.configure(
-                fg="#FFFFFF" if len(self._stack) > 1 else PRIMARY
-            )
+            self._back_btn.configure(fg="#FFFFFF" if len(self._stack) > 1 else PRIMARY)
 
         # Body: limpiar y re-renderizar markdown
         if self._body_text is not None:
@@ -329,6 +326,6 @@ class PizarraYvY(tk.Frame):
             for child in children:
                 if child is not self:
                     return child
-        except tk.TclError:
-            pass
+        except tk.TclError as exc:
+            logger.debug("Widget destruido durante callback (ignorado): %s", exc)
         return None

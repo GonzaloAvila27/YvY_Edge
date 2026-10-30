@@ -2,18 +2,16 @@
 
 Solo testea la nueva lógica de piggyback — no repite los tests del agente.
 """
+
 from __future__ import annotations
 
 import threading
 from datetime import UTC, datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from uuid import UUID
-
-import pytest
 
 from yvy.infrastructure.sync.http_client import SendResult
 from yvy.infrastructure.sync.sync_agent import SyncAgentDaemon
-
 
 _UUID = UUID("22222222-2222-4222-8222-222222222222")
 _KEY = b"k" * 32
@@ -38,6 +36,7 @@ def _make_agent(trigger=None, app_config_repo=None):
     time_provider.now_utc.return_value = datetime(2026, 6, 1, 12, 0, 0, tzinfo=UTC)
 
     from yvy.domain.sync.agent_state import AgentState, SyncAgentState
+
     agent_state_repo.get_state.return_value = SyncAgentState(
         state=AgentState.HEALTHY,
         last_transition_at=datetime(2026, 6, 1, tzinfo=UTC),

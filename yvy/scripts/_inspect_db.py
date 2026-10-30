@@ -1,4 +1,5 @@
 import sqlite3
+
 conn = sqlite3.connect(r"I:\.YVY_IEAProject\Fase_0\yvy\data\yvy.sqlite")
 conn.row_factory = sqlite3.Row
 

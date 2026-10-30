@@ -20,8 +20,8 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
+from collections.abc import Callable
 from tkinter import messagebox, ttk
-from typing import Callable
 
 from yvy.domain.auth.enums import Role
 from yvy.domain.auth.exceptions import AuthError
@@ -30,11 +30,7 @@ from yvy.presentation.controllers.users_admin_controller import UsersAdminContro
 from yvy.presentation.theme import (
     BG_CARD,
     BG_CREAM,
-    BORDER,
-    DANGER,
-    FONT_BODY,
     FONT_BODY_BOLD,
-    FONT_H2,
     FONT_SMALL,
     PRIMARY,
     SPACE_LG,
@@ -84,13 +80,9 @@ class UserFormModal(tk.Toplevel):
         self._username_var = tk.StringVar(value=editing.username if editing else "")
         self._fullname_var = tk.StringVar(value=editing.full_name if editing else "")
         self._password_var = tk.StringVar()
-        initial_role = (
-            _ROLE_LABELS[editing.role] if editing else _ROLE_LABELS[Role.ALUMNO]
-        )
+        initial_role = _ROLE_LABELS[editing.role] if editing else _ROLE_LABELS[Role.ALUMNO]
         self._role_var = tk.StringVar(value=initial_role)
-        self._can_export_var = tk.BooleanVar(
-            value=editing.can_export_raw if editing else False
-        )
+        self._can_export_var = tk.BooleanVar(value=editing.can_export_raw if editing else False)
 
         self._build()
         self.grab_set()
@@ -133,13 +125,13 @@ class UserFormModal(tk.Toplevel):
             if self._mode == "edit"
             else "Contraseña (mín. 8 caracteres)"
         )
-        pwd_entry = self._field(
-            body, pwd_label_text, self._password_var, width=30, show="•"
-        )
+        pwd_entry = self._field(body, pwd_label_text, self._password_var, width=30, show="•")
 
         # El superadmin no se resetea desde la UI: solo por CLI (hero-rescue).
-        if self._mode == "edit" and self._editing is not None and (
-            self._editing.role == Role.SUPERADMIN
+        if (
+            self._mode == "edit"
+            and self._editing is not None
+            and (self._editing.role == Role.SUPERADMIN)
         ):
             pwd_entry.configure(state="disabled")
             tk.Label(
@@ -161,9 +153,7 @@ class UserFormModal(tk.Toplevel):
         # En creación NO se ofrece Superadmin: es singleton, se crea solo en
         # el onboarding. Su recuperación posterior es por CLI (hero-rescue).
         if self._mode == "create":
-            role_values = [
-                lbl for role, lbl in _ROLE_LABELS.items() if role != Role.SUPERADMIN
-            ]
+            role_values = [lbl for role, lbl in _ROLE_LABELS.items() if role != Role.SUPERADMIN]
         else:
             role_values = list(_ROLE_LABELS.values())
         role_combo = ttk.Combobox(
@@ -197,7 +187,9 @@ class UserFormModal(tk.Toplevel):
         footer.pack(fill="x", side="bottom")
 
         ttk.Button(
-            footer, text="Cancelar", command=self._close,
+            footer,
+            text="Cancelar",
+            command=self._close,
             style="Secondary.TButton",
         ).pack(side="right", padx=(SPACE_SM, 0))
         ttk.Button(
@@ -216,15 +208,21 @@ class UserFormModal(tk.Toplevel):
 
         # Validación previa al use case
         if not fullname:
-            messagebox.showerror("Datos incompletos", "El nombre completo es obligatorio.", parent=self)
+            messagebox.showerror(
+                "Datos incompletos", "El nombre completo es obligatorio.", parent=self
+            )
             return
 
         if self._mode == "create":
             if not username or len(username) < 3:
-                messagebox.showerror("Error", "El usuario debe tener al menos 3 caracteres.", parent=self)
+                messagebox.showerror(
+                    "Error", "El usuario debe tener al menos 3 caracteres.", parent=self
+                )
                 return
             if len(password) < 8:
-                messagebox.showerror("Error", "La contraseña debe tener al menos 8 caracteres.", parent=self)
+                messagebox.showerror(
+                    "Error", "La contraseña debe tener al menos 8 caracteres.", parent=self
+                )
                 return
 
             try:
@@ -256,7 +254,9 @@ class UserFormModal(tk.Toplevel):
         # 1. Si pwd cambió, reset
         if password:
             if len(password) < 8:
-                messagebox.showerror("Error", "La contraseña debe tener al menos 8 caracteres.", parent=self)
+                messagebox.showerror(
+                    "Error", "La contraseña debe tener al menos 8 caracteres.", parent=self
+                )
                 return
             try:
                 self._controller.reset_password_for(target_id, password)
@@ -269,7 +269,9 @@ class UserFormModal(tk.Toplevel):
             try:
                 self._controller.toggle_export_raw(target_id, can_export)
             except (AuthError, ValueError) as exc:
-                messagebox.showerror("No se pudo modificar el flag de export", str(exc), parent=self)
+                messagebox.showerror(
+                    "No se pudo modificar el flag de export", str(exc), parent=self
+                )
                 return
 
         logger.info("User editado vía UI: %s", self._editing.username)
@@ -298,8 +300,8 @@ class UserFormModal(tk.Toplevel):
     def _close(self) -> None:
         try:
             self.grab_release()
-        except tk.TclError:
-            pass
+        except tk.TclError as exc:
+            logger.debug("Widget destruido durante callback (ignorado): %s", exc)
         self.destroy()
 
     def _center_on_parent(self, parent: tk.Misc) -> None:
@@ -312,5 +314,5 @@ class UserFormModal(tk.Toplevel):
             x = max(0, px + (pw - mw) // 2)
             y = max(0, py + (ph - mh) // 2)
             self.geometry(f"+{x}+{y}")
-        except tk.TclError:
-            pass
+        except tk.TclError as exc:
+            logger.debug("Widget destruido durante callback (ignorado): %s", exc)

@@ -50,7 +50,11 @@ def test_paths_resolve() -> None:
 
 @pytest.mark.unit
 def test_main_returns_zero() -> None:
-    """El main debe ejecutarse sin errores y retornar 0."""
-    from yvy.main import main
+    """El CLI debe ejecutarse sin errores y retornar 0 en un comando simple.
 
-    assert main([]) == 0
+    (Antes se probaba ``main([])``; el CLI consolidado exige subcomando, así que
+    se usa ``version`` — mismo objetivo: el entry point corre y devuelve 0.)
+    """
+    from yvy.cli.__main__ import main
+
+    assert main(["version"]) == 0

@@ -196,79 +196,190 @@ INI-5 ── espera trigger externo (sin release asignado)
 | 0.1.4 | Verificar botón INSTALAR post-fix; si persiste, ticket con diagnóstico ya escrito (snapshot vs live) | S |
 | 0.1.5 | Acta de certificación + actualizar runbooks con baseline real | S |
 
+## INI-1 · Épica 1.0 — Gate de integración confiable ✅ (hallazgo 2026-07 · `e2bb9ad`)
+> **Descubierto ejecutando 1.1.1:** la suite de integración tenía **29 fallos
+> preexistentes en master** (el conteo inicial de 15 era solo el subconjunto que
+> matcheaba el filtro `-k`; los tests del instalador no lo matcheaban). Ruido que
+> enmascaraba regresiones reales. **RESUELTO: eran todos tests obsoletos de los
+> fixes 1.5.1 — CERO bugs de producción** (los unit tests ya certificaban el
+> comportamiento correcto; los integración quedaron atrás).
+
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 1.0.1 | Triage: 2 causas raíz. (A) payload ahora dict → `json.loads(dict)` revienta (6 tests). (B) guard obsolescencia ERR-003 auto-limpia pending con versión sembrada baja (23 tests: download/checker/installer). Ninguno era bug real | M | ✅ |
+| 1.0.2 | Fix: grupo A usa el dict directo; grupo B bumpea versión sembrada a 99.0.0 (futura, no rota). `test_no_update_clears_previous_pending` se **invierte** (ERR-003 hoy SÍ limpia) | M | ✅ |
+| 1.0.3 | Meta: `pytest tests/integration` **361/361 verde** — gate confiable para el resto del plan. Suite total 1063 passed / 7 skipped | S | ✅ |
+
 ## INI-1 · Épica 1.1 — Código muerto y trampas (1 PR combinado)
-| # | Tarea | Tamaño |
-|---|---|---|
-| 1.1.1 | H13: `_DOWNLOAD_TIMEOUT`, re-import httpx, docstring `EMPIRICAL_RECORD`, paquetes `domain/comments|help` | S |
-| 1.1.2 | H9: `HttpTimeoutError` en origen + alias de compat + migrar imports internos | S |
-| 1.1.3 | Canon v13 documentado en `domain/sync/models.py` + nota de plan de retiro (H4-prep) | S |
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 1.1.1 | H13: `_DOWNLOAD_TIMEOUT`, re-import httpx (+`field` F401), docstring `EMPIRICAL_RECORD`, paquetes `domain/comments|help` | S | ✅ `35658ed` (708 unit; integ 15F/110P == master) |
+| 1.1.2 | H9: `HttpTimeoutError` en origen + alias de compat + migrar imports internos | S | ✅ `e037fb8` |
+| 1.1.3 | Canon v13 documentado en `domain/sync/models.py` + nota de plan de retiro (H4-prep) | S | ✅ `676762b` |
 
-## INI-1 · Épica 1.2 — Telemetría de campo
-| # | Tarea | Tamaño |
-|---|---|---|
-| 1.2.1 | Pasada 1: los ~15 except-pass en rutas de datos/sync → `logger.warning/exception` | S |
-| 1.2.2 | Pasada 2: los ~16 restantes (UI) → `logger.debug` | S |
+## INI-1 · Épica 1.2 — Telemetría de campo ✅
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 1.2.1 | Pasada 1: 8 except-pass en rutas de datos/sync (cli/handlers, query_sensor, http_client, sync_controller) → debug/warning por severidad | S | ✅ `1137ab9` |
+| 1.2.2 | Pasada 2: ~26 except-pass one-shot de UI → debug. **theme_manager EXCLUIDO por diseño** (14 swallows en loop caliente por-widget: loguear = spam; documentado en su docstring) | S | ✅ `9e26711` |
 
-## INI-1 · Épica 1.3 — Red de seguridad de theming (experimento)
-| # | Tarea | Tamaño |
-|---|---|---|
-| 1.3.1 | Spike: option-database/`tk_setPalette` al aplicar tema; probar toggle repetido claro↔oscuro | M |
-| 1.3.2 | Si funciona: adoptar + pasada visual completa ambos temas en resolución netbook. Si no: documentar y activar plan-factory en INI-4 | M |
+> **Ajuste sobre el plan original:** el plan estimaba "~16 UI → debug" tratando todos
+> igual. Al ejecutar se detectó que los 14 de `theme_manager` están en el walk
+> por-widget (loop caliente) → loguearlos spamearía el log en cada toggle. Se
+> excluyen a propósito y se documentan; se abordarán al reescribir el theming
+> (INI-1.3/INI-4). Los ~26 discretos (one-shot) sí se loguean.
 
-## INI-1 · Épica 1.4 — main.py
-| # | Tarea | Tamaño |
-|---|---|---|
-| 1.4.1 | Confirmar con el autor uso real de `rescue`; redirigir `[tool.poetry.scripts]` al CLI y reducir `main.py` a shim de delegación (no borrar en el mismo PR) | S |
-| 1.4.2 | (Release siguiente) eliminar `main.py` si nada lo reclamó | S |
+## INI-1 · Épica 1.3 — Red de seguridad de theming (experimento) ✅ CERRADA
+> **La premisa del plan era falsa.** El gate contaba 19 `tk.Label`/`tk.Text`
+> "sin bg/fg". Los 19 son **sin fg**: todos declaran `bg`. Y `recolor()` ya tiene
+> un fallback de `fg` (negro o `SystemXxxText` → clave `"text"`), así que esos 19
+> widgets siguen al tema **desde siempre**. Verificado contra Tk real, 4 toggles.
+> 5 de los 19 son labels de imagen, donde `fg` no significa nada.
+>
+> La asimetría que sí importa: un **`bg` faltante es irrecuperable** —
+> `SystemButtonFace` no dice si el widget quería el fondo general o el de una
+> card—. En el repo hay **0** widgets sin `bg` (salvo 3 `Toplevel`: 2 se
+> configuran en la línea siguiente, al 3.º lo tapa un frame).
+>
+> No hacía falta ni la option-database ni la factory. **4.2.3 se descarta.**
 
-## INI-2 · Épica 2.1 — Utilidades canónicas
-| # | Tarea | Tamaño |
-|---|---|---|
-| 2.1.1 | `domain/shared/version.py`: parser único + comparadores con política explícita; migrar `installer` y `app_config` **conservando cada política actual**; tests de borde | M |
-| 2.1.2 | `iso_ms_z()` en `time_utils` + golden test de equivalencia byte-a-byte contra ambas implementaciones viejas sobre corpus de datetimes; migrar los 6 sitios | M |
-| 2.1.3 | `sha256_file()` común; downloader e installer delegan | S |
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 1.3.1 | Spike: option-database/`tk_setPalette` al aplicar tema; probar toggle repetido claro↔oscuro | M | ✅ `c63ae5b` — `scripts/spike_theming.py` (`--auto` mide, sin flags abre la ventana). Midió A=2/8, B=5/8, C=8/8. **`option_add` no es retroactivo**: los widgets vivos no releen la option database. Verificado visualmente por Gonzalo en 125/150/175% de escalado |
+| 1.3.2 | Si funciona: adoptar. Si no: activar plan-factory en INI-4 | M | ✅ `3d60d4d` — **rama A, sin escribir código de app**. Se corrige la regla D del gate: pide `bg` (irrecuperable), no `fg` (que `recolor` ya recupera). Deja de ser ratchet: 0 violaciones, bloqueante. + `test_theme_recolor_fallbacks.py` fija el invariante |
+
+## INI-1 · Épica 1.4 — main.py ✅ (1.4.1)
+> **Al ejecutar resultó más grande que "sacar un fantasma":** había **dos CLIs
+> divergentes** — `python -m yvy` (yvy.cli) y el console script `yvy` (yvy.main).
+> **`hero-rescue`** (reset de password admin de emergencia, documentado en el
+> CHANGELOG como único camino cuando la UI lo bloquea) vivía SOLO en yvy.main →
+> **no era alcanzable por `python -m yvy`** (lo que usan los .bat). Brecha
+> operativa real, no solo deuda. Gonzalo eligió consolidar los 3 comandos.
+
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 1.4.1 | Migra `migrate`/`retention`/`hero-rescue` a `yvy.cli` (verbatim); redirige `[tool.poetry.scripts]` a `yvy.cli`; `main.py` → shim de delegación (no borra) | S→M | ✅ `184e899` |
+| 1.4.2 | (Release siguiente) eliminar `main.py` si nada reclama el shim `from yvy.main import main` / `python -m yvy.main` | S | pendiente |
+
+## INI-1 · Épica 1.5 — Adopción de ruff como gate ✅ (hallazgo 2026-07)
+> **Descubierto ejecutando 1.1.1:** `ruff check .` reportaba **~400 errores** en el
+> repo Edge → ruff **no gateaba en CI** (confirma peer review §3.4 "quality gates
+> invertidos"). **RESUELTO: de ~400 → 0, con gate en CI.**
+>
+> **Hallazgo de valor derivado:** ruff (F821) destapó **5 bugs reales** — `exc`
+> referenciado en `lambda` diferido (`self.after(0, lambda: ...{exc})`); Python
+> borra la var del `except` al salir del bloque y el lambda corre después → el
+> mensaje de error nunca se mostraba (import/export/retención mudos). Fix `3ac51b3`.
+
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 1.5.1 | autofix seguro (268 fixes) + `ruff format` (230 archivos) + ignore RUF-español | M | ✅ `f2c31f1`+`36680e2` |
+| 1.5.2 | Restantes a cero: fixes reales (F841 dead code, B023, B904, E741, B007) + baseline de ignores justificado por regla | M | ✅ `63f862a` |
+| 1.5.3 | `.github/workflows/ci.yml`: `ruff check` + `ruff format --check` como job bloqueante (el repo NO tenía CI) | S | ✅ `053b373` |
+
+## INI-2 · Épica 2.1 — Utilidades canónicas ✅
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 2.1.1 | `domain/shared/version.py`: parser único + comparadores con política explícita; migrar `installer` y `app_config` **conservando cada política actual**; tests de borde | M | ✅ `b4ee590` — `on_unparseable` obligatorio y keyword-only; +34 tests |
+| 2.1.2 | `iso_ms_z()` en `time_utils` + golden test de equivalencia byte-a-byte contra ambas implementaciones viejas sobre corpus de datetimes; migrar los 6 sitios | M | ✅ `2668847` — golden sobre 5.000 datetimes: 0 diferencias; +11 tests |
+| 2.1.3 | `sha256_file()` común; downloader e installer delegan | S | ✅ `d3ef009` — corrige divergencia case-sensitive vs insensitive; +11 tests |
 
 ## INI-2 · Épica 2.2 — Scripts como wrappers (H7)
-| # | Tarea | Tamaño |
-|---|---|---|
-| 2.2.1 | `configure_sync.py` → wrapper del handler; probar `CONFIGURAR_SYNC.bat` en nodo | S |
-| 2.2.2 | `validar_sensor.py` → wrapper de `test_sensor`; probar `VALIDAR_SENSOR.bat` en nodo | S |
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 2.2.1 | `configure_sync.py` → wrapper del handler; probar `CONFIGURAR_SYNC.bat` en nodo | S | ✅ `7dd0981` — **corrige bug de BOM**; falta probar el .bat en nodo real |
+| 2.2.2 | `validar_sensor.py` → wrapper de `test_sensor`; probar `VALIDAR_SENSOR.bat` en nodo | S | ⏸ **descartada** — ver nota |
+
+> **Hallazgo 2026-07-09 (2.2.2): la premisa de la tarea es incorrecta.**
+> `validar_sensor.py` y `handlers.test_sensor` **no son duplicados**:
+>
+> - `test_sensor` es **nivel B** y por diseño **no abre el dispositivo** ("NO lee
+>   frames del sensor: puede colisionar con `SensorCollectorDaemon` en runtime").
+> - `validar_sensor.py` es un diagnóstico **nivel C** offline (se corre con la app
+>   detenida, vía `VALIDAR_SENSOR.bat`): abre la `WeatherStation`, lee el buffer,
+>   enumera los dispositivos USB, y —clave— distingue el **driver de Zadig**
+>   (`libusb-win32` vs `WinUSB`), que es un modo de falla real de pywws que el
+>   handler no chequea. Además da remediación paso a paso al técnico de IEA.
+>
+> Convertirlo en wrapper **degradaría la herramienta de campo**. El alcance correcto
+> sería que el script delegue sólo el prefijo compartido (imports de pywws/pyusb,
+> backend libusb, VID/PID) y conserve sus chequeos nivel C encima — un cambio mayor
+> que requiere validar `VALIDAR_SENSOR.bat` en un nodo real. Se difiere.
 
 ## INI-3 · Épica 3.1 — Contrato del bootstrap
-| # | Tarea | Tamaño |
-|---|---|---|
-| 3.1.1 | `UpdatesService` (application) con operaciones hoy dispersas: prevalidate/request-install/download/check/purge/estado; construido en bootstrap con installer/retention/downloader inyectados | M |
-| 3.1.2 | H11: `SQLiteEmpiricalRepository` a contrato factory (idéntico a los otros 7 repos) | S |
-| 3.1.3 | H10 completo: pending como valor atómico (una key JSON), con lectura tolerante a formato viejo durante 1 ciclo | M |
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 3.1.1 | `UpdatesService` (application) con operaciones hoy dispersas: prevalidate/request-install/download/check/purge/estado; construido en bootstrap con installer/retention/downloader inyectados | M | ✅ `2d1c456` — puertos Protocol (application no importa infra); downloader tras context manager del composition root; 17 tests |
+| 3.1.2 | H11: `SQLiteEmpiricalRepository` a contrato factory (idéntico a los otros 7 repos) | S | ✅ `f66284f` — + test de regresión cross-thread; desbloquea el bloqueante #1 del diagnóstico web LAN |
+| 3.1.3 | H10 completo: pending como valor atómico (una key JSON), con lectura tolerante a formato viejo durante 1 ciclo | M | ✅ `f6ae4fd` — carrera medida: lector viejo **58 lecturas mezcladas / 14.395**; lector nuevo **0 / 107.388**. Incluye la mitigación de 1 línea del peer review (`available` al final) |
+
+> **Deuda planificada:** el dual-write de las 9 keys legacy en `set_pending_update`
+> se mantiene un ciclo por compatibilidad. Retirarlo en el release siguiente
+> (y con él `_read_pending_legacy`), una vez que toda la flota escribió la key JSON.
 
 ## INI-3 · Épica 3.2 — Los tres frentes consumen el service
-| # | Tarea | Tamaño |
-|---|---|---|
-| 3.2.1 | `sync_controller` deja de fabricar infraestructura (consume `UpdatesService` inyectado); **el peor sitio primero** | M |
-| 3.2.2 | Lógica post-boot (`_post_boot_check`/`_evaluate_stable_silently`) → use case en application con tests; `launch_app` queda shim | M |
-| 3.2.3 | `cli/handlers`: los 6 sitios consumen el service | M |
-| 3.2.4 | `scripts/` entra al scope de mypy; corregir lo que aparezca | S |
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 3.2.1 | `sync_controller` deja de fabricar infraestructura (consume `UpdatesService` inyectado); **el peor sitio primero** | M | ✅ `2d1c456` — `get_installer()` eliminado; cero construcción de infra en el controller |
+| 3.2.2 | Lógica post-boot (`_post_boot_check`/`_evaluate_stable_silently`) → use case en application con tests; `launch_app` queda shim | M | ✅ `fb8ab8b` — `RunPostBootCheckUseCase` + 6 tests (antes: cero tests pese a decidir si se escribe `boot_ok.flag`) |
+| 3.2.3 | `cli/handlers`: los 6 sitios consumen el service | M | ✅ `9c167b3` — 5/6 migrados; el 6º (`compute_check_updates`) construye un HttpClient para consultar al Core: concern de *sync*, no de la dispersión installer/factory |
+| 3.2.4 | `scripts/` entra al scope de mypy; corregir lo que aparezca | S | ⏸ **prematura** — ver nota |
 
-## INI-3 · Épica 3.3 — Reorganización del CLI (H6)
-| # | Tarea | Tamaño |
-|---|---|---|
-| 3.3.1 | Split `handlers.py` → paquete `handlers/` re-exportando (API intacta) | S |
+> **Hallazgo 2026-07-09 (3.2.4):** `mypy src` reporta **261 errores en 52 archivos**;
+> no hay job de mypy en CI. Meter `scripts/` (23 errores más) a un checker que no
+> gatea no protege nada — es la misma situación que tenía ruff antes de la épica 1.5.
+> **Propuesta:** posponer 3.2.4 y crear una épica de *adopción de mypy* espejo de la
+> 1.5 (bajar a cero por capas + `mypy` como job bloqueante en CI), y recién ahí sumar
+> `scripts/`. Mientras tanto, `domain/` y `application/` son strict y **todo el código
+> nuevo de INI-3 pasa mypy strict limpio** (`25678ef`).
+
+## INI-3 · Épica 3.3 — Reorganización del CLI (H6) ✅
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 3.3.1 | Split `handlers.py` → paquete `handlers/` re-exportando (API intacta) | S | ✅ `8f25fd3` — 1.425 líneas → 4 módulos (diagnostics/checks/updates/sync_config); cuerpos verificados idénticos al original |
+
+---
+
+## 🏁 INI-3 — cerrada
+
+Épicas 3.1, 3.2 y 3.3 completas. **3.2.4 pospuesta** con justificación (mypy no
+gatea; requiere su propia épica de adopción, espejo de la 1.5).
+
+Lo que resuelve, contra el objetivo declarado:
+
+- **RC-1** (Updates sin capa de aplicación) → `UpdatesService` + `RunPostBootCheckUseCase`.
+- **RC-2** (Composition Root sin formalizar) → `bootstrap` construye installer/retention
+  **una vez** con el root estable. Las 5 construcciones de `UpdateInstaller` y las 4
+  re-creaciones de `SQLiteConnectionFactory(root/"data"/…)` **ya no existen**: la clase
+  de bug que causó la pérdida de datos post-OTA quedó eliminada por construcción.
+- **H11** (repo con conn atada) y **H10** (pending no atómico): fix + test de regresión,
+  ambos con la carrera/mina **medida** antes y después.
+- **H6**: `handlers.py` partido por dominio, API intacta.
 
 ## INI-4 · Épica 4.1 — app.py por extracción incremental
-| # | Tarea | Tamaño |
-|---|---|---|
-| 4.1.1 | Move gratis: `CloseInterceptModal`, `UserMenuModal`, `_PlaceholderView` → `components/` (−200 líneas, cero lógica) | S |
-| 4.1.2 | Update-flow → controller con interfaz angosta (schedule + UpdatesService + navigate); decisiones como funciones puras con tests | M |
-| 4.1.3 | Catchup-offer → ídem | M |
-| 4.1.4 | Header poller → ídem (último: threading + `after`) | M |
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 4.1.1 | Move gratis: `CloseInterceptModal`, `UserMenuModal`, `_PlaceholderView` → `components/` (−200 líneas, cero lógica) | S | ✅ `a3954df` — app.py 1467→1256; las 3 instanciadas con Tk real |
+| 4.1.2 | Update-flow → controller con interfaz angosta (schedule + UpdatesService + navigate); decisiones como funciones puras con tests | M | ✅ `ee05356` — `UpdateFlowController`: 2 Protocols + `schedule` inyectado, sin `import tkinter`. 29 tests sin display |
+| 4.1.3 | Catchup-offer → ídem | M | ✅ `1fc2982` — `CatchupController`. Baja además el `SELECT MAX(observed_at)` de `app.py` al repositorio |
+| 4.1.4 | Header poller → ídem (último: threading + `after`) | M | ✅ `eacca86` — `HeaderController`; el ciclo ya no puede morirse por una excepción. 32 tests + Tk real |
 
 ## INI-4 · Épica 4.2 — Capas y theming estructural
-| # | Tarea | Tamaño |
-|---|---|---|
-| 4.2.1 | `markdown_renderer` → `presentation/help/` (move de import, única inversión de capas del repo) | S |
-| 4.2.2 | Gate anti-regresión: check en CI que rechace `tk.Label(`/`tk.Text(` sin bg/fg y constructores de infra fuera del root (greps codificados) | S |
-| 4.2.3 | (CONDICIONAL — solo si 1.3 falló) widget factory + migración boy-scout por view | L→partir |
-| 4.2.4 | **Bottom-padding de botones**: en `theme.py` el padding de `*.TButton` es 2-tupla simétrica `(PAD_BUTTON_X=24, PAD_BUTTON_Y=12)`; el texto se ve pegado/cortado en la base en netbooks. Pasar a 4-tupla `(x, top, x, bottom+)` en las 4 `style.configure`. Trivial pero **global** → Gate D. Poco urgente. | S |
+| # | Tarea | Tamaño | Estado |
+|---|---|---|---|
+| 4.2.1 | `markdown_renderer` → `presentation/help/` (move de import, única inversión de capas del repo) | S | ✅ `9e0bab2` — + corrige el flake de display del test |
+| 4.2.2 | Gate anti-regresión: check en CI que rechace `tk.Label(`/`tk.Text(` sin bg/fg y constructores de infra fuera del root | S | ✅ `151ebe1` — **AST, no greps**; 4 reglas; verificado inyectando violaciones. **Encontró un bug OTA real** (`5d27672`). Regla D corregida en `3d60d4d` (ver 1.3) |
+| 4.2.3 | (CONDICIONAL — solo si 1.3 falló) widget factory + migración boy-scout por view | L→partir | ⏸ **descartada** — 1.3 salió por la rama A. No hay widgets sin `bg` que migrar |
+| 4.2.4 | **Bottom-padding de botones**: pasar el padding de `*.TButton` a 4-tupla | S | ✅ `4ee0642` — `PAD_BUTTON=(24,10,24,16)`; verificado con Tk real (+2px de alto). Falta chequeo visual en netbook |
+
+> **Bug encontrado por el gate 4.2.2 (regla A), corregido en `5d27672`:**
+> `DB_DEFAULT_PATH` colgaba de `REPO_ROOT = parents[3]`, el root del **código**.
+> Tras un OTA ese root es el slot, así que apuntaba a `<slot>/data/yvy.sqlite` —
+> una base **vacía**. Los 3 comandos con `--db` por default (`migrate`,
+> `retention`, **`hero-rescue`**) quedaban apuntando ahí: la recuperación de
+> emergencia documentada fallaba justo después de un update. Venía de `main.py`.
+> Ahora `config/paths.py` separa `CODE_ROOT` (assets, migraciones) de
+> `STABLE_ROOT` (data, DB, logs), con 5 tests de regresión.
 
 ## INI-5 · Épica 5.1 — Tren de esquema (sin release asignado)
 | # | Tarea | Tamaño |
@@ -400,6 +511,49 @@ el mismo release. Mitigación: la tabla §7 es contrato; un release = un caráct
 5. **Las reglas (§11) valen más que el backlog.** El backlog paga la deuda existente;
    las reglas — y sus gates en CI — impiden contraerla de nuevo. Priorizar 4.2.2
    apenas la limpieza de INI-3 lo permita.
+
+---
+
+# 13. Bitácora de ejecución
+
+> Registro cronológico de lo aplicado. Cada entrada: commit, alcance, gate.
+
+| Fecha | Rama / commit | Épica | Resultado |
+|---|---|---|---|
+| 2026-07-03 | `master` `231c5a0` | Checkpoint pre-plan | Consolidación de la línea estable 1.5.x a master (fast-forward). 708 unit verde. |
+| 2026-07-03 | `stab/ini-1-higiene` `35658ed` | 1.1.1 (código muerto) | `_DOWNLOAD_TIMEOUT`, re-import httpx, `field` F401, docstring `EMPIRICAL_RECORD`, paquetes vacíos `domain/comments|help`. 708 unit; integ 15F/110P == master (0 regresiones). **Hallazgos derivados:** épicas 1.0 (tests integ rotos) y 1.5 (~400 ruff sin gate). |
+| 2026-07-03 | `stab/ini-1-higiene` `e2bb9ad` | 1.0 (gate integración) | Repara **29 tests obsoletos** (6 payload-dict + 23 versión-obsoleta ERR-003) + invierte `test_no_update_clears_previous_pending`. **CERO bugs de producción.** Integración **361/361 verde** por primera vez; suite total 1063 passed / 7 skipped. |
+| 2026-07-03 | `stab/ini-1-higiene` `1137ab9` | 1.2.1 (telemetría datos/sync) | 8 except-pass → log (debug/warning por severidad); +logger en cli/handlers. 1069 passed. |
+| 2026-07-03 | `stab/ini-1-higiene` `9e26711` | 1.2.2 (telemetría UI) | ~26 except-pass one-shot de UI → debug; theme_manager (14, loop caliente) excluido por diseño + documentado. 1069 passed. |
+| 2026-07-03 | `stab/ini-1-higiene` `e037fb8` | 1.1.2 (H9 TimeoutError) | `class TimeoutError`→`HttpTimeoutError` + alias de compat; migrados src+tests; builtin de test_sync_controller intacto. 1069 passed. |
+| 2026-07-03 | `stab/ini-1-higiene` `676762b` | 1.1.3 (canon v13 · H4-prep) | Documenta v13 como fuente de verdad en `SyncJob` + tabla legacy→v13 + plan de retiro. Solo doc. |
+| 2026-07-03 | `stab/ini-1-higiene` `6a860c5` | (aparte) diagnóstico web LAN | `docs/DIAGNOSTICO_WEB_LAN.md` — relevamiento solo-lectura para el adaptador Flask+waitress. |
+| 2026-07-03 | `stab/ini-1-higiene` `3ac51b3` | 1.5 (bugs F821) | **5 bugs reales** de `exc` en lambdas diferidos → NameError en handlers de error. + F811 dead import. |
+| 2026-07-03 | `stab/ini-1-higiene` `f2c31f1`+`36680e2` | 1.5.1 (autofix+format) | 268 autofixes + `ruff format` (230 files) + ignore RUF-español. 1060/1069 passed. |
+| 2026-07-03 | `stab/ini-1-higiene` `63f862a` | 1.5.2 (ruff a cero) | Fixes (F841/B023/B904/E741/B007) + baseline de ignores justificado. ~400→0. 1069 passed. |
+| 2026-07-03 | `stab/ini-1-higiene` `053b373` | 1.5.3 (CI gate) | `.github/workflows/ci.yml` con ruff bloqueante (el repo no tenía CI). |
+| 2026-07-08 | `stab/ini-1-higiene` `184e899` | 1.4.1 (consolidar CLIs) | Migra migrate/retention/**hero-rescue** a yvy.cli (brecha: hero-rescue no era alcanzable por `python -m yvy`); script→yvy.cli; main.py→shim. Verificado e2e. 1069 passed. |
+| 2026-07-09 | `stab/ini-1-higiene` `f66284f` | **3.1.2** (H11 · INI-3) | `SQLiteEmpiricalRepository` al contrato factory (era el único con conn cruda → inutilizable cross-thread). +test de regresión. Desbloquea el bloqueante #1 del web LAN. 1070 passed. |
+| 2026-07-09 | `stab/ini-1-higiene` `2d1c456` | **3.1.1 + 3.2.1** (INI-3 ⭐) | `UpdatesService` en application (puertos Protocol, downloader tras context manager) construido UNA vez en bootstrap con el root estable; `sync_controller` deja de fabricar infra (`get_installer()` eliminado). +17 tests. 1081 passed. |
+| 2026-07-09 | `stab/ini-1-higiene` `9c167b3` | **3.2.3** (cli/handlers) | 5/6 sitios consumen el service. `OperationResult(ok, error)` para no perder el mensaje que el CLI reporta. **Bug corregido:** bootstrap leía credentials con `utf-8` vs `utf-8-sig` del CLI (BOM rompía la descarga desde GUI). 1090 passed. |
+| 2026-07-09 | `stab/ini-1-higiene` `fb8ab8b` | **3.2.2** (post-boot) | `RunPostBootCheckUseCase` en application + 6 tests; `launch_app` queda shim. Fija que en `version_mismatch` NO se escribe `boot_ok.flag` (el watchdog debe revertir). 1096 passed. |
+| 2026-07-09 | `stab/ini-1-higiene` `25678ef` | tipado INI-3 | `updates_service` y `post_boot_check` pasan mypy **strict** limpio. Hallazgo: `mypy src` = 261 errores, sin job en CI → 3.2.4 pospuesta. |
+| 2026-07-09 | `stab/ini-1-higiene` `f6ae4fd` | **3.1.3** (H10) | Pending en una key JSON: escritura/lectura atómicas + tolerancia al formato viejo. Carrera **medida** antes/después (58/14.395 → 0/107.388). +6 tests. 1102 passed. **Cierra la épica 3.1.** |
+| 2026-07-09 | `stab/ini-1-higiene` `8f25fd3` | **3.3.1** (H6) | `handlers.py` (1.425 líneas) → paquete de 4 módulos por dominio, API intacta. Cuerpos verificados idénticos. mypy 261→251. **Cierra INI-3.** |
+| 2026-07-09 | `stab/ini-1-higiene` `b4ee590` | **2.1.1** (H2 semver) | Parser único; `on_unparseable` obligatorio y keyword-only. Cada call site conserva su política opuesta, ahora visible. +34 tests. 1136 passed. |
+| 2026-07-09 | `stab/ini-1-higiene` `d3ef009` | **2.1.3** (H8 sha256) | `sha256_file`/`verify_sha256_file` únicos. **Divergencia real:** installer comparaba case-sensitive, downloader no → un hex en mayúsculas descargaba pero no instalaba. +11 tests. 1146 passed. |
+| 2026-07-09 | `stab/ini-1-higiene` `2668847` | **2.1.2** (H3 iso_ms_z) | Formato-contrato del HMAC. **Golden byte-a-byte** contra ambas impls viejas sobre 5.000 datetimes: 0 diferencias. Rechaza naive, convierte aware. +11 tests. 1157 passed. **Cierra la épica 2.1.** |
+| 2026-07-09 | `stab/ini-1-higiene` `7dd0981` | **2.2.1** (H7) | `configure_sync.py` → wrapper del handler. **Bug corregido:** leía credentials con `utf-8` (BOM de Notepad rompía `CONFIGURAR_SYNC.bat`); el handler usa `utf-8-sig`. Verificado ejecutándolo. |
+| 2026-07-09 | `stab/ini-1-higiene` `9e0bab2` | **4.2.1** (peer §3.3) | `markdown_renderer` → `presentation/help/`: se elimina la única inversión de capas y el hack de imports lazy. Corrige de paso el flake de display del test. |
+| 2026-07-09 | `stab/ini-1-higiene` `4ee0642` | **4.2.4** | Padding de botones a 4-tupla `(24,10,24,16)`. Verificado con Tk real: +4px de aire abajo, botón sólo +2px. |
+| 2026-07-09 | `stab/ini-1-higiene` `a3954df` | **4.1.1** (H5) | 3 clases de `app.py` → `components/`. app.py 1467→1256 (−211). Instanciadas con Tk real. |
+| 2026-07-09 | `stab/ini-1-higiene` `5d27672` | **bug OTA** (hallado por 4.2.2) | `DATA_DIR`/`DB_DEFAULT_PATH` colgaban del slot: `hero-rescue` apuntaba a una DB vacía tras un OTA. `CODE_ROOT` vs `STABLE_ROOT` + 5 tests. |
+| 2026-07-09 | `stab/ini-1-higiene` `151ebe1` | **4.2.2** | Gate arquitectónico en CI (AST, 4 reglas, ratchet para la deuda de theming). Verificado inyectando violaciones: detecta las 4. 1162 passed. |
+| 2026-07-10 | `stab/ini-1-higiene` `3d60d4d` | **1.3.2** | Cierra INI-1. La regla D pedía `fg`, que `recolor` ya recupera; ahora pide `bg`, que no. 0 violaciones, deja de ser ratchet. **4.2.3 descartada**: no existe la deuda que motivaba la widget factory. 1260 passed. |
+| 2026-07-10 | `stab/ini-1-higiene` `c63ae5b` | **1.3.1** | Spike de theming. `option_add` no es retroactivo (medido, no supuesto): arregla los modales tardíos y deja gris todo lo construido al arrancar. Gonzalo verificó en pantalla con escalado 125/150/175%. |
+| 2026-07-10 | `stab/ini-1-higiene` `eacca86` | **4.1.4** | `HeaderController`; cierra la épica 4.1. **Bug latente corregido:** si una excepción escapaba del tick, el poller no reagendaba y el header quedaba congelado en verde con el sync caído. El `finally` que lo arregla abría a su vez un ciclo zombi si `apply` llamaba a `stop()`; flag `_running`. 1255 passed. |
+| 2026-07-09 | `stab/ini-1-higiene` `1fc2982` | **4.1.3** | `CatchupController`. `app.py` ejecutaba SQL a mano contra el `db_factory`; ahora `SQLiteSensorRepository.last_valid_observation_at()`, con test de que ignora `is_valid=0` y devuelve aware. Nuevo en cobertura: timestamp futuro (NTP hacia atrás) ya no da lecturas negativas. 1223 passed. |
+| 2026-07-09 | `stab/ini-1-higiene` `ee05356` | **4.1.2** | `UpdateFlowController`. Decisiones puras + 2 Protocols + `schedule`; el controller no importa tkinter. Cubre la rama "flag `show_result` desconocido" (antes silencio) y unifica la regla de la campana (`pending AND is_downloaded`), que estaba duplicada inline en 2 lugares. |
 
 ---
 *Plan de ingeniería — sin código, sin nuevas auditorías. Basado íntegramente en los

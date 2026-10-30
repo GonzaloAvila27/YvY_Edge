@@ -39,7 +39,9 @@ class RainDailyChart(BaseChart):
         tz: ZoneInfo | None = None,
     ) -> None:
         if period_range is not None:
-            rain = query_uc.execute_rain_daily_range(station_uuid, period_range.start, period_range.end)
+            rain = query_uc.execute_rain_daily_range(
+                station_uuid, period_range.start, period_range.end
+            )
         else:
             rain = query_uc.execute_rain_daily(station_uuid, period)
 
@@ -53,7 +55,7 @@ class RainDailyChart(BaseChart):
 
         # Etiquetas de valor sobre cada barra si el período es corto
         if len(rain.dates) < _MAX_DAYS_WITH_LABELS:
-            for rect, val in zip(bars, rain.mm):
+            for rect, val in zip(bars, rain.mm, strict=False):
                 if val > 0:
                     ax.text(
                         rect.get_x() + rect.get_width() / 2,

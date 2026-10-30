@@ -29,30 +29,32 @@ def help_dir(tmp_path: Path) -> Path:
     index = {
         "version": "1.1",
         "language": "es",
-        "categories": [{
-            "key": "cat",
-            "label": "Cat",
-            "articles": [
-                {
-                    "key": "vpd",
-                    "title": "VPD",
-                    "summary": "Summary VPD.",
-                    "related": ["humedad"],
-                },
-                {
-                    "key": "humedad",
-                    "title": "Humedad",
-                    "summary": "Summary humedad.",
-                    "related": ["vpd"],
-                },
-                {
-                    "key": "temperatura",
-                    "title": "Temperatura",
-                    "summary": "Summary temperatura.",
-                    "related": [],
-                },
-            ],
-        }],
+        "categories": [
+            {
+                "key": "cat",
+                "label": "Cat",
+                "articles": [
+                    {
+                        "key": "vpd",
+                        "title": "VPD",
+                        "summary": "Summary VPD.",
+                        "related": ["humedad"],
+                    },
+                    {
+                        "key": "humedad",
+                        "title": "Humedad",
+                        "summary": "Summary humedad.",
+                        "related": ["vpd"],
+                    },
+                    {
+                        "key": "temperatura",
+                        "title": "Temperatura",
+                        "summary": "Summary temperatura.",
+                        "related": [],
+                    },
+                ],
+            }
+        ],
     }
     (hd / "index.json").write_text(json.dumps(index), encoding="utf-8")
     for key in ("vpd", "humedad", "temperatura"):
@@ -63,12 +65,14 @@ def help_dir(tmp_path: Path) -> Path:
 @pytest.fixture
 def repo(help_dir: Path):
     from yvy.infrastructure.help.help_repository import HelpRepository
+
     return HelpRepository(help_dir=help_dir)
 
 
 @pytest.fixture
 def pizarra(root, repo):
     from yvy.presentation.components.pizarra_yvy import PizarraYvY
+
     p = PizarraYvY(root, help_repository=repo)
     yield p
     try:
@@ -84,6 +88,7 @@ class TestShowHide:
 
     def test_show_invalid_key_does_not_open(self, root, repo) -> None:
         from yvy.presentation.components.pizarra_yvy import PizarraYvY
+
         p = PizarraYvY(root, help_repository=repo)
         p.show("nonexistent_key")
         assert not p.is_open()

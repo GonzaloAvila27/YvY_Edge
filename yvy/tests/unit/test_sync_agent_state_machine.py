@@ -8,6 +8,7 @@ Tests verify:
 - Latched states have no outgoing transitions (terminal w.r.t. events).
 - ``is_latched`` and ``is_processing`` helpers classify correctly.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -20,7 +21,6 @@ from yvy.domain.sync.agent_state import (
     is_processing,
 )
 
-
 # ─── Transitions from HEALTHY ────────────────────────────────────────────
 
 
@@ -29,13 +29,21 @@ class TestTransitionsFromHealthy:
         assert apply_event(AgentState.HEALTHY, AgentEvent.NETWORK_ERROR) == AgentState.DISCONNECTED
 
     def test_auth_error_latches(self) -> None:
-        assert apply_event(AgentState.HEALTHY, AgentEvent.AUTH_ERROR) == AgentState.AUTH_ERROR_LATCHED
+        assert (
+            apply_event(AgentState.HEALTHY, AgentEvent.AUTH_ERROR) == AgentState.AUTH_ERROR_LATCHED
+        )
 
     def test_clock_error_persistent_latches(self) -> None:
-        assert apply_event(AgentState.HEALTHY, AgentEvent.CLOCK_ERROR_PERSISTENT) == AgentState.CLOCK_ERROR_LATCHED
+        assert (
+            apply_event(AgentState.HEALTHY, AgentEvent.CLOCK_ERROR_PERSISTENT)
+            == AgentState.CLOCK_ERROR_LATCHED
+        )
 
     def test_consecutive_errors_goes_to_degraded(self) -> None:
-        assert apply_event(AgentState.HEALTHY, AgentEvent.CONSECUTIVE_ERRORS_THRESHOLD) == AgentState.DEGRADED
+        assert (
+            apply_event(AgentState.HEALTHY, AgentEvent.CONSECUTIVE_ERRORS_THRESHOLD)
+            == AgentState.DEGRADED
+        )
 
     def test_operator_pause_goes_to_paused(self) -> None:
         assert apply_event(AgentState.HEALTHY, AgentEvent.OPERATOR_PAUSE) == AgentState.PAUSED
@@ -61,17 +69,25 @@ class TestTransitionsFromDegraded:
         assert apply_event(AgentState.DEGRADED, AgentEvent.NETWORK_ERROR) == AgentState.DISCONNECTED
 
     def test_auth_error_latches(self) -> None:
-        assert apply_event(AgentState.DEGRADED, AgentEvent.AUTH_ERROR) == AgentState.AUTH_ERROR_LATCHED
+        assert (
+            apply_event(AgentState.DEGRADED, AgentEvent.AUTH_ERROR) == AgentState.AUTH_ERROR_LATCHED
+        )
 
     def test_clock_error_persistent_latches(self) -> None:
-        assert apply_event(AgentState.DEGRADED, AgentEvent.CLOCK_ERROR_PERSISTENT) == AgentState.CLOCK_ERROR_LATCHED
+        assert (
+            apply_event(AgentState.DEGRADED, AgentEvent.CLOCK_ERROR_PERSISTENT)
+            == AgentState.CLOCK_ERROR_LATCHED
+        )
 
     def test_operator_pause_goes_to_paused(self) -> None:
         assert apply_event(AgentState.DEGRADED, AgentEvent.OPERATOR_PAUSE) == AgentState.PAUSED
 
     def test_consecutive_errors_threshold_stays_degraded(self) -> None:
         """Already degraded — more errors don't escalate further."""
-        assert apply_event(AgentState.DEGRADED, AgentEvent.CONSECUTIVE_ERRORS_THRESHOLD) == AgentState.DEGRADED
+        assert (
+            apply_event(AgentState.DEGRADED, AgentEvent.CONSECUTIVE_ERRORS_THRESHOLD)
+            == AgentState.DEGRADED
+        )
 
 
 # ─── Transitions from DISCONNECTED ───────────────────────────────────────
@@ -83,14 +99,20 @@ class TestTransitionsFromDisconnected:
 
     def test_auth_error_latches(self) -> None:
         """Network came back, but auth bad. Latch (not back to healthy)."""
-        assert apply_event(AgentState.DISCONNECTED, AgentEvent.AUTH_ERROR) == AgentState.AUTH_ERROR_LATCHED
+        assert (
+            apply_event(AgentState.DISCONNECTED, AgentEvent.AUTH_ERROR)
+            == AgentState.AUTH_ERROR_LATCHED
+        )
 
     def test_operator_pause_goes_to_paused(self) -> None:
         assert apply_event(AgentState.DISCONNECTED, AgentEvent.OPERATOR_PAUSE) == AgentState.PAUSED
 
     def test_more_network_errors_stay_disconnected(self) -> None:
         """Already disconnected — more network errors are no-op."""
-        assert apply_event(AgentState.DISCONNECTED, AgentEvent.NETWORK_ERROR) == AgentState.DISCONNECTED
+        assert (
+            apply_event(AgentState.DISCONNECTED, AgentEvent.NETWORK_ERROR)
+            == AgentState.DISCONNECTED
+        )
 
 
 # ─── Transitions from PAUSED ─────────────────────────────────────────────
@@ -120,9 +142,7 @@ class TestLatchedStatesAreTerminal:
     transitions. Only process restart re-enters HEALTHY (via the seed)."""
 
     @pytest.mark.parametrize("event", list(AgentEvent))
-    def test_auth_latched_does_not_transition_on_any_event(
-        self, event: AgentEvent
-    ) -> None:
+    def test_auth_latched_does_not_transition_on_any_event(self, event: AgentEvent) -> None:
         """Property test: no event escapes AUTH_ERROR_LATCHED."""
         result = apply_event(AgentState.AUTH_ERROR_LATCHED, event)
         assert result == AgentState.AUTH_ERROR_LATCHED, (
@@ -131,9 +151,7 @@ class TestLatchedStatesAreTerminal:
         )
 
     @pytest.mark.parametrize("event", list(AgentEvent))
-    def test_clock_latched_does_not_transition_on_any_event(
-        self, event: AgentEvent
-    ) -> None:
+    def test_clock_latched_does_not_transition_on_any_event(self, event: AgentEvent) -> None:
         result = apply_event(AgentState.CLOCK_ERROR_LATCHED, event)
         assert result == AgentState.CLOCK_ERROR_LATCHED
 

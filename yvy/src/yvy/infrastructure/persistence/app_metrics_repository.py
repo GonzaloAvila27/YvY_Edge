@@ -80,9 +80,7 @@ class AppMetricsRepository:
     def is_catchup_running(self) -> bool:
         """Lectura no-bloqueante del estado del lock."""
         conn = self._factory.get_connection()
-        cur = conn.execute(
-            "SELECT value FROM app_metrics WHERE key = 'catchup_running'"
-        )
+        cur = conn.execute("SELECT value FROM app_metrics WHERE key = 'catchup_running'")
         row = cur.fetchone()
         if row is None:
             return False

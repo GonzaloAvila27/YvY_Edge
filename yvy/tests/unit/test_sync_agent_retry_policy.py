@@ -13,19 +13,16 @@ Verified properties:
 - Result is always tz-aware UTC datetime.
 - next_retry_at is always in the future relative to now.
 """
+
 from __future__ import annotations
 
-import random
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
-
-import pytest
 
 from yvy.infrastructure.sync.sync_agent import (
     SyncAgentConfig,
     SyncAgentDaemon,
 )
-
 
 # ─── Test fixtures (minimal daemon) ──────────────────────────────────────
 
@@ -46,6 +43,7 @@ class _FrozenTimeProvider:
 def _make_daemon(config: SyncAgentConfig | None = None) -> SyncAgentDaemon:
     """Build a daemon with mocks for everything we don't touch in these tests."""
     from uuid import UUID
+
     return SyncAgentDaemon(
         sync_repo=MagicMock(),
         agent_state_repo=MagicMock(),
@@ -76,8 +74,7 @@ class TestBackoffMath:
             deltas.append(delta_s)
         # All deltas within ±10% of INITIAL_DELAY_S
         assert all(
-            cfg.INITIAL_DELAY_S * 0.9 <= d <= cfg.INITIAL_DELAY_S * 1.1
-            for d in deltas
+            cfg.INITIAL_DELAY_S * 0.9 <= d <= cfg.INITIAL_DELAY_S * 1.1 for d in deltas
         ), f"Some deltas outside band: {deltas[:5]}..."
 
     def test_attempt_2_is_initial_times_multiplier(self) -> None:
@@ -92,7 +89,7 @@ class TestBackoffMath:
     def test_attempt_3_grows_exponentially(self) -> None:
         daemon = _make_daemon()
         cfg = daemon._config
-        expected_base = cfg.INITIAL_DELAY_S * (cfg.BACKOFF_MULTIPLIER ** 2)  # 8.0
+        expected_base = cfg.INITIAL_DELAY_S * (cfg.BACKOFF_MULTIPLIER**2)  # 8.0
         for _ in range(20):
             result = daemon._compute_next_retry(attempt_count=3)
             delta_s = (result - _NOW).total_seconds()
@@ -106,9 +103,9 @@ class TestBackoffMath:
             result = daemon._compute_next_retry(attempt_count=20)
             delta_s = (result - _NOW).total_seconds()
             # Within jitter band of MAX_DELAY_S
-            assert cfg.MAX_DELAY_S * 0.9 <= delta_s <= cfg.MAX_DELAY_S * 1.1, (
-                f"attempt=20 delta {delta_s} not capped at MAX={cfg.MAX_DELAY_S}"
-            )
+            assert (
+                cfg.MAX_DELAY_S * 0.9 <= delta_s <= cfg.MAX_DELAY_S * 1.1
+            ), f"attempt=20 delta {delta_s} not capped at MAX={cfg.MAX_DELAY_S}"
 
     def test_attempt_around_cap_boundary(self) -> None:
         """Find the attempt where uncapped base crosses MAX_DELAY_S.
@@ -144,10 +141,7 @@ class TestJitter:
         """Two calls to _compute_next_retry should produce different
         timestamps (jitter randomizes)."""
         daemon = _make_daemon()
-        results = {
-            daemon._compute_next_retry(attempt_count=5)
-            for _ in range(50)
-        }
+        results = {daemon._compute_next_retry(attempt_count=5) for _ in range(50)}
         # With ±10% jitter on a base of 32s, we expect significant
         # variation — at least 5 distinct values in 50 calls.
         assert len(results) >= 5, f"Insufficient jitter variety: {len(results)}"
@@ -156,7 +150,7 @@ class TestJitter:
         """No outliers outside the ±10% band."""
         daemon = _make_daemon()
         cfg = daemon._config
-        base = cfg.INITIAL_DELAY_S * (cfg.BACKOFF_MULTIPLIER ** 4)  # attempt=5
+        base = cfg.INITIAL_DELAY_S * (cfg.BACKOFF_MULTIPLIER**4)  # attempt=5
         min_allowed = base * 0.9
         max_allowed = base * 1.1
         for _ in range(200):
@@ -168,10 +162,7 @@ class TestJitter:
         """Setting JITTER_RATIO=0.0 should produce identical delays."""
         config = SyncAgentConfig(JITTER_RATIO=0.0)
         daemon = _make_daemon(config=config)
-        results = {
-            daemon._compute_next_retry(attempt_count=3)
-            for _ in range(20)
-        }
+        results = {daemon._compute_next_retry(attempt_count=3) for _ in range(20)}
         assert len(results) == 1  # all identical
 
 

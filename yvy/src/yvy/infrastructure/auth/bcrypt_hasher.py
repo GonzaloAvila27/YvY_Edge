@@ -17,7 +17,6 @@ import bcrypt
 
 from yvy.domain.auth.exceptions import WeakPasswordError
 
-
 # Cost factor de bcrypt. 2**12 = 4096 iteraciones internas.
 BCRYPT_ROUNDS = 12
 
@@ -30,9 +29,7 @@ class BcryptPasswordHasher:
 
     def __init__(self, rounds: int = BCRYPT_ROUNDS) -> None:
         if rounds < 4 or rounds > 20:
-            raise ValueError(
-                f"rounds debe estar en [4, 20], recibido {rounds}"
-            )
+            raise ValueError(f"rounds debe estar en [4, 20], recibido {rounds}")
         self._rounds = rounds
 
     def hash(self, plaintext: str) -> str:

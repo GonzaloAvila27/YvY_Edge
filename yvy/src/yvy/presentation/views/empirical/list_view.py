@@ -64,20 +64,25 @@ class EmpiricalListView(tk.Frame):
         header.pack_propagate(False)
 
         tk.Label(
-            header, text="Cuaderno empírico",
-            font=FONTS["heading"], bg=COLORS["bg"], fg=COLORS["text"],
+            header,
+            text="Cuaderno empírico",
+            font=FONTS["heading"],
+            bg=COLORS["bg"],
+            fg=COLORS["text"],
         ).pack(side="left", anchor="w")
 
         # Botón cargar nueva observación (alumnos/profes/admins)
         if Permissions.can_create_empirical_observation(self._current_user):
             ttk.Button(
-                header, text="+ Cargar observación",
+                header,
+                text="+ Cargar observación",
                 style="Primary.TButton",
                 command=self._on_open_wizard,
             ).pack(side="right", padx=SPACE_SM)
 
         ttk.Button(
-            header, text="Refrescar",
+            header,
+            text="Refrescar",
             style="Secondary.TButton",
             command=self.refresh,
         ).pack(side="right", padx=SPACE_SM)
@@ -87,19 +92,37 @@ class EmpiricalListView(tk.Frame):
         filters_frame.pack(side="top", fill="x", padx=SPACE_LG)
         filters_frame.pack_propagate(False)
 
-        tk.Label(filters_frame, text="Período:", font=FONTS["body"], bg=COLORS["bg_alt"]).pack(side="left", padx=(SPACE_MD, SPACE_SM))
-        for days, label in [("1", "Hoy"), ("7", "Última semana"), ("30", "Último mes"), ("0", "Todo")]:
+        tk.Label(filters_frame, text="Período:", font=FONTS["body"], bg=COLORS["bg_alt"]).pack(
+            side="left", padx=(SPACE_MD, SPACE_SM)
+        )
+        for days, label in [
+            ("1", "Hoy"),
+            ("7", "Última semana"),
+            ("30", "Último mes"),
+            ("0", "Todo"),
+        ]:
             ttk.Radiobutton(
-                filters_frame, text=label, variable=self._date_range_days_var, value=days,
+                filters_frame,
+                text=label,
+                variable=self._date_range_days_var,
+                value=days,
                 command=self.refresh,
             ).pack(side="left", padx=SPACE_SM)
 
         ttk.Checkbutton(
-            filters_frame, text="Solo válidas", variable=self._only_valid_var,
+            filters_frame,
+            text="Solo válidas",
+            variable=self._only_valid_var,
             command=self.refresh,
         ).pack(side="left", padx=SPACE_LG)
 
-        self._count_label = tk.Label(filters_frame, text="", font=FONTS["small"], bg=COLORS["bg_alt"], fg=COLORS["text_muted"])
+        self._count_label = tk.Label(
+            filters_frame,
+            text="",
+            font=FONTS["small"],
+            bg=COLORS["bg_alt"],
+            fg=COLORS["text_muted"],
+        )
         self._count_label.pack(side="right", padx=SPACE_MD)
 
         # Tabla
@@ -139,13 +162,15 @@ class EmpiricalListView(tk.Frame):
         footer.pack_propagate(False)
 
         ttk.Button(
-            footer, text="Ver detalle",
+            footer,
+            text="Ver detalle",
             style="Secondary.TButton",
             command=self._open_detail_for_selected,
         ).pack(side="right")
 
     def apply_theme(self, palette: dict) -> None:
         from yvy.presentation.theme_manager import recolor
+
         recolor(self, palette)
 
     def refresh(self) -> None:
@@ -172,7 +197,8 @@ class EmpiricalListView(tk.Frame):
 
         for obs in observations:
             self._tree.insert(
-                "", "end",
+                "",
+                "end",
                 iid=str(obs.observation_id),
                 values=(
                     obs.observed_at_local.strftime("%d/%m/%Y"),
@@ -200,7 +226,7 @@ class EmpiricalListView(tk.Frame):
         days = int(days_str)
         return datetime.now(_TZ_AR) - timedelta(days=days)
 
-    def _on_row_double_click(self, _event) -> None:  # noqa: ANN001
+    def _on_row_double_click(self, _event) -> None:
         self._open_detail_for_selected()
 
     def _open_detail_for_selected(self) -> None:

@@ -56,27 +56,31 @@ class DewpointChart(BaseChart):
     ) -> None:
         # ── 1. Obtener series ─────────────────────────────────────────
         if period_range is not None:
-            temp_series = query_uc.execute_range("temp_out", period_range.start, period_range.end, station_uuid)
-            hum_series  = query_uc.execute_range("hum_out",  period_range.start, period_range.end, station_uuid)
+            temp_series = query_uc.execute_range(
+                "temp_out", period_range.start, period_range.end, station_uuid
+            )
+            hum_series = query_uc.execute_range(
+                "hum_out", period_range.start, period_range.end, station_uuid
+            )
         else:
             temp_series = query_uc.execute("temp_out", period, station_uuid)
-            hum_series  = query_uc.execute("hum_out",  period, station_uuid)
+            hum_series = query_uc.execute("hum_out", period, station_uuid)
 
         if not temp_series.timestamps or not hum_series.timestamps:
             raise NoDataError()
 
         # ── 2. Alinear timestamps ─────────────────────────────────────
         hum_by_ts: dict[float, float] = {}
-        for ts, val in zip(hum_series.timestamps, hum_series.values):
+        for ts, val in zip(hum_series.timestamps, hum_series.values, strict=False):
             if val is not None:
                 hum_by_ts[ts.timestamp()] = val
 
         hum_epochs_sorted = sorted(hum_by_ts.keys())
-        aligned_ts  = []
-        temps       = []
-        dewpoints   = []
+        aligned_ts = []
+        temps = []
+        dewpoints = []
 
-        for ts, t_val in zip(temp_series.timestamps, temp_series.values):
+        for ts, t_val in zip(temp_series.timestamps, temp_series.values, strict=False):
             if t_val is None:
                 continue
             epoch = ts.timestamp()
@@ -109,26 +113,34 @@ class DewpointChart(BaseChart):
             draw_night_bands(ax, period_range.start, period_range.end, tz)
 
         # ── 5. Líneas principales ─────────────────────────────────────
-        ax.plot(aligned_ts, temps,     color=PRIMARY, linewidth=1.8,
-                label="Temperatura (°C)", zorder=3)
-        ax.plot(aligned_ts, dewpoints, color=SUCCESS, linewidth=1.5,
-                linestyle="--", label="Punto de rocío (°C)", zorder=3)
+        ax.plot(aligned_ts, temps, color=PRIMARY, linewidth=1.8, label="Temperatura (°C)", zorder=3)
+        ax.plot(
+            aligned_ts,
+            dewpoints,
+            color=SUCCESS,
+            linewidth=1.5,
+            linestyle="--",
+            label="Punto de rocío (°C)",
+            zorder=3,
+        )
 
         # ── 6. Riesgo de niebla ───────────────────────────────────────
-        fog_ts  = []
+        fog_ts = []
         fog_dps = []
-        for ts, t, dp in zip(aligned_ts, temps, dewpoints):
+        for ts, t, dp in zip(aligned_ts, temps, dewpoints, strict=False):
             if abs(t - dp) < _FOG_MARGIN_C:
                 fog_ts.append(ts)
                 fog_dps.append(dp)
 
         if fog_ts:
-            ax.scatter(fog_ts, fog_dps, color=DANGER, s=25, zorder=5,
-                       label="Riesgo niebla", marker="o")
+            ax.scatter(
+                fog_ts, fog_dps, color=DANGER, s=25, zorder=5, label="Riesgo niebla", marker="o"
+            )
 
         # ── 7. Leyenda y etiquetas ────────────────────────────────────
-        ax.legend(loc="upper right", fontsize=9, framealpha=0.85,
-                  facecolor=BG_CARD, edgecolor=BORDER)
+        ax.legend(
+            loc="upper right", fontsize=9, framealpha=0.85, facecolor=BG_CARD, edgecolor=BORDER
+        )
         ax.set_title(self.label)
         ax.set_ylabel("°C")
 

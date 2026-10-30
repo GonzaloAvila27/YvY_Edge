@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "yvy"
-version = "1.5.1"
+version = "1.6.0"
 description = "Sistema meteorológico escolar offline-first para Instituciones de Educación Agropecuaria de Misiones"
 authors = ["Gonzalo Avila <gonzalo.avila@example.ar>"]
 license = "Apache-2.0"
@@ -19,7 +19,7 @@ schedule = "^1.2.0"
 pydantic-settings = "^2.5.0"
 pydantic = "^2.9.0"
 tzdata = "^2026.2"
-httpx = "^0.27.0"
+httpx = "^0.28.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"
@@ -33,7 +33,7 @@ freezegun = "^1.5.0"
 respx = "^0.21.0"
 
 [tool.poetry.scripts]
-yvy = "yvy.main:main"
+yvy = "yvy.cli.__main__:main"
 
 [build-system]
 requires = ["poetry-core"]
@@ -63,20 +63,43 @@ select = [
     "N",      # pep8-naming
     "SIM",    # flake8-simplify
     "RUF",    # ruff-specific
+    "PGH",    # pygrep-hooks: type:ignore/noqa deben llevar código específico (INI-6)
 ]
 ignore = [
     "E501",   # line too long (handled by formatter)
     "B008",   # function-call-in-default-argument (común en FastAPI/typer)
+    # Texto en español (á é í ó ú ñ ¿ ¡) es "unicode ambiguo" para ruff
+    # (lookalikes cirílicos/griegos). Falso positivo en toda la base → se ignora.
+    "RUF001", # ambiguous-unicode-character-string
+    "RUF002", # ambiguous-unicode-character-docstring
+    "RUF003", # ambiguous-unicode-character-comment
+    # Preferencias de estilo: la forma actual suele ser más clara.
+    "SIM102", # collapsible-if (ifs anidados a veces más legibles que un `and` largo)
+    "SIM105", # suppressible-exception (try/except/pass explícito es aceptable;
+              # theme_manager lo usa a propósito en su walk por-widget, ver docstring)
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = [
     "S101",   # asserts permitidos en tests
     "N802",   # nombres de tests pueden romper convención
+    "E402",   # imports tras setup de fixtures/paths
+    "F841",   # vars de setup asignadas por su efecto (creación en DB) sin usar el nombre
+    "E741",   # nombres cortos en escenarios de test
+    "B007",   # loop vars sin usar en tests
 ]
 "src/yvy/presentation/**/*.py" = [
     "N802",   # tkinter usa nombres camelCase
     "N803",
+    "N806",   # matplotlib/tkinter: vars locales no-lowercase (X, Y, ...)
+]
+"src/yvy/application/use_cases/compute_derived.py" = [
+    "N806",   # variables de fórmulas meteorológicas (T, RH, es, ea) por convención
+]
+"scripts/**/*.py" = [
+    "E402",   # scripts utilitarios: setup de sys.path/entorno antes de imports
+    "B007",   # loop vars sin usar en scripts one-off
+    "N801",   # convención laxa de nombres en scripts
 ]
 
 [tool.ruff.format]
@@ -127,8 +150,19 @@ skip_covered = false
 # ──────────────────────────────────────────────────────────────────────────────
 # Mypy (type checking diferenciado por módulo)
 # ──────────────────────────────────────────────────────────────────────────────
+# Niveles de strictness por capa — INI-6 · §5. Se declaran acá TODOS desde la
+# etapa 0, aunque el gate de CI (job `types`) empiece corriendo sólo los
+# paquetes ya en 0. Así `mypy src` es la vara de medición real: la distancia de
+# cada capa a su objetivo es inequívoca. El conteo global NO gatea nada — el
+# ratchet es la lista de paquetes del job de CI (ver docs/PLAN_ADOPCION_MYPY.md).
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
+# La flota corre Windows: el análisis se hace para ESA plataforma, no para la del
+# runner. Sin esto, mypy en el CI (Ubuntu) no ve los atributos win32 del stdlib
+# —p. ej. `subprocess.CREATE_NEW_CONSOLE`, que el instalador OTA usa— y el gate
+# chequearía un programa distinto del que se despliega.
+platform = "win32"
+mypy_path = ["src"]
 files = ["src/yvy"]
 exclude = [
     "tests/",
@@ -140,8 +174,12 @@ exclude = [
 warn_return_any = false
 warn_unused_configs = true
 ignore_missing_imports = true
+# Flag global (no válido en overrides por módulo). Barato y sin falsos positivos
+# medidos: 0 errores nuevos en todo src.
+warn_redundant_casts = true
 
-# ESTRICTO en domain/ y application/
+# domain/ + application/ — strict. Son el contrato del sistema; ya se pagó una
+# vez (Fase 9.2). application regresionó en silencio por no tener gate: INI-6 · §2.1.
 [[tool.mypy.overrides]]
 module = [
     "yvy.domain.*",
@@ -156,21 +194,29 @@ disallow_incomplete_defs = true
 check_untyped_defs = true
 disallow_untyped_decorators = true
 no_implicit_optional = true
-warn_redundant_casts = true
 warn_unused_ignores = true
 warn_return_any = true
 no_implicit_reexport = true
 
-# CASUAL en presentation/ (Tkinter no juega bien con strict)
+# infrastructure/ + cli/ — strict-lite. Los puertos quedan tipados; las llamadas
+# a libs externas (pywws, hid, httpx) no fuerzan genéricos exhaustivos, así que
+# NO se activa disallow_any_generics.
+[[tool.mypy.overrides]]
+module = [
+    "yvy.infrastructure.*",
+    "yvy.cli.*",
+]
+disallow_untyped_defs = true
+check_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+
+# presentation/ — base + check_untyped_defs + warn_unused_ignores. El pegamento
+# Tk tiene stubs mediocres; el valor está en las fronteras con application, que
+# el lado application ya verifica strict. No se exige disallow_untyped_defs.
 [[tool.mypy.overrides]]
 module = "yvy.presentation.*"
 ignore_errors = false
 disallow_untyped_defs = false
-check_untyped_defs = false
-
-# Infrastructure: intermedio
-[[tool.mypy.overrides]]
-module = "yvy.infrastructure.*"
-disallow_untyped_defs = true
 check_untyped_defs = true
-warn_return_any = true
+warn_unused_ignores = true

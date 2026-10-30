@@ -89,16 +89,12 @@ class TestCatchupResultInvariant:
 
     def test_consistent_counts_pass(self) -> None:
         # 10 = 5 + 3 + 2
-        result = CatchupResult(
-            slots_read=10, new_in_raw=5, already_present=3, parse_errors=2
-        )
+        result = CatchupResult(slots_read=10, new_in_raw=5, already_present=3, parse_errors=2)
         assert result.slots_read == 10
 
     def test_inconsistent_counts_raise(self) -> None:
         with pytest.raises(ValueError, match="inconsistente"):
-            CatchupResult(
-                slots_read=10, new_in_raw=5, already_present=3, parse_errors=5
-            )
+            CatchupResult(slots_read=10, new_in_raw=5, already_present=3, parse_errors=5)
 
 
 @pytest.mark.integration
@@ -170,9 +166,7 @@ class TestCatchupBasicFlow:
         )
 
         # Since = 10:30 → solo deberían venir 10:30 y 10:45
-        result = use_case.execute(
-            since=datetime(2026, 4, 26, 10, 30, 0, tzinfo=UTC)
-        )
+        result = use_case.execute(since=datetime(2026, 4, 26, 10, 30, 0, tzinfo=UTC))
 
         assert result.slots_read == 2
         assert result.new_in_raw == 2
@@ -195,12 +189,8 @@ class TestCatchupBasicFlow:
         use_case.execute(since=_yesterday_utc())
 
         conn = db_factory.get_connection()
-        modes_raw = [
-            r[0] for r in conn.execute("SELECT pywws_mode FROM sensor_raw").fetchall()
-        ]
-        modes_data = [
-            r[0] for r in conn.execute("SELECT pywws_mode FROM sensor_data").fetchall()
-        ]
+        modes_raw = [r[0] for r in conn.execute("SELECT pywws_mode FROM sensor_raw").fetchall()]
+        modes_data = [r[0] for r in conn.execute("SELECT pywws_mode FROM sensor_data").fetchall()]
         assert modes_raw == ["catchup"]
         assert modes_data == ["catchup"]
 
@@ -222,7 +212,11 @@ class TestCatchupIdempotence:
         # Primera corrida: 5 nuevos
         uc1 = _build_use_case(
             StubCatchupSource(slots=slots),
-            sensor_repo, sync_repo, metrics_repo, station_uuid, far_future_clock,
+            sensor_repo,
+            sync_repo,
+            metrics_repo,
+            station_uuid,
+            far_future_clock,
         )
         result1 = uc1.execute(since=_yesterday_utc())
         assert result1.new_in_raw == 5
@@ -230,7 +224,11 @@ class TestCatchupIdempotence:
         # Segunda corrida: 0 nuevos, 5 already_present
         uc2 = _build_use_case(
             StubCatchupSource(slots=slots),
-            sensor_repo, sync_repo, metrics_repo, station_uuid, far_future_clock,
+            sensor_repo,
+            sync_repo,
+            metrics_repo,
+            station_uuid,
+            far_future_clock,
         )
         result2 = uc2.execute(since=_yesterday_utc())
         assert result2.slots_read == 5
@@ -260,9 +258,7 @@ class TestCatchupIdempotence:
         from yvy.domain.sensor.models import RawPayload
         from yvy.domain.shared.time_utils import canonicalize_to_minute_utc
 
-        ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 10, 0, 0, tzinfo=UTC)
-        )
+        ts = canonicalize_to_minute_utc(datetime(2026, 4, 26, 10, 0, 0, tzinfo=UTC))
         eid = build_event_id(station_uuid, ts)
 
         live_raw = RawPayload(
@@ -280,7 +276,11 @@ class TestCatchupIdempotence:
         slots = [make_catchup_slot(hour=10, minute=0)]
         use_case = _build_use_case(
             StubCatchupSource(slots=slots),
-            sensor_repo, sync_repo, metrics_repo, station_uuid, far_future_clock,
+            sensor_repo,
+            sync_repo,
+            metrics_repo,
+            station_uuid,
+            far_future_clock,
         )
         result = use_case.execute(since=_yesterday_utc())
 
@@ -383,7 +383,11 @@ class TestCatchupLock:
 
         use_case = _build_use_case(
             StubCatchupSource(slots=[make_catchup_slot(hour=10)]),
-            sensor_repo, sync_repo, metrics_repo, station_uuid, far_future_clock,
+            sensor_repo,
+            sync_repo,
+            metrics_repo,
+            station_uuid,
+            far_future_clock,
         )
 
         with pytest.raises(CatchupAlreadyRunningError):
@@ -402,7 +406,11 @@ class TestCatchupLock:
     ) -> None:
         use_case = _build_use_case(
             StubCatchupSource(slots=[make_catchup_slot(hour=10)]),
-            sensor_repo, sync_repo, metrics_repo, station_uuid, far_future_clock,
+            sensor_repo,
+            sync_repo,
+            metrics_repo,
+            station_uuid,
+            far_future_clock,
         )
 
         use_case.execute(since=_yesterday_utc())
@@ -425,8 +433,12 @@ class TestCatchupLock:
                 raise RuntimeError("simulated crash")
 
         use_case = _build_use_case(
-            CrashingSource(), sensor_repo, sync_repo, metrics_repo,
-            station_uuid, far_future_clock,
+            CrashingSource(),
+            sensor_repo,
+            sync_repo,
+            metrics_repo,
+            station_uuid,
+            far_future_clock,
         )
 
         with pytest.raises(RuntimeError, match="simulated"):
@@ -452,12 +464,20 @@ class TestCatchupMetrics:
 
         use_case = _build_use_case(
             StubCatchupSource(slots=[make_catchup_slot(hour=10)]),
-            sensor_repo, sync_repo, metrics_repo, station_uuid, far_future_clock,
+            sensor_repo,
+            sync_repo,
+            metrics_repo,
+            station_uuid,
+            far_future_clock,
         )
         use_case.execute(since=_yesterday_utc())
         use_case = _build_use_case(
             StubCatchupSource(slots=[make_catchup_slot(hour=11)]),
-            sensor_repo, sync_repo, metrics_repo, station_uuid, far_future_clock,
+            sensor_repo,
+            sync_repo,
+            metrics_repo,
+            station_uuid,
+            far_future_clock,
         )
         use_case.execute(since=_yesterday_utc())
 
@@ -477,7 +497,11 @@ class TestCatchupMetrics:
         # Primera corrida: 5 nuevos
         uc = _build_use_case(
             StubCatchupSource(slots=slots),
-            sensor_repo, sync_repo, metrics_repo, station_uuid, far_future_clock,
+            sensor_repo,
+            sync_repo,
+            metrics_repo,
+            station_uuid,
+            far_future_clock,
         )
         uc.execute(since=_yesterday_utc())
         assert metrics_repo.get_counter("readings_catchup_total") == 5
@@ -485,7 +509,11 @@ class TestCatchupMetrics:
         # Segunda corrida: 0 nuevos (ya estaban) → contador no debería avanzar
         uc = _build_use_case(
             StubCatchupSource(slots=slots),
-            sensor_repo, sync_repo, metrics_repo, station_uuid, far_future_clock,
+            sensor_repo,
+            sync_repo,
+            metrics_repo,
+            station_uuid,
+            far_future_clock,
         )
         uc.execute(since=_yesterday_utc())
         assert metrics_repo.get_counter("readings_catchup_total") == 5  # no cambió
@@ -502,7 +530,11 @@ class TestCatchupMetrics:
 
         use_case = _build_use_case(
             StubCatchupSource(slots=[]),
-            sensor_repo, sync_repo, metrics_repo, station_uuid, far_future_clock,
+            sensor_repo,
+            sync_repo,
+            metrics_repo,
+            station_uuid,
+            far_future_clock,
         )
         use_case.execute(since=_yesterday_utc())
 
@@ -523,7 +555,11 @@ class TestCatchupArgumentValidation:
     ) -> None:
         use_case = _build_use_case(
             StubCatchupSource(slots=[]),
-            sensor_repo, sync_repo, metrics_repo, station_uuid, far_future_clock,
+            sensor_repo,
+            sync_repo,
+            metrics_repo,
+            station_uuid,
+            far_future_clock,
         )
 
         with pytest.raises(ValueError, match="timezone-aware"):

@@ -7,6 +7,7 @@ import uuid
 from dataclasses import dataclass
 
 from yvy.application.ports.time_provider import TimeProvider
+from yvy.application.use_cases.empirical._actor import require_persisted_actor_id
 from yvy.domain.auth.enums import AuditEventType, AuditSource
 from yvy.domain.auth.models import AuditLogEntry, User
 from yvy.domain.auth.repository import AuditLogRepository
@@ -57,6 +58,7 @@ class CreateEmpiricalEventUseCase:
         self._time_provider = time_provider
 
     def execute(self, input_data: CreateEventInput) -> CreateEventResult:
+        actor_id = require_persisted_actor_id(input_data.actor)
         now_local = self._time_provider.now_local()
         validate_event_date_window(input_data.observation_date, now_local)
 
@@ -70,14 +72,16 @@ class CreateEmpiricalEventUseCase:
             hail_size=input_data.hail_size,
             description=input_data.description,
             is_valid=True,
-            created_by_user_id=input_data.actor.id,
+            created_by_user_id=actor_id,
             created_at_utc=self._time_provider.now_utc(),
         )
 
         self._empirical_repo.save_event(event)
         logger.info(
             "EmpiricalEvent creado: id=%s tipo=%s date=%s",
-            event.event_record_id, event.event_type.value, event.observation_date,
+            event.event_record_id,
+            event.event_type.value,
+            event.observation_date,
         )
 
         sync_enqueued = self._enqueue_sync(event)
@@ -115,7 +119,9 @@ class CreateEmpiricalEventUseCase:
                 "description": event.description,
                 "is_valid": event.is_valid,
                 "created_by_user_id": event.created_by_user_id,
-                "created_at_utc": event.created_at_utc.isoformat() if event.created_at_utc else None,
+                "created_at_utc": event.created_at_utc.isoformat()
+                if event.created_at_utc
+                else None,
             }
             job = SyncJob(
                 event_id=event.event_record_id,
@@ -133,6 +139,7 @@ class CreateEmpiricalEventUseCase:
         except Exception as exc:
             logger.exception(
                 "Fallo encolando evento %s al sync: %s",
-                event.event_record_id, exc,
+                event.event_record_id,
+                exc,
             )
             return False

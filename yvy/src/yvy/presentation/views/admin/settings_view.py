@@ -14,11 +14,8 @@ import logging
 import threading
 import tkinter as tk
 from tkinter import messagebox, ttk
-from typing import Callable
 
 from yvy.application.use_cases.admin.update_retention_policy import (
-    KEY_RAW_DAYS,
-    KEY_SYNC_SENT_DAYS,
     UpdateRetentionPolicyUseCase,
 )
 from yvy.application.use_cases.retention.run_retention_job import (
@@ -30,7 +27,6 @@ from yvy.presentation.theme import (
     BG_CREAM,
     BORDER,
     DANGER,
-    FONT_BODY,
     FONT_BODY_BOLD,
     FONT_SMALL,
     SPACE_LG,
@@ -126,8 +122,7 @@ class SettingsView(tk.Frame):
         ).pack(anchor="w", pady=(2, SPACE_LG))
 
         show_updates = (
-            self._user_role in ("admin", "superadmin")
-            and self._sync_controller is not None
+            self._user_role in ("admin", "superadmin") and self._sync_controller is not None
         )
 
         if show_updates:
@@ -256,7 +251,10 @@ class SettingsView(tk.Frame):
         danger_card.pack(fill="x")
 
         danger_inner = tk.Frame(
-            danger_card, bg=BG_CARD, padx=SPACE_XL, pady=SPACE_XL,
+            danger_card,
+            bg=BG_CARD,
+            padx=SPACE_XL,
+            pady=SPACE_XL,
         )
         danger_inner.pack(fill="x")
 
@@ -273,6 +271,7 @@ class SettingsView(tk.Frame):
 
         if self._help_repository is not None:
             from yvy.presentation.components.help_button import HelpButton
+
             HelpButton(
                 danger_header,
                 help_repository=self._help_repository,  # type: ignore[arg-type]
@@ -450,13 +449,20 @@ class SettingsView(tk.Frame):
         row.pack(fill="x", pady=(0, SPACE_MD))
 
         tk.Label(
-            row, text=label,
-            bg=BG_CARD, fg=TEXT_PRIMARY, font=FONT_BODY_BOLD,
+            row,
+            text=label,
+            bg=BG_CARD,
+            fg=TEXT_PRIMARY,
+            font=FONT_BODY_BOLD,
         ).pack(anchor="w")
         tk.Label(
-            row, text=help_text,
-            bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL,
-            wraplength=wrap, justify="left",
+            row,
+            text=help_text,
+            bg=BG_CARD,
+            fg=TEXT_SECONDARY,
+            font=FONT_SMALL,
+            wraplength=wrap,
+            justify="left",
         ).pack(anchor="w", pady=(2, SPACE_SM))
 
         spin_row = tk.Frame(row, bg=BG_CARD)
@@ -471,8 +477,11 @@ class SettingsView(tk.Frame):
         )
         spin.pack(side="left")
         tk.Label(
-            spin_row, text=" días",
-            bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL,
+            spin_row,
+            text=" días",
+            bg=BG_CARD,
+            fg=TEXT_SECONDARY,
+            font=FONT_SMALL,
         ).pack(side="left")
 
     # ─── Handlers ────────────────────────────────────────────────────────────
@@ -506,13 +515,12 @@ class SettingsView(tk.Frame):
         if self._sync_controller is None:
             return
         try:
-            update_info = self._sync_controller.get_update_info()  # type: ignore[union-attr]
-            releases = self._sync_controller.get_releases_on_disk()  # type: ignore[union-attr]
+            update_info = self._sync_controller.get_update_info()
+            releases = self._sync_controller.get_releases_on_disk()
         except Exception:
             return
         releases_simple = [
-            {"version": r["version"], "states": r.get("states", [])}
-            for r in releases
+            {"version": r["version"], "states": r.get("states", [])} for r in releases
         ]
 
         def _prevalidate():
@@ -521,9 +529,10 @@ class SettingsView(tk.Frame):
         def _on_confirmed() -> None:
             w = self.winfo_toplevel()
             if hasattr(w, "_show_install_transition"):
-                w._show_install_transition()  # type: ignore[union-attr]
+                w._show_install_transition()
 
         from yvy.presentation.components.update_modal import UpdateModal
+
         UpdateModal(
             self,
             update_info=update_info,
@@ -546,7 +555,7 @@ class SettingsView(tk.Frame):
         if self._sync_controller is None:
             return
         try:
-            result = self._sync_controller.rollback(  # type: ignore[union-attr]
+            result = self._sync_controller.rollback(
                 to_version=to_version,
                 reason=reason,
                 user_id=self._user_id,
@@ -559,11 +568,13 @@ class SettingsView(tk.Frame):
                 )
                 w = self.winfo_toplevel()
                 if hasattr(w, "_quit_for_install"):
-                    w._quit_for_install()  # type: ignore[union-attr]
+                    w._quit_for_install()
             else:
                 reason_str = result.reason if result else "error desconocido"
                 messagebox.showerror(
-                    "Error", f"No se pudo hacer rollback: {reason_str}", parent=self,
+                    "Error",
+                    f"No se pudo hacer rollback: {reason_str}",
+                    parent=self,
                 )
         except Exception as exc:
             messagebox.showerror("Error", str(exc), parent=self)
@@ -572,7 +583,7 @@ class SettingsView(tk.Frame):
         if self._sync_controller is None:
             return
         try:
-            update_info = self._sync_controller.get_update_info()  # type: ignore[union-attr]
+            update_info = self._sync_controller.get_update_info()
             current_ver = update_info.get("current_version", "")
         except Exception:
             current_ver = ""
@@ -586,10 +597,12 @@ class SettingsView(tk.Frame):
             parent=self,
         ):
             return
-        ok = self._sync_controller.mark_stable(current_ver, self._user_id)  # type: ignore[union-attr]
+        ok = self._sync_controller.mark_stable(current_ver, self._user_id)
         if ok:
             messagebox.showinfo(
-                "Listo", f"Versión {current_ver} marcada como estable.", parent=self,
+                "Listo",
+                f"Versión {current_ver} marcada como estable.",
+                parent=self,
             )
         else:
             messagebox.showerror("Error", "No se pudo marcar la versión.", parent=self)
@@ -614,15 +627,22 @@ class SettingsView(tk.Frame):
                     result.raw_deleted,
                     result.sync_archived,
                 )
-                self.after(0, lambda: messagebox.showinfo(
-                    "Retención completada",
-                    f"Lecturas crudas borradas: {result.raw_deleted}\n"
-                    f"Registros sync archivados: {result.sync_archived}",
-                ))
+                self.after(
+                    0,
+                    lambda: messagebox.showinfo(
+                        "Retención completada",
+                        f"Lecturas crudas borradas: {result.raw_deleted}\n"
+                        f"Registros sync archivados: {result.sync_archived}",
+                    ),
+                )
             except Exception as exc:
                 logger.exception("Error en retention forzado")
-                self.after(0, lambda: messagebox.showerror(
-                    "Error", f"No se pudo ejecutar la retención: {exc}",
-                ))
+                self.after(
+                    0,
+                    lambda exc=exc: messagebox.showerror(
+                        "Error",
+                        f"No se pudo ejecutar la retención: {exc}",
+                    ),
+                )
 
         threading.Thread(target=_run, name="retention-forced", daemon=True).start()

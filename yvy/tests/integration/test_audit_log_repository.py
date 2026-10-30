@@ -13,9 +13,7 @@ from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
 
 @pytest.mark.integration
 class TestAppend:
-    def test_append_returns_id(
-        self, audit_log_repo: SQLiteAuditLogRepository
-    ) -> None:
+    def test_append_returns_id(self, audit_log_repo: SQLiteAuditLogRepository) -> None:
         # user_id=None evita el FK; usar un user real requeriría seed
         entry = AuditLogEntry(
             event_type=AuditEventType.LOGIN_SUCCESS,
@@ -44,9 +42,7 @@ class TestAppend:
         assert len(recent) == 1
         assert recent[0].metadata == meta
 
-    def test_unicode_in_metadata(
-        self, audit_log_repo: SQLiteAuditLogRepository
-    ) -> None:
+    def test_unicode_in_metadata(self, audit_log_repo: SQLiteAuditLogRepository) -> None:
         entry = AuditLogEntry(
             event_type=AuditEventType.USER_CREATED,
             source=AuditSource.UI,
@@ -60,9 +56,7 @@ class TestAppend:
 
 @pytest.mark.integration
 class TestListRecent:
-    def test_returns_in_descending_id_order(
-        self, audit_log_repo: SQLiteAuditLogRepository
-    ) -> None:
+    def test_returns_in_descending_id_order(self, audit_log_repo: SQLiteAuditLogRepository) -> None:
         for i in range(5):
             audit_log_repo.append(
                 AuditLogEntry(
@@ -78,9 +72,7 @@ class TestListRecent:
         assert recent[0].metadata["i"] == 4
         assert recent[-1].metadata["i"] == 0
 
-    def test_respects_limit(
-        self, audit_log_repo: SQLiteAuditLogRepository
-    ) -> None:
+    def test_respects_limit(self, audit_log_repo: SQLiteAuditLogRepository) -> None:
         for _ in range(10):
             audit_log_repo.append(
                 AuditLogEntry(
@@ -90,9 +82,7 @@ class TestListRecent:
             )
         assert len(audit_log_repo.list_recent(limit=3)) == 3
 
-    def test_paginates_with_before_id(
-        self, audit_log_repo: SQLiteAuditLogRepository
-    ) -> None:
+    def test_paginates_with_before_id(self, audit_log_repo: SQLiteAuditLogRepository) -> None:
         ids = [
             audit_log_repo.append(
                 AuditLogEntry(
@@ -113,14 +103,10 @@ class TestListRecent:
         page2_ids = {e.id for e in page2}
         assert set(ids[:5]) == page2_ids  # los 5 más viejos
 
-    def test_empty_when_no_logs(
-        self, audit_log_repo: SQLiteAuditLogRepository
-    ) -> None:
+    def test_empty_when_no_logs(self, audit_log_repo: SQLiteAuditLogRepository) -> None:
         assert audit_log_repo.list_recent(limit=10) == []
 
-    def test_caps_limit_at_200(
-        self, audit_log_repo: SQLiteAuditLogRepository
-    ) -> None:
+    def test_caps_limit_at_200(self, audit_log_repo: SQLiteAuditLogRepository) -> None:
         # Insertamos pocos para verificar que la query no se rompe con
         # limit alto, y que devuelve a lo sumo lo disponible
         for _ in range(3):

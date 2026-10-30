@@ -114,8 +114,7 @@ class PywwsPayloadParser:
         payload_station = raw_dict.get("station_uuid")
         if payload_station is not None and str(payload_station) != str(station_uuid):
             raise MismatchedStationError(
-                f"payload.station_uuid={payload_station} "
-                f"!= configurado={station_uuid}"
+                f"payload.station_uuid={payload_station} " f"!= configurado={station_uuid}"
             )
 
         # ─── 3. Modo pywws ────────────────────────────────────────────────
@@ -123,8 +122,7 @@ class PywwsPayloadParser:
             mode = PywwsMode(pywws_mode_str)
         except ValueError as exc:
             raise MalformedPayloadError(
-                f"pywws_mode inválido: {pywws_mode_str!r}. "
-                f"Esperado: 'live' | 'catchup'"
+                f"pywws_mode inválido: {pywws_mode_str!r}. " f"Esperado: 'live' | 'catchup'"
             ) from exc
 
         # ─── 4. Construir event_id determinístico ─────────────────────────

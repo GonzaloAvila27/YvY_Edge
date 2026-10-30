@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from yvy.application.use_cases.query_sensor_aggregated import (
+        AggregatedSeries,
         QuerySensorAggregatedUseCase,
     )
 
@@ -99,7 +100,7 @@ def apparent_temp_c(
 
     # ── Wind Chill (métrico, Environment Canada) ─────────────────────
     if temp_c < 10.0 and wind_kmh > 5.0:
-        v016 = wind_kmh ** 0.16
+        v016: float = wind_kmh**0.16
         return 13.12 + 0.6215 * temp_c - 11.37 * v016 + 0.3965 * temp_c * v016
 
     # ── Temperatura seca ─────────────────────────────────────────────
@@ -191,7 +192,7 @@ def daily_thermal_amplitude(
         Tupla (dates, amplitudes) ordenada por fecha.
     """
     day_buckets: dict[date, list[float]] = {}
-    for ts, val in zip(timestamps, temps):
+    for ts, val in zip(timestamps, temps, strict=False):
         if val is None:
             continue
         d = ts.date() if ts.tzinfo is None else ts.astimezone().date()
@@ -201,10 +202,7 @@ def daily_thermal_amplitude(
     amplitudes: list[float] = []
     for d in sorted(day_buckets):
         vals = day_buckets[d]
-        if len(vals) >= 2:
-            amp = max(vals) - min(vals)
-        else:
-            amp = 0.0
+        amp = max(vals) - min(vals) if len(vals) >= 2 else 0.0
         dates.append(d)
         amplitudes.append(amp)
 
@@ -248,9 +246,9 @@ def pressure_trend_3h(
             continue
 
         t_now = ts_epoch[i]
-        t_target = t_now - 3 * 3600   # 3 horas antes
-        t_low  = t_now - 4 * 3600     # ventana: máximo 4 horas atrás
-        t_high = t_now - 2 * 3600     # ventana: mínimo 2 horas atrás
+        t_target = t_now - 3 * 3600  # 3 horas antes
+        t_low = t_now - 4 * 3600  # ventana: máximo 4 horas atrás
+        t_high = t_now - 2 * 3600  # ventana: mínimo 2 horas atrás
 
         # Posición de inserción para t_low en la lista de timestamps
         lo = bisect.bisect_left(ts_epoch, t_low)
@@ -324,22 +322,22 @@ class ComputeDerivedUseCase:
         try:
             temp_series = query_uc.execute("temp_out", period, station_uuid)
         except Exception:
-            temp_series = None  # type: ignore[assignment]
+            temp_series = None
 
         try:
             hum_series = query_uc.execute("hum_out", period, station_uuid)
         except Exception:
-            hum_series = None  # type: ignore[assignment]
+            hum_series = None
 
         try:
             wind_series = query_uc.execute("wind_speed", period, station_uuid)
         except Exception:
-            wind_series = None  # type: ignore[assignment]
+            wind_series = None
 
         try:
             pres_series = query_uc.execute("pressure_abs", period, station_uuid)
         except Exception:
-            pres_series = None  # type: ignore[assignment]
+            pres_series = None
 
         try:
             rain_daily = query_uc.execute_rain_daily(station_uuid, period)
@@ -348,7 +346,7 @@ class ComputeDerivedUseCase:
             today_rain_mm = None
 
         # ── Último valor no-None de cada serie ────────────────────────
-        def last_valid(series) -> float | None:  # type: ignore[no-untyped-def]
+        def last_valid(series: AggregatedSeries | None) -> float | None:
             if series is None or not series.values:
                 return None
             for v in reversed(series.values):
@@ -359,7 +357,6 @@ class ComputeDerivedUseCase:
         temp = last_valid(temp_series)
         rh = last_valid(hum_series)
         wind = last_valid(wind_series)
-        pressure = last_valid(pres_series)
 
         # ── Derivados ──────────────────────────────────────────────────
         vpd_val: float | None = None
@@ -387,9 +384,7 @@ class ComputeDerivedUseCase:
         # ── Amplitud térmica de hoy ────────────────────────────────────
         thermal_amplitude: float | None = None
         if temp_series is not None and temp_series.timestamps:
-            _, amps = daily_thermal_amplitude(
-                temp_series.timestamps, temp_series.values
-            )
+            _, amps = daily_thermal_amplitude(temp_series.timestamps, temp_series.values)
             if amps:
                 thermal_amplitude = amps[-1]
 
@@ -446,7 +441,9 @@ class ComputeDerivedUseCase:
                     f"condiciones favorables para el desarrollo de hongos."
                 )
             elif vpd_zone_label == "Estrés hídrico":
-                sensacion = f" Sensación térmica de {apparent:.0f}°C." if apparent is not None else ""
+                sensacion = (
+                    f" Sensación térmica de {apparent:.0f}°C." if apparent is not None else ""
+                )
                 parts.append(
                     f"Día {'cálido' if temp >= 28 else 'seco'} a {temp:.0f}°C "
                     f"con estrés hídrico moderado (VPD {vpd_str} kPa).{sensacion}"
@@ -473,7 +470,6 @@ class ComputeDerivedUseCase:
         # ── Tendencia de presión ───────────────────────────────────────
         if pressure_delta is not None and abs(pressure_delta) >= 1.5:
             direction = "descenso" if pressure_delta < 0 else "ascenso"
-            sign = "" if pressure_delta > 0 else ""
             parts.append(
                 f"Presión en {direction} ({pressure_delta:+.1f} hPa en 3h), "
                 f"posibles cambios en el tiempo."

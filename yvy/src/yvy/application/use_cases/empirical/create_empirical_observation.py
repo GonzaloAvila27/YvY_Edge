@@ -6,9 +6,10 @@ import logging
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Protocol
+from typing import Any
 
 from yvy.application.ports.time_provider import TimeProvider
+from yvy.application.use_cases.empirical._actor import require_persisted_actor_id
 from yvy.domain.auth.enums import AuditEventType, AuditSource
 from yvy.domain.auth.models import AuditLogEntry, User
 from yvy.domain.auth.repository import AuditLogRepository
@@ -101,6 +102,7 @@ class CreateEmpiricalObservationUseCase:
         self._time_provider = time_provider
 
     def execute(self, input_data: CreateObservationInput) -> CreateObservationResult:
+        actor_id = require_persisted_actor_id(input_data.actor)
         now_local = self._time_provider.now_local()
         validate_observation_date_window(input_data.observed_at_local, now_local)
 
@@ -111,6 +113,7 @@ class CreateEmpiricalObservationUseCase:
             is_valid=True,
             validation_notes=None,
             now_utc=self._time_provider.now_utc(),
+            created_by_user_id=actor_id,
         )
 
         missing_critical = detect_missing_critical_fields(tentative)
@@ -143,12 +146,15 @@ class CreateEmpiricalObservationUseCase:
             is_valid=True,
             validation_notes=validation_notes,
             now_utc=self._time_provider.now_utc(),
+            created_by_user_id=actor_id,
         )
 
         self._empirical_repo.save_observation(observation)
         logger.info(
             "EmpiricalObservation creada: id=%s by_user=%s is_valid=%s",
-            observation.observation_id, observation.created_by_user_id, observation.is_valid,
+            observation.observation_id,
+            observation.created_by_user_id,
+            observation.is_valid,
         )
 
         sync_enqueued = self._enqueue_sync(observation, input_data.actor)
@@ -183,6 +189,7 @@ class CreateEmpiricalObservationUseCase:
         is_valid: bool,
         validation_notes: str | None,
         now_utc: datetime,
+        created_by_user_id: int,
     ) -> EmpiricalObservation:
         return EmpiricalObservation(
             observation_id=observation_id,
@@ -204,7 +211,7 @@ class CreateEmpiricalObservationUseCase:
             general_notes=input_data.general_notes,
             is_valid=is_valid,
             validation_notes=validation_notes,
-            created_by_user_id=input_data.actor.id,
+            created_by_user_id=created_by_user_id,
             created_at_utc=now_utc,
         )
 
@@ -222,9 +229,12 @@ class CreateEmpiricalObservationUseCase:
         try:
             station_uuid = self._app_config.get_station_uuid()
             observer_display = (actor.full_name or "").strip() or actor.username.strip()
-            payload_dict = self._observation_to_sync_payload(observation, station_uuid, observer_display)
-            assert isinstance(payload_dict["observer_id"], str) and payload_dict["observer_id"].strip(), \
-                f"observer_id debe ser str no vacío, got {payload_dict['observer_id']!r}"
+            payload_dict = self._observation_to_sync_payload(
+                observation, station_uuid, observer_display
+            )
+            assert (
+                isinstance(payload_dict["observer_id"], str) and payload_dict["observer_id"].strip()
+            ), f"observer_id debe ser str no vacío, got {payload_dict['observer_id']!r}"
             job = SyncJob(
                 event_id=observation.observation_id,
                 station_uuid=station_uuid,
@@ -241,7 +251,8 @@ class CreateEmpiricalObservationUseCase:
         except Exception as exc:
             logger.exception(
                 "Fallo encolando observación %s al sync: %s",
-                observation.observation_id, exc,
+                observation.observation_id,
+                exc,
             )
             return False
 

@@ -61,8 +61,10 @@ class TestReadHardwareFingerprint:
     def test_returns_none_when_linux_paths_missing(self) -> None:
         from pathlib import Path
 
-        with patch("platform.system", return_value="Linux"), \
-             patch.object(Path, "exists", return_value=False):
+        with (
+            patch("platform.system", return_value="Linux"),
+            patch.object(Path, "exists", return_value=False),
+        ):
             assert read_hardware_fingerprint() is None
 
     def test_returns_none_on_exception(self) -> None:
@@ -76,17 +78,21 @@ class TestReadHardwareFingerprint:
 
         fake_uuid = "abcdef12-3456-7890-abcd-ef1234567890"
 
-        with patch("platform.system", return_value="Linux"), \
-             patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "read_text", return_value=fake_uuid + "\n"):
+        with (
+            patch("platform.system", return_value="Linux"),
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "read_text", return_value=fake_uuid + "\n"),
+        ):
             assert read_hardware_fingerprint() == fake_uuid
 
     def test_linux_handles_permission_error(self) -> None:
         from pathlib import Path
 
-        with patch("platform.system", return_value="Linux"), \
-             patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "read_text", side_effect=PermissionError("denied")):
+        with (
+            patch("platform.system", return_value="Linux"),
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "read_text", side_effect=PermissionError("denied")),
+        ):
             assert read_hardware_fingerprint() is None
 
     def test_windows_uses_wmic_when_available(self) -> None:
@@ -95,12 +101,11 @@ class TestReadHardwareFingerprint:
         fake_out = "UUID\n12345678-1234-4123-8123-123456789abc\n\n"
         fake_proc = CompletedProcess(args=[], returncode=0, stdout=fake_out, stderr="")
 
-        with patch("platform.system", return_value="Windows"), \
-             patch("subprocess.run", return_value=fake_proc):
-            assert (
-                read_hardware_fingerprint()
-                == "12345678-1234-4123-8123-123456789abc"
-            )
+        with (
+            patch("platform.system", return_value="Windows"),
+            patch("subprocess.run", return_value=fake_proc),
+        ):
+            assert read_hardware_fingerprint() == "12345678-1234-4123-8123-123456789abc"
 
     def test_windows_falls_back_when_wmic_returns_invalid(self) -> None:
         """wmic devuelve placeholder + powershell devuelve UUID válido."""
@@ -119,9 +124,8 @@ class TestReadHardwareFingerprint:
             stderr="",
         )
 
-        with patch("platform.system", return_value="Windows"), \
-             patch("subprocess.run", side_effect=[wmic_out, ps_out]):
-            assert (
-                read_hardware_fingerprint()
-                == "abcdef12-3456-7890-abcd-ef1234567890"
-            )
+        with (
+            patch("platform.system", return_value="Windows"),
+            patch("subprocess.run", side_effect=[wmic_out, ps_out]),
+        ):
+            assert read_hardware_fingerprint() == "abcdef12-3456-7890-abcd-ef1234567890"

@@ -64,10 +64,10 @@ _ICON_CHARS: Final[dict[str, str]] = {
 
 # Mapa icon_key → nombre de archivo PNG en resources/ICONS/
 _ICON_PNG: Final[dict[str, str]] = {
-    "radio":   "sensor_white_1",
+    "radio": "sensor_white_1",
     "refresh": "sync_white",
-    "clock":   "ntp_white_1",
-    "wifi":    "wifi_white",
+    "clock": "ntp_white_1",
+    "wifi": "wifi_white",
 }
 
 
@@ -117,9 +117,7 @@ class StatusIndicator(tk.Frame):
         png_name = _ICON_PNG.get(icon_key)
         if png_name:
             try:
-                self._icon_img = tk.PhotoImage(
-                    file=str(_ICONS_DIR / f"{png_name}.png")
-                )
+                self._icon_img = tk.PhotoImage(file=str(_ICONS_DIR / f"{png_name}.png"))
             except tk.TclError:
                 logger.warning("No se pudo cargar ícono '%s'", png_name)
 
@@ -127,7 +125,10 @@ class StatusIndicator(tk.Frame):
             self._icon = tk.Label(self, image=self._icon_img, bg=bg)
         else:
             self._icon = tk.Label(
-                self, text=_ICON_CHARS.get(icon_key, "●"), bg=bg, font=FONT_SMALL,
+                self,
+                text=_ICON_CHARS.get(icon_key, "●"),
+                bg=bg,
+                font=FONT_SMALL,
             )
         self._icon.pack(side="left", padx=(0, 4))
 
@@ -157,11 +158,7 @@ class StatusIndicator(tk.Frame):
             state = "neutral"
 
         # En estado neutral sobre fondo oscuro, usamos color claro.
-        color = (
-            TEXT_ON_DARK_MUTED
-            if state == "neutral" and self._on_dark
-            else _STATE_COLORS[state]
-        )
+        color = TEXT_ON_DARK_MUTED if state == "neutral" and self._on_dark else _STATE_COLORS[state]
 
         if self._icon_img is None:
             self._icon.configure(fg=color)
@@ -174,7 +171,7 @@ class StatusIndicator(tk.Frame):
         """Cambia el texto del label."""
         self._label.configure(text=label)
 
-    def _show_tooltip(self, _event: tk.Event) -> None:  # type: ignore[type-arg]
+    def _show_tooltip(self, _event: tk.Event) -> None:
         if not self._tooltip_text or self._tooltip_window is not None:
             return
 
@@ -199,7 +196,7 @@ class StatusIndicator(tk.Frame):
 
         self._tooltip_window = tw
 
-    def _hide_tooltip(self, _event: tk.Event) -> None:  # type: ignore[type-arg]
+    def _hide_tooltip(self, _event: tk.Event) -> None:
         if self._tooltip_window is not None:
             self._tooltip_window.destroy()
             self._tooltip_window = None

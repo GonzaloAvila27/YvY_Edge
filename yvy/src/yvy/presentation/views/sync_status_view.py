@@ -133,18 +133,14 @@ class SyncStatusView(tk.Frame):
         # conserva su propio scroll interno; el de página se opera con la barra
         # (no se bindea la rueda para no robársela al Treeview).
         page_canvas = tk.Canvas(self, bg=BG_CREAM, highlightthickness=0)
-        page_scroll = ttk.Scrollbar(
-            self, orient="vertical", command=page_canvas.yview
-        )
+        page_scroll = ttk.Scrollbar(self, orient="vertical", command=page_canvas.yview)
         page_canvas.configure(yscrollcommand=page_scroll.set)
         page_scroll.pack(side="right", fill="y")
         page_canvas.pack(side="left", fill="both", expand=True)
 
         container = tk.Frame(page_canvas, bg=BG_CREAM)
         _win = page_canvas.create_window((0, 0), window=container, anchor="nw")
-        page_canvas.bind(
-            "<Configure>", lambda e: page_canvas.itemconfig(_win, width=e.width)
-        )
+        page_canvas.bind("<Configure>", lambda e: page_canvas.itemconfig(_win, width=e.width))
         container.bind(
             "<Configure>",
             lambda _: page_canvas.configure(scrollregion=page_canvas.bbox("all")),
@@ -301,18 +297,10 @@ class SyncStatusView(tk.Frame):
             style="CardH3.TLabel",
         ).pack(anchor="w", pady=(0, SPACE_MD))
 
-        self._kpi_pending_value = self._make_kpi_row(
-            inner, "Pendientes", "0", DANGER
-        )
-        self._kpi_today_value = self._make_kpi_row(
-            inner, "Enviados hoy", "0", SUCCESS
-        )
-        self._kpi_total_value = self._make_kpi_row(
-            inner, "Total local", "0", TEXT_PRIMARY
-        )
-        self._kpi_errors_value = self._make_kpi_row(
-            inner, "Errores", "0", DANGER
-        )
+        self._kpi_pending_value = self._make_kpi_row(inner, "Pendientes", "0", DANGER)
+        self._kpi_today_value = self._make_kpi_row(inner, "Enviados hoy", "0", SUCCESS)
+        self._kpi_total_value = self._make_kpi_row(inner, "Total local", "0", TEXT_PRIMARY)
+        self._kpi_errors_value = self._make_kpi_row(inner, "Errores", "0", DANGER)
 
     def _make_kpi_row(
         self,
@@ -394,9 +382,7 @@ class SyncStatusView(tk.Frame):
         self._events_tree.tag_configure("status_sending", foreground=PRIMARY)
         self._events_tree.tag_configure("status_duplicate", foreground=SUCCESS)
 
-        scrollbar = ttk.Scrollbar(
-            inner, orient="vertical", command=self._events_tree.yview
-        )
+        scrollbar = ttk.Scrollbar(inner, orient="vertical", command=self._events_tree.yview)
         self._events_tree.configure(yscrollcommand=scrollbar.set)
 
         self._events_tree.pack(side="left", fill="both", expand=True)
@@ -459,9 +445,7 @@ class SyncStatusView(tk.Frame):
         # Timestamps
         last_sync_text = "Última sincronización: —"
         if data.sent_today_count > 0:
-            last_sync_text = (
-                f"Sincronizaciones de hoy: {data.sent_today_count} eventos"
-            )
+            last_sync_text = f"Sincronizaciones de hoy: {data.sent_today_count} eventos"
         if self._last_sync_label is not None:
             self._last_sync_label.configure(text=last_sync_text)
 
@@ -494,9 +478,7 @@ class SyncStatusView(tk.Frame):
         # Tabla de eventos
         self._populate_events(data.recent_events)
 
-    def _refresh_pause_resume_button(
-        self, agent_state: SyncAgentState | None
-    ) -> None:
+    def _refresh_pause_resume_button(self, agent_state: SyncAgentState | None) -> None:
         """Actualiza texto/estado del botón Pausar/Reanudar según el agent."""
         if self._pause_resume_btn is None:
             return
@@ -526,9 +508,7 @@ class SyncStatusView(tk.Frame):
         for job in events:
             ts_local = self._format_local(job.created_at)
             date_str, time_str = ts_local
-            status_label, _ = _STATUS_DISPLAY.get(
-                job.status, (str(job.status), TEXT_SECONDARY)
-            )
+            status_label, _ = _STATUS_DISPLAY.get(job.status, (str(job.status), TEXT_SECONDARY))
             entity_str = self._format_entity_type(job.entity_type)
             attempts_str = str(job.attempts)
 
@@ -573,19 +553,22 @@ class SyncStatusView(tk.Frame):
 
         hdr = tk.Frame(inner, bg=BG_CARD)
         hdr.pack(fill="x", pady=(0, SPACE_SM))
-        ttk.Label(hdr, text="Actualizaciones de software", style="CardH3.TLabel").pack(
-            side="left"
-        )
+        ttk.Label(hdr, text="Actualizaciones de software", style="CardH3.TLabel").pack(side="left")
 
         self._upd_status_label = tk.Label(
-            inner, text="Verificando...", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY,
-            anchor="w"
+            inner, text="Verificando...", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY, anchor="w"
         )
         self._upd_status_label.pack(anchor="w")
 
         self._upd_detail_label = tk.Label(
-            inner, text="", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL,
-            anchor="w", wraplength=700, justify="left"
+            inner,
+            text="",
+            bg=BG_CARD,
+            fg=TEXT_SECONDARY,
+            font=FONT_SMALL,
+            anchor="w",
+            wraplength=700,
+            justify="left",
         )
         self._upd_detail_label.pack(anchor="w", pady=(SPACE_SM, SPACE_MD))
 
@@ -639,10 +622,7 @@ class SyncStatusView(tk.Frame):
         # Botón descargar: habilitado solo cuando hay pending, no descargado, no corriendo
         if self._upd_download_btn is not None:
             can_download = (
-                has_checker
-                and pending is not None
-                and not is_downloaded
-                and not download_running
+                has_checker and pending is not None and not is_downloaded and not download_running
             )
             self._upd_download_btn.configure(
                 state="normal" if can_download else "disabled",
@@ -663,6 +643,7 @@ class SyncStatusView(tk.Frame):
             try:
                 from datetime import UTC
                 from datetime import datetime as _dt
+
                 checked_dt = _dt.fromisoformat(last_checked)
                 mins_ago = int((_dt.now(UTC) - checked_dt.astimezone(UTC)).total_seconds() / 60)
                 checked_str = f"Última verificación: hace {mins_ago} min"
@@ -670,9 +651,7 @@ class SyncStatusView(tk.Frame):
                 checked_str = f"Última verificación: {last_checked[:19]}"
 
         if pending is None:
-            self._upd_status_label.configure(
-                text=f"Sistema al día (versión {current})", fg=SUCCESS
-            )
+            self._upd_status_label.configure(text=f"Sistema al día (versión {current})", fg=SUCCESS)
             if self._upd_detail_label is not None:
                 self._upd_detail_label.configure(text=checked_str)
         elif is_downloaded:
@@ -758,10 +737,14 @@ class SyncStatusView(tk.Frame):
             dl_mb = downloaded / 1_000_000
             tot_mb = total / 1_000_000
             text = f"Descargando… {pct}%  ({dl_mb:.1f} / {tot_mb:.1f} MB)"
-            self.after(0, lambda t=text: (
-                self._upd_progress_label.configure(text=t)
-                if self._upd_progress_label is not None else None
-            ))
+            self.after(
+                0,
+                lambda t=text: (
+                    self._upd_progress_label.configure(text=t)
+                    if self._upd_progress_label is not None
+                    else None
+                ),
+            )
 
         def _done(result: dict) -> None:
             def _update() -> None:
@@ -775,6 +758,7 @@ class SyncStatusView(tk.Frame):
                             text=f"Error: {result.get('error', 'desconocido')}", fg=DANGER
                         )
                 self._refresh_updates_section()
+
             self.after(0, _update)
 
         started = self._controller.start_update_download(

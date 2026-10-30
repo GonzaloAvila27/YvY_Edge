@@ -12,7 +12,7 @@ import json
 import logging
 import sys
 import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -40,8 +40,9 @@ TZ_AR = ZoneInfo("America/Argentina/Cordoba")
 def _seed_old_raw(factory: SQLiteConnectionFactory, count: int) -> None:
     """Inserta 'count' filas de raw de hace 60 días."""
     import uuid as _uuid_mod
+
     conn = factory.get_connection()
-    old = datetime.now(timezone.utc) - timedelta(days=60)
+    old = datetime.now(UTC) - timedelta(days=60)
     for _ in range(count):
         ev = _uuid_mod.uuid5(_uuid_mod.NAMESPACE_OID, str(uuid4()))
         conn.execute(

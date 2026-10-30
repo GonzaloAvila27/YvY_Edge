@@ -42,14 +42,18 @@ class WindSpeedChart(BaseChart):
         tz: ZoneInfo | None = None,
     ) -> None:
         if period_range is not None:
-            speed = query_uc.execute_range("wind_speed", period_range.start, period_range.end, station_uuid)
-            gust  = query_uc.execute_range("wind_gust",  period_range.start, period_range.end, station_uuid)
+            speed = query_uc.execute_range(
+                "wind_speed", period_range.start, period_range.end, station_uuid
+            )
+            gust = query_uc.execute_range(
+                "wind_gust", period_range.start, period_range.end, station_uuid
+            )
         else:
             speed = query_uc.execute("wind_speed", period, station_uuid)
-            gust  = query_uc.execute("wind_gust",  period, station_uuid)
+            gust = query_uc.execute("wind_gust", period, station_uuid)
 
         has_speed = bool(speed.timestamps)
-        has_gust  = bool(gust.timestamps)
+        has_gust = bool(gust.timestamps)
 
         if not has_speed and not has_gust:
             raise NoDataError()
@@ -62,16 +66,25 @@ class WindSpeedChart(BaseChart):
 
         if has_speed:
             y_speed = [v if v is not None else float("nan") for v in speed.values]
-            ax.plot(speed.timestamps, y_speed, color=PRIMARY, linewidth=1.5,
-                    label="Promedio", zorder=3)
+            ax.plot(
+                speed.timestamps, y_speed, color=PRIMARY, linewidth=1.5, label="Promedio", zorder=3
+            )
 
         if has_gust:
             y_gust = [v if v is not None else float("nan") for v in gust.values]
-            ax.plot(gust.timestamps, y_gust, color=ACCENT_GOLD, linewidth=1.5,
-                    linestyle="--", label="Ráfaga", zorder=3)
+            ax.plot(
+                gust.timestamps,
+                y_gust,
+                color=ACCENT_GOLD,
+                linewidth=1.5,
+                linestyle="--",
+                label="Ráfaga",
+                zorder=3,
+            )
 
-        ax.legend(loc="upper right", fontsize=9, framealpha=0.8,
-                  facecolor=BG_CARD, edgecolor=BORDER)
+        ax.legend(
+            loc="upper right", fontsize=9, framealpha=0.8, facecolor=BG_CARD, edgecolor=BORDER
+        )
         ax.set_title(self.label)
         ax.set_ylabel("m/s")
         ax.set_ylim(bottom=0)

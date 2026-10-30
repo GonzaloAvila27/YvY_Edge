@@ -20,6 +20,7 @@ from yvy.domain.empirical.enums import (
     WindDirection,
 )
 from yvy.domain.empirical.models import EmpiricalEvent, EmpiricalObservation
+from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
 
 logger = logging.getLogger(__name__)
 
@@ -35,16 +36,17 @@ class SQLiteEmpiricalRepository:
     lanzar IntegrityError en vez de descartar la fila en silencio).
     """
 
-    def __init__(self, conn: sqlite3.Connection) -> None:
-        self._conn = conn
+    def __init__(self, factory: SQLiteConnectionFactory) -> None:
+        self._factory = factory
 
     # ════════════════════════════════════════════════════════════════════
     # Observaciones
     # ════════════════════════════════════════════════════════════════════
 
     def save_observation(self, obs: EmpiricalObservation) -> None:
+        conn = self._factory.get_connection()
         try:
-            self._conn.execute(
+            conn.execute(
                 """
                 INSERT INTO empirical_observation (
                     observation_id,
@@ -81,15 +83,14 @@ class SQLiteEmpiricalRepository:
                     obs.created_at_utc.isoformat() if obs.created_at_utc else None,
                 ),
             )
-            self._conn.commit()
+            conn.commit()
         except sqlite3.IntegrityError as exc:
             logger.exception("IntegrityError al guardar observación: %s", exc)
             raise
 
-    def find_observation_by_id(
-        self, observation_id: uuid.UUID
-    ) -> EmpiricalObservation | None:
-        row = self._conn.execute(
+    def find_observation_by_id(self, observation_id: uuid.UUID) -> EmpiricalObservation | None:
+        conn = self._factory.get_connection()
+        row = conn.execute(
             "SELECT * FROM empirical_observation WHERE observation_id = ?",
             (str(observation_id),),
         ).fetchone()
@@ -130,7 +131,8 @@ class SQLiteEmpiricalRepository:
             f" ORDER BY observed_at_local DESC LIMIT ?"
         )
         params.append(limit)
-        rows = self._conn.execute(query, params).fetchall()
+        conn = self._factory.get_connection()
+        rows = conn.execute(query, params).fetchall()
         return [self._row_to_observation(r) for r in rows]
 
     def count_observations(
@@ -147,9 +149,8 @@ class SQLiteEmpiricalRepository:
             conditions.append("observed_at_local <= ?")
             params.append(date_to.isoformat())
         where = " WHERE " + " AND ".join(conditions) if conditions else ""
-        row = self._conn.execute(
-            f"SELECT COUNT(*) FROM empirical_observation{where}", params
-        ).fetchone()
+        conn = self._factory.get_connection()
+        row = conn.execute(f"SELECT COUNT(*) FROM empirical_observation{where}", params).fetchone()
         return int(row[0]) if row else 0
 
     # ════════════════════════════════════════════════════════════════════
@@ -157,8 +158,9 @@ class SQLiteEmpiricalRepository:
     # ════════════════════════════════════════════════════════════════════
 
     def save_event(self, event: EmpiricalEvent) -> None:
+        conn = self._factory.get_connection()
         try:
-            self._conn.execute(
+            conn.execute(
                 """
                 INSERT INTO empirical_event (
                     event_record_id,
@@ -184,20 +186,22 @@ class SQLiteEmpiricalRepository:
                     event.created_at_utc.isoformat() if event.created_at_utc else None,
                 ),
             )
-            self._conn.commit()
+            conn.commit()
         except sqlite3.IntegrityError as exc:
             logger.exception("IntegrityError al guardar evento puntual: %s", exc)
             raise
 
     def find_event_by_id(self, event_record_id: uuid.UUID) -> EmpiricalEvent | None:
-        row = self._conn.execute(
+        conn = self._factory.get_connection()
+        row = conn.execute(
             "SELECT * FROM empirical_event WHERE event_record_id = ?",
             (str(event_record_id),),
         ).fetchone()
         return self._row_to_event(row) if row is not None else None
 
     def list_events_for_date(self, observation_date: str) -> list[EmpiricalEvent]:
-        rows = self._conn.execute(
+        conn = self._factory.get_connection()
+        rows = conn.execute(
             """SELECT * FROM empirical_event
                WHERE observation_date = ?
                ORDER BY started_at_local NULLS LAST, created_at_utc ASC""",
@@ -205,10 +209,9 @@ class SQLiteEmpiricalRepository:
         ).fetchall()
         return [self._row_to_event(r) for r in rows]
 
-    def list_events_for_observation(
-        self, observation_id: uuid.UUID
-    ) -> list[EmpiricalEvent]:
-        rows = self._conn.execute(
+    def list_events_for_observation(self, observation_id: uuid.UUID) -> list[EmpiricalEvent]:
+        conn = self._factory.get_connection()
+        rows = conn.execute(
             """SELECT * FROM empirical_event
                WHERE observation_id = ?
                ORDER BY started_at_local NULLS LAST, created_at_utc ASC""",
@@ -239,7 +242,8 @@ class SQLiteEmpiricalRepository:
             + " ORDER BY observation_date DESC, started_at_local NULLS LAST LIMIT ?"
         )
         params.append(limit)
-        rows = self._conn.execute(query, params).fetchall()
+        conn = self._factory.get_connection()
+        rows = conn.execute(query, params).fetchall()
         return [self._row_to_event(r) for r in rows]
 
     # ════════════════════════════════════════════════════════════════════
@@ -255,20 +259,28 @@ class SQLiteEmpiricalRepository:
             temp_c=row["temp_c"],
             wind_beaufort=row["wind_beaufort"],
             wind_direction=WindDirection(row["wind_direction"]) if row["wind_direction"] else None,
-            humidity_percept=HumidityPercept(row["humidity_percept"]) if row["humidity_percept"] else None,
+            humidity_percept=HumidityPercept(row["humidity_percept"])
+            if row["humidity_percept"]
+            else None,
             sky_coverage_pct=row["sky_coverage_pct"],
             cloud_type=CloudType(row["cloud_type"]) if row["cloud_type"] else None,
             soil_state=SoilState(row["soil_state"]) if row["soil_state"] else None,
             visibility=Visibility(row["visibility"]) if row["visibility"] else None,
-            precipitation_now=PrecipitationNow(row["precipitation_now"]) if row["precipitation_now"] else None,
+            precipitation_now=PrecipitationNow(row["precipitation_now"])
+            if row["precipitation_now"]
+            else None,
             phenology_notes=row["phenology_notes"],
-            livestock_state=LivestockState(row["livestock_state"]) if row["livestock_state"] else None,
+            livestock_state=LivestockState(row["livestock_state"])
+            if row["livestock_state"]
+            else None,
             livestock_notes=row["livestock_notes"],
             general_notes=row["general_notes"],
             is_valid=bool(row["is_valid"]),
             validation_notes=row["validation_notes"],
             created_by_user_id=row["created_by_user_id"],
-            created_at_utc=datetime.fromisoformat(row["created_at_utc"]) if row["created_at_utc"] else None,
+            created_at_utc=datetime.fromisoformat(row["created_at_utc"])
+            if row["created_at_utc"]
+            else None,
         )
 
     def _row_to_event(self, row: sqlite3.Row) -> EmpiricalEvent:
@@ -283,5 +295,7 @@ class SQLiteEmpiricalRepository:
             description=row["description"],
             is_valid=bool(row["is_valid"]),
             created_by_user_id=row["created_by_user_id"],
-            created_at_utc=datetime.fromisoformat(row["created_at_utc"]) if row["created_at_utc"] else None,
+            created_at_utc=datetime.fromisoformat(row["created_at_utc"])
+            if row["created_at_utc"]
+            else None,
         )

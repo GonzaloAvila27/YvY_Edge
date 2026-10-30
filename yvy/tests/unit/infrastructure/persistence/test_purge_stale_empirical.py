@@ -5,6 +5,7 @@ Verifica el predicado preciso: solo se borran filas empíricas
 es un str (doble-codificado). Filas bien-codificadas, sensor_reading y otros
 estados NO se tocan. Idempotente.
 """
+
 from __future__ import annotations
 
 import json
@@ -12,7 +13,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from yvy.domain.sync.enums import EntityType, SyncStatus
+from yvy.domain.sync.enums import EntityType
 from yvy.domain.sync.models import SyncJob
 from yvy.infrastructure.persistence.sqlite_sync_repository import SQLiteSyncRepository
 

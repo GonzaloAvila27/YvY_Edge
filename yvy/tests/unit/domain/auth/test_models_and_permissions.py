@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
 from uuid import uuid4
+
+import pytest
 
 from yvy.domain.auth import (
     Permissions,
@@ -15,14 +16,14 @@ from yvy.domain.auth import (
 
 
 def _make_user(role: Role = Role.ALUMNO, **overrides) -> User:
-    defaults = dict(
-        user_uuid=uuid4(),
-        username="testuser",
-        full_name="Test User",
-        role=role,
-        is_active=True,
-        can_export_raw=False,
-    )
+    defaults = {
+        "user_uuid": uuid4(),
+        "username": "testuser",
+        "full_name": "Test User",
+        "role": role,
+        "is_active": True,
+        "can_export_raw": False,
+    }
     defaults.update(overrides)
     return User(**defaults)
 
@@ -78,7 +79,13 @@ class TestPermissions:
         u = _make_user(role=Role.SUPERADMIN, is_active=False)
         assert not Permissions.can_login(u)
         assert not Permissions.can_manage_users(u)
-        assert not Permissions.can_export_raw(u, ) if False else True  # placeholder
+        assert (
+            not Permissions.can_export_raw(
+                u,
+            )
+            if False
+            else True
+        )  # placeholder
 
     def test_alumno_can_load_and_view_dashboard(self) -> None:
         u = _make_user(role=Role.ALUMNO)

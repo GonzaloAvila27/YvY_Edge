@@ -15,9 +15,7 @@ class EmpiricalRepository(Protocol):
 
     def save_observation(self, obs: EmpiricalObservation) -> None: ...
 
-    def find_observation_by_id(
-        self, observation_id: uuid.UUID
-    ) -> EmpiricalObservation | None: ...
+    def find_observation_by_id(self, observation_id: uuid.UUID) -> EmpiricalObservation | None: ...
 
     def list_observations(
         self,
@@ -41,9 +39,7 @@ class EmpiricalRepository(Protocol):
 
     def list_events_for_date(self, observation_date: str) -> list[EmpiricalEvent]: ...
 
-    def list_events_for_observation(
-        self, observation_id: uuid.UUID
-    ) -> list[EmpiricalEvent]: ...
+    def list_events_for_observation(self, observation_id: uuid.UUID) -> list[EmpiricalEvent]: ...
 
     def list_events_by_type(
         self,

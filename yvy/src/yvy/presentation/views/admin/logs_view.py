@@ -17,13 +17,10 @@ from yvy.presentation.theme import (
     BG_CARD,
     BG_CREAM,
     BORDER,
-    FONT_BODY_BOLD,
     FONT_SMALL,
     SPACE_LG,
-    SPACE_MD,
     SPACE_SM,
     SPACE_XL,
-    TEXT_PRIMARY,
     TEXT_SECONDARY,
 )
 
@@ -94,7 +91,7 @@ class LogsView(tk.Frame):
         event_combo = ttk.Combobox(
             filters,
             textvariable=self._event_filter_var,
-            values=[_ALL_LABEL] + list(_EVENT_LABELS.values()),
+            values=[_ALL_LABEL, *list(_EVENT_LABELS.values())],
             state="readonly",
             width=28,
         )
@@ -124,7 +121,10 @@ class LogsView(tk.Frame):
 
         columns = ("ts", "event", "user", "source", "detail")
         self._tree = ttk.Treeview(
-            inner, columns=columns, show="headings", height=18,
+            inner,
+            columns=columns,
+            show="headings",
+            height=18,
         )
         self._tree.heading("ts", text="Fecha y hora")
         self._tree.heading("event", text="Evento")
@@ -181,7 +181,11 @@ class LogsView(tk.Frame):
 
         if event_type == AuditEventType.LOGIN_FAILED:
             return f"Razón: {metadata.get('reason', '—')}"
-        if event_type in (AuditEventType.USER_CREATED, AuditEventType.USER_DEACTIVATED, AuditEventType.USER_REACTIVATED):
+        if event_type in (
+            AuditEventType.USER_CREATED,
+            AuditEventType.USER_DEACTIVATED,
+            AuditEventType.USER_REACTIVATED,
+        ):
             target = metadata.get("created_username") or metadata.get("target_username") or "—"
             return f"Usuario afectado: {target}"
         if event_type == AuditEventType.PASSWORD_CHANGED:

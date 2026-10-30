@@ -12,7 +12,7 @@ from matplotlib.figure import Figure
 from yvy.application.use_cases.compute_derived import vpd_kpa, vpd_zone
 from yvy.presentation.charts.base import BaseChart, format_xaxis, format_xaxis_range
 from yvy.presentation.components.chart_widget import NoDataError, apply_yvy_style
-from yvy.presentation.theme import ACCENT_GOLD, BG_CARD, BORDER, TEXT_PRIMARY
+from yvy.presentation.theme import ACCENT_GOLD, BG_CARD, BORDER
 
 if TYPE_CHECKING:
     from yvy.application.use_cases.query_sensor_aggregated import (
@@ -21,9 +21,9 @@ if TYPE_CHECKING:
     from yvy.domain.observatorio.period_range import PeriodRange
 
 # Colores de zonas VPD
-_ZONE_FUNGAL = "#8B0000"   # riesgo fúngico
+_ZONE_FUNGAL = "#8B0000"  # riesgo fúngico
 _ZONE_OPTIMAL = "#9AA223"  # óptimo
-_ZONE_STRESS = "#C9A227"   # estrés hídrico
+_ZONE_STRESS = "#C9A227"  # estrés hídrico
 
 _TS_TOLERANCE_S = 60  # tolerancia en segundos para alineación de timestamps
 
@@ -55,11 +55,15 @@ class VpdChart(BaseChart):
     ) -> None:
         # ── 1. Obtener series de temperatura y humedad ────────────────
         if period_range is not None:
-            temp_series = query_uc.execute_range("temp_out", period_range.start, period_range.end, station_uuid)
-            hum_series  = query_uc.execute_range("hum_out",  period_range.start, period_range.end, station_uuid)
+            temp_series = query_uc.execute_range(
+                "temp_out", period_range.start, period_range.end, station_uuid
+            )
+            hum_series = query_uc.execute_range(
+                "hum_out", period_range.start, period_range.end, station_uuid
+            )
         else:
             temp_series = query_uc.execute("temp_out", period, station_uuid)
-            hum_series  = query_uc.execute("hum_out", period, station_uuid)
+            hum_series = query_uc.execute("hum_out", period, station_uuid)
 
         if not temp_series.timestamps or not hum_series.timestamps:
             raise NoDataError()
@@ -67,7 +71,7 @@ class VpdChart(BaseChart):
         # ── 2. Alinear timestamps: dict merge dentro de ±60 s ─────────
         # Construir mapa {ts_epoch_redondeado → (temp, hum)}
         hum_by_ts: dict[float, float] = {}
-        for ts, val in zip(hum_series.timestamps, hum_series.values):
+        for ts, val in zip(hum_series.timestamps, hum_series.values, strict=False):
             if val is not None:
                 hum_by_ts[ts.timestamp()] = val
 
@@ -76,7 +80,7 @@ class VpdChart(BaseChart):
         aligned_ts = []
         aligned_vpd = []
 
-        for ts, t_val in zip(temp_series.timestamps, temp_series.values):
+        for ts, t_val in zip(temp_series.timestamps, temp_series.values, strict=False):
             if t_val is None:
                 continue
             epoch = ts.timestamp()
@@ -110,19 +114,17 @@ class VpdChart(BaseChart):
         max_vpd = max(aligned_vpd) if aligned_vpd else 1.5
         y_max = max(1.5, max_vpd + 0.15)
 
-        ax.axhspan(0,   0.4,    alpha=0.08, color=_ZONE_FUNGAL,  zorder=1)
-        ax.axhspan(0.4, 1.0,    alpha=0.08, color=_ZONE_OPTIMAL, zorder=1)
-        ax.axhspan(1.0, y_max,  alpha=0.08, color=_ZONE_STRESS,  zorder=1)
+        ax.axhspan(0, 0.4, alpha=0.08, color=_ZONE_FUNGAL, zorder=1)
+        ax.axhspan(0.4, 1.0, alpha=0.08, color=_ZONE_OPTIMAL, zorder=1)
+        ax.axhspan(1.0, y_max, alpha=0.08, color=_ZONE_STRESS, zorder=1)
 
         # ── 6. Líneas de umbral ───────────────────────────────────────
-        ax.axhline(0.4, color=_ZONE_FUNGAL,  linestyle="--", linewidth=0.9,
-                   alpha=0.6, zorder=2)
-        ax.axhline(1.0, color=_ZONE_STRESS,  linestyle="--", linewidth=0.9,
-                   alpha=0.6, zorder=2)
+        ax.axhline(0.4, color=_ZONE_FUNGAL, linestyle="--", linewidth=0.9, alpha=0.6, zorder=2)
+        ax.axhline(1.0, color=_ZONE_STRESS, linestyle="--", linewidth=0.9, alpha=0.6, zorder=2)
 
         # ── 7. Anotación del valor actual ─────────────────────────────
         last_vpd = aligned_vpd[-1]
-        last_ts  = aligned_ts[-1]
+        last_ts = aligned_ts[-1]
         zone_lbl, zone_col = vpd_zone(last_vpd)
         ax.annotate(
             f"{last_vpd:.2f} kPa\n{zone_lbl}",
@@ -137,10 +139,11 @@ class VpdChart(BaseChart):
 
         # ── 8. Leyenda de zonas ───────────────────────────────────────
         from matplotlib.patches import Patch
+
         legend_handles = [
-            Patch(facecolor=_ZONE_FUNGAL,  alpha=0.4, label="< 0.4: Riesgo fúngico"),
+            Patch(facecolor=_ZONE_FUNGAL, alpha=0.4, label="< 0.4: Riesgo fúngico"),
             Patch(facecolor=_ZONE_OPTIMAL, alpha=0.4, label="0.4–1.0: Óptimo"),
-            Patch(facecolor=_ZONE_STRESS,  alpha=0.4, label="≥ 1.0: Estrés hídrico"),
+            Patch(facecolor=_ZONE_STRESS, alpha=0.4, label="≥ 1.0: Estrés hídrico"),
         ]
         ax.legend(
             handles=legend_handles,

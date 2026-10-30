@@ -1,5 +1,73 @@
 # CHANGELOG
 
+## [1.6.0] - 2026-07-11
+
+Release de estabilización arquitectónica. Sin cambios visibles de funcionalidad
+para el docente: lo que cambia es que varias fallas que antes eran silenciosas
+ahora no pueden ocurrir. Instalable desde cualquier versión anterior.
+
+### Fixed
+
+- **OTA: la recuperación de emergencia apuntaba a una base vacía.** `DATA_DIR` y
+  `DB_DEFAULT_PATH` colgaban del root del **código**, que tras un OTA es el slot.
+  Los tres comandos con `--db` por default (`migrate`, `retention` y sobre todo
+  **`hero-rescue`**) quedaban apuntando a `<slot>/data/yvy.sqlite` — una base
+  vacía. La recuperación documentada fallaba justo después de un update. Ahora
+  `config/paths.py` separa `CODE_ROOT` (assets, migraciones) de `STABLE_ROOT`
+  (datos, DB, logs).
+- **`hero-rescue` no era alcanzable por `python -m yvy`.** El reset de password
+  admin de emergencia vivía sólo en el console script `yvy`, pero los `.bat` de
+  la flota usan `python -m yvy`. Brecha operativa real. Migrado junto con
+  `migrate` y `retention`.
+- **Cinco crashes latentes en los handlers de error.** Un `lambda` diferido que
+  capturaba el `exc` de un `except ... as exc` corría con `NameError` **dentro
+  del propio handler** (Python borra el nombre al salir del bloque): los fallos
+  de importación, exportación y retención quedaban mudos.
+- **El semáforo del header podía congelarse en verde.** Si una excepción escapaba
+  de un tick del poller, el ciclo no se reagendaba y el header quedaba mostrando
+  el último estado —normalmente verde— con el sync caído hacía horas.
+- **Credenciales con BOM rompían `CONFIGURAR_SYNC.bat`.** Un
+  `station_credentials.json` guardado con Notepad no se podía leer.
+- **Hash del paquete OTA: mayúsculas vs minúsculas.** El instalador comparaba el
+  sha256 con case-sensitive y el descargador con case-insensitive: un hex en
+  mayúsculas del Core pasaba la descarga y fallaba la instalación, en un loop
+  irrecuperable de "re-descargar".
+- **Carrera al leer el update pendiente.** El lector hacía 9 `SELECT` sueltos y
+  podía leer un estado a medio escribir (medido: 58 lecturas mezcladas de 14.395).
+  Ahora es una clave JSON única, atómica (0 de 107.388).
+- **Autoría corrupta en observaciones empíricas.** El id del actor (`int | None`)
+  entraba a un campo `int`: un usuario sin persistir habría guardado un `0`
+  silencioso. Ahora falla de forma visible.
+- **Oferta de catchup con reloj adelantado.** Una corrección de NTP hacia atrás
+  producía un gap negativo y el diálogo ofrecía recuperar "-3 lecturas".
+- Repositorio empírico ligado a un solo hilo (`ProgrammingError` cross-thread);
+  `utcoffset()` nulo en el armado del sobre de sync; `verify` con `Path` en el
+  cliente HTTP.
+
+### Added
+
+- **`python -m yvy migrate|retention|hero-rescue`** — antes sólo existían en el
+  console script `yvy`.
+- **Tres gates bloqueantes en CI**: `ruff` (lint + formato), `arch` (reglas
+  arquitectónicas del proyecto, verificadas por AST) y `types` (mypy sobre
+  domain, application, infrastructure y cli).
+- **Arquitectura de Referencia** (`docs/architecture/`, 14 documentos).
+
+### Changed
+
+- El subsistema de **Updates** se opera desde un punto único (`UpdatesService`),
+  construido una sola vez en el Composition Root. Ningún frente (UI, CLI, scripts)
+  fabrica ya su propia infraestructura de updates.
+- `app.py` partido en controllers sin `tkinter` (update-flow, catchup, header),
+  testeables sin display.
+- Utilidades canónicas: un solo parser de semver, un solo `iso_ms_z()`, un solo
+  hasher sha256.
+- `httpx` pasa a `^0.28.0`: la restricción declarada prohibía la versión que en
+  realidad se testea y se despliega (0.28.1).
+- `__installer_version__` vuelve a coincidir con `__version__` (había derivado a
+  1.4.1), y el test de consistencia ahora verifica las **cuatro** fuentes de
+  verdad de la política de versionado, no dos.
+
 ## [1.5.1] - 2026-06-24
 
 ### Fixed

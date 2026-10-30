@@ -13,23 +13,24 @@ después de que Python termina completamente.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
-import os
 import shutil
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from yvy import __version__
 from yvy.domain.auth.enums import AuditEventType, AuditSource
 from yvy.domain.auth.models import AuditLogEntry
+from yvy.domain.shared.version import version_gte
 from yvy.infrastructure.persistence.app_config_repository import AppConfigRepository
 from yvy.infrastructure.persistence.sqlite_audit_log_repository import (
     SQLiteAuditLogRepository,
 )
+from yvy.infrastructure.system.hashing import verify_sha256_file
 
 logger = logging.getLogger(__name__)
 
@@ -125,9 +126,7 @@ class UpdateInstaller:
 
         local_path_str = self._cfg.get("update_pending.local_path")
         if not local_path_str:
-            return PrevalidationResult(
-                ok=False, reason="Ruta local del paquete no registrada."
-            )
+            return PrevalidationResult(ok=False, reason="Ruta local del paquete no registrada.")
 
         pkg = Path(local_path_str)
         if not pkg.exists():
@@ -136,9 +135,9 @@ class UpdateInstaller:
                 reason=f"El archivo del paquete no existe en disco: {pkg}",
             )
 
-        # Verificar hash
+        # Verificar hash (un `expected_sha` vacío significa "no verificar")
         expected_sha = meta.get("package_sha256", "")
-        if expected_sha and not _verify_sha256(pkg, expected_sha):
+        if expected_sha and not verify_sha256_file(pkg, expected_sha):
             return PrevalidationResult(
                 ok=False, reason="Hash SHA-256 del paquete no coincide. Re-descargar."
             )
@@ -162,9 +161,11 @@ class UpdateInstaller:
                 package_path=pkg,
             )
 
-        # Verificar min_edge_version
+        # Verificar min_edge_version.
+        # Política ante una versión ilegible: NO bloquear la instalación
+        # (antes vivía dentro del `except` de `_version_gte`; ahora es explícita).
         min_ver = meta.get("min_edge_version", "")
-        if min_ver and not _version_gte(__version__, min_ver):
+        if min_ver and not version_gte(__version__, min_ver, on_unparseable=True):
             return PrevalidationResult(
                 ok=False,
                 reason=(
@@ -222,17 +223,19 @@ class UpdateInstaller:
         backup_path = self._backup_db(from_version, to_version, now_iso)
 
         # 3. Registrar en audit
-        self._audit.append(AuditLogEntry(
-            event_type=AuditEventType.UPDATE_REQUESTED,
-            user_id=requested_by_user_id,
-            source=AuditSource.UI,
-            metadata={
-                "from_version": from_version,
-                "to_version": to_version,
-                "package_sha256": meta.get("package_sha256", ""),
-                "backup_path": str(backup_path),
-            },
-        ))
+        self._audit.append(
+            AuditLogEntry(
+                event_type=AuditEventType.UPDATE_REQUESTED,
+                user_id=requested_by_user_id,
+                source=AuditSource.UI,
+                metadata={
+                    "from_version": from_version,
+                    "to_version": to_version,
+                    "package_sha256": meta.get("package_sha256", ""),
+                    "backup_path": str(backup_path),
+                },
+            )
+        )
         logger.info(
             "update.install.requested",
             extra={
@@ -309,17 +312,19 @@ class UpdateInstaller:
         self._cfg.set_current_release(to_version)
 
         # Audit
-        self._audit.append(AuditLogEntry(
-            event_type=AuditEventType.ROLLBACK_MANUAL,
-            user_id=performed_by,
-            source=AuditSource.UI,
-            metadata={
-                "from_version": from_version,
-                "to_version": to_version,
-                "reason": reason,
-                "backup_path": str(backup_path),
-            },
-        ))
+        self._audit.append(
+            AuditLogEntry(
+                event_type=AuditEventType.ROLLBACK_MANUAL,
+                user_id=performed_by,
+                source=AuditSource.UI,
+                metadata={
+                    "from_version": from_version,
+                    "to_version": to_version,
+                    "reason": reason,
+                    "backup_path": str(backup_path),
+                },
+            )
+        )
         logger.info(
             "update.rollback.executed",
             extra={
@@ -353,7 +358,10 @@ class UpdateInstaller:
             shutil.copy2(self._db_path, backup_path)
             logger.info(
                 "update.install.backup_created",
-                extra={"backup_path": str(backup_path), "db_size_bytes": self._db_path.stat().st_size},
+                extra={
+                    "backup_path": str(backup_path),
+                    "db_size_bytes": self._db_path.stat().st_size,
+                },
             )
         return backup_path
 
@@ -370,7 +378,7 @@ class UpdateInstaller:
     def has_pending_install_request(self) -> bool:
         return self._cfg.get_install_status() == "requested"
 
-    def get_releases_on_disk(self) -> list[dict]:
+    def get_releases_on_disk(self) -> list[dict[str, Any]]:
         """Lista releases en disco con su estado (current/previous/stable)."""
         releases_dir = self._root / "releases"
         if not releases_dir.is_dir():
@@ -394,27 +402,3 @@ class UpdateInstaller:
                 states.append("stable")
             result.append({"version": ver, "states": states, "path": slot})
         return result
-
-
-# ─── Helpers libres ───────────────────────────────────────────────────────────
-
-
-def _verify_sha256(path: Path, expected: str) -> bool:
-    h = hashlib.sha256()
-    try:
-        with path.open("rb") as f:
-            while chunk := f.read(65536):
-                h.update(chunk)
-    except OSError:
-        return False
-    return h.hexdigest() == expected
-
-
-def _version_gte(v: str, minimum: str) -> bool:
-    """Comparación semántica simple: '1.2.3' >= '1.2.0'."""
-    try:
-        def _parts(s: str) -> tuple[int, ...]:
-            return tuple(int(x) for x in s.split(".")[:3])
-        return _parts(v) >= _parts(minimum)
-    except (ValueError, AttributeError):
-        return True  # ante la duda, no bloquear

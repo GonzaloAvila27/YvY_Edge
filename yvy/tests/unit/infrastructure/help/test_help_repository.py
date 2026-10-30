@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from yvy.infrastructure.help.help_repository import HelpRepository, _parse_frontmatter
 
 
@@ -23,15 +21,13 @@ def _make_help_dir(tmp_path: Path, articles: dict[str, str]) -> Path:
             {
                 "key": "test_cat",
                 "label": "Categoría de prueba",
-                "articles": [
-                    {"key": k, "title": k.replace("_", " ").title()}
-                    for k in articles
-                ],
+                "articles": [{"key": k, "title": k.replace("_", " ").title()} for k in articles],
             }
         ]
     }
     (help_dir / "index.json").write_text(
-        json.dumps(index), encoding="utf-8",
+        json.dumps(index),
+        encoding="utf-8",
     )
     for key, content in articles.items():
         (help_dir / f"{key}.md").write_text(content, encoding="utf-8")
@@ -66,10 +62,13 @@ def _make_help_dir_v11(
 
 class TestLoad:
     def test_loads_articles_from_index(self, tmp_path: Path) -> None:
-        help_dir = _make_help_dir(tmp_path, {
-            "art1": "# Art 1\n\nBody",
-            "art2": "# Art 2\n\nBody",
-        })
+        help_dir = _make_help_dir(
+            tmp_path,
+            {
+                "art1": "# Art 1\n\nBody",
+                "art2": "# Art 2\n\nBody",
+            },
+        )
         repo = HelpRepository(help_dir=help_dir)
 
         assert repo.is_loaded()
@@ -87,13 +86,16 @@ class TestLoad:
         help_dir = tmp_path / "help"
         help_dir.mkdir()
         index = {
-            "categories": [{
-                "key": "c", "label": "Cat",
-                "articles": [
-                    {"key": "exists", "title": "Exists"},
-                    {"key": "missing", "title": "Missing"},
-                ],
-            }]
+            "categories": [
+                {
+                    "key": "c",
+                    "label": "Cat",
+                    "articles": [
+                        {"key": "exists", "title": "Exists"},
+                        {"key": "missing", "title": "Missing"},
+                    ],
+                }
+            ]
         }
         (help_dir / "index.json").write_text(json.dumps(index), encoding="utf-8")
         (help_dir / "exists.md").write_text("# Exists", encoding="utf-8")
@@ -181,11 +183,13 @@ class TestSummaryAndRelated:
     def test_summary_from_index_takes_precedence(self, tmp_path: Path) -> None:
         help_dir = _make_help_dir_v11(
             tmp_path,
-            articles=[{
-                "key": "art1",
-                "title": "Art 1",
-                "summary": "Resumen desde index.",
-            }],
+            articles=[
+                {
+                    "key": "art1",
+                    "title": "Art 1",
+                    "summary": "Resumen desde index.",
+                }
+            ],
         )
         (help_dir / "art1.md").write_text(
             "# Art 1\n\nPárrafo del cuerpo que no debería ser el summary.",
@@ -296,9 +300,7 @@ class TestLanguage:
             articles=[{"key": "a", "title": "A"}],
             language="es",
         )
-        (help_dir / "a.md").write_text(
-            "---\nlanguage: pt\n---\n\n# A\n\nBody.", encoding="utf-8"
-        )
+        (help_dir / "a.md").write_text("---\nlanguage: pt\n---\n\n# A\n\nBody.", encoding="utf-8")
         repo = HelpRepository(help_dir=help_dir)
         art = repo.get_article("a")
         assert art is not None

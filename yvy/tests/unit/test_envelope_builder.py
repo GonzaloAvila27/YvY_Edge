@@ -14,6 +14,7 @@ Strategy: build envelopes from a fixture SyncJob with known values,
 assert byte-exact properties of the output. The builder is pure so
 the tests are deterministic without mocks or freezegun.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta, timezone
@@ -29,7 +30,6 @@ from yvy.infrastructure.sync.envelope_builder import (
     build_envelope,
 )
 from yvy.infrastructure.sync.hmac_signer import sign_envelope
-
 
 _EVENT_ID = UUID("11111111-1111-4111-8111-111111111111")
 _STATION_UUID = UUID("22222222-2222-4222-8222-222222222222")
@@ -48,7 +48,9 @@ def _make_job(
         event_id=event_id,
         station_uuid=station_uuid,
         entity_type=entity_type,
-        payload=payload if payload is not None else {
+        payload=payload
+        if payload is not None
+        else {
             "observed_at_utc": "2026-05-23T18:00:00.000Z",
             "observer_id": "u",
         },
@@ -70,8 +72,13 @@ class TestBuildEnvelopeShape:
             nonce=_NONCE,
         )
         expected_keys = {
-            "schema_version", "event_id", "station_uuid", "key_version",
-            "sent_at_utc", "nonce", "payload",
+            "schema_version",
+            "event_id",
+            "station_uuid",
+            "key_version",
+            "sent_at_utc",
+            "nonce",
+            "payload",
         }
         assert set(env.keys()) == expected_keys
 
@@ -80,22 +87,31 @@ class TestBuildEnvelopeShape:
         signature is the caller's responsibility (or use
         build_and_sign_envelope)."""
         env = build_envelope(
-            job=_make_job(), station_uuid=_STATION_UUID, key_version=1,
-            sent_at_utc=_SENT_AT, nonce=_NONCE,
+            job=_make_job(),
+            station_uuid=_STATION_UUID,
+            key_version=1,
+            sent_at_utc=_SENT_AT,
+            nonce=_NONCE,
         )
         assert "signature" not in env
 
     def test_schema_version_is_1_0(self) -> None:
         env = build_envelope(
-            job=_make_job(), station_uuid=_STATION_UUID, key_version=1,
-            sent_at_utc=_SENT_AT, nonce=_NONCE,
+            job=_make_job(),
+            station_uuid=_STATION_UUID,
+            key_version=1,
+            sent_at_utc=_SENT_AT,
+            nonce=_NONCE,
         )
         assert env["schema_version"] == "1.0"
 
     def test_uuids_are_stringified(self) -> None:
         env = build_envelope(
-            job=_make_job(), station_uuid=_STATION_UUID, key_version=1,
-            sent_at_utc=_SENT_AT, nonce=_NONCE,
+            job=_make_job(),
+            station_uuid=_STATION_UUID,
+            key_version=1,
+            sent_at_utc=_SENT_AT,
+            nonce=_NONCE,
         )
         assert env["event_id"] == "11111111-1111-4111-8111-111111111111"
         assert env["station_uuid"] == "22222222-2222-4222-8222-222222222222"
@@ -106,8 +122,10 @@ class TestBuildEnvelopeShape:
         other_event_id = UUID("33333333-3333-4333-8333-333333333333")
         env = build_envelope(
             job=_make_job(event_id=other_event_id),
-            station_uuid=_STATION_UUID, key_version=1,
-            sent_at_utc=_SENT_AT, nonce=_NONCE,
+            station_uuid=_STATION_UUID,
+            key_version=1,
+            sent_at_utc=_SENT_AT,
+            nonce=_NONCE,
         )
         assert env["event_id"] == str(other_event_id)
 
@@ -120,23 +138,31 @@ class TestBuildEnvelopeShape:
         env = build_envelope(
             job=_make_job(station_uuid=_STATION_UUID),
             station_uuid=different_station,
-            key_version=1, sent_at_utc=_SENT_AT, nonce=_NONCE,
+            key_version=1,
+            sent_at_utc=_SENT_AT,
+            nonce=_NONCE,
         )
         # The envelope uses the explicit arg, not the job's field
         assert env["station_uuid"] == str(different_station)
 
     def test_key_version_preserved(self) -> None:
         env = build_envelope(
-            job=_make_job(), station_uuid=_STATION_UUID, key_version=7,
-            sent_at_utc=_SENT_AT, nonce=_NONCE,
+            job=_make_job(),
+            station_uuid=_STATION_UUID,
+            key_version=7,
+            sent_at_utc=_SENT_AT,
+            nonce=_NONCE,
         )
         assert env["key_version"] == 7
         assert isinstance(env["key_version"], int)
 
     def test_nonce_preserved_as_is(self) -> None:
         env = build_envelope(
-            job=_make_job(), station_uuid=_STATION_UUID, key_version=1,
-            sent_at_utc=_SENT_AT, nonce="cafe" * 8,
+            job=_make_job(),
+            station_uuid=_STATION_UUID,
+            key_version=1,
+            sent_at_utc=_SENT_AT,
+            nonce="cafe" * 8,
         )
         assert env["nonce"] == "cafecafecafecafecafecafecafecafe"
 
@@ -149,16 +175,22 @@ class TestSentAtFormat:
 
     def test_basic_iso_format(self) -> None:
         env = build_envelope(
-            job=_make_job(), station_uuid=_STATION_UUID, key_version=1,
-            sent_at_utc=_SENT_AT, nonce=_NONCE,
+            job=_make_job(),
+            station_uuid=_STATION_UUID,
+            key_version=1,
+            sent_at_utc=_SENT_AT,
+            nonce=_NONCE,
         )
         assert env["sent_at_utc"] == "2026-05-23T18:00:00.000Z"
 
     def test_millisecond_precision(self) -> None:
         sent = datetime(2026, 5, 23, 18, 0, 0, 731000, tzinfo=UTC)  # .731 s
         env = build_envelope(
-            job=_make_job(), station_uuid=_STATION_UUID, key_version=1,
-            sent_at_utc=sent, nonce=_NONCE,
+            job=_make_job(),
+            station_uuid=_STATION_UUID,
+            key_version=1,
+            sent_at_utc=sent,
+            nonce=_NONCE,
         )
         assert env["sent_at_utc"] == "2026-05-23T18:00:00.731Z"
 
@@ -167,8 +199,11 @@ class TestSentAtFormat:
         # 731_999 us → .731 (truncated, not rounded)
         sent = datetime(2026, 5, 23, 18, 0, 0, 731_999, tzinfo=UTC)
         env = build_envelope(
-            job=_make_job(), station_uuid=_STATION_UUID, key_version=1,
-            sent_at_utc=sent, nonce=_NONCE,
+            job=_make_job(),
+            station_uuid=_STATION_UUID,
+            key_version=1,
+            sent_at_utc=sent,
+            nonce=_NONCE,
         )
         assert env["sent_at_utc"] == "2026-05-23T18:00:00.731Z"
 
@@ -176,8 +211,11 @@ class TestSentAtFormat:
         naive = datetime(2026, 5, 23, 18, 0, 0)  # no tzinfo
         with pytest.raises(ValueError, match="naive"):
             build_envelope(
-                job=_make_job(), station_uuid=_STATION_UUID, key_version=1,
-                sent_at_utc=naive, nonce=_NONCE,
+                job=_make_job(),
+                station_uuid=_STATION_UUID,
+                key_version=1,
+                sent_at_utc=naive,
+                nonce=_NONCE,
             )
 
     def test_non_utc_offset_rejected(self) -> None:
@@ -187,8 +225,11 @@ class TestSentAtFormat:
         sent_ar = datetime(2026, 5, 23, 15, 0, 0, tzinfo=ar_tz)
         with pytest.raises(ValueError, match="UTC"):
             build_envelope(
-                job=_make_job(), station_uuid=_STATION_UUID, key_version=1,
-                sent_at_utc=sent_ar, nonce=_NONCE,
+                job=_make_job(),
+                station_uuid=_STATION_UUID,
+                key_version=1,
+                sent_at_utc=sent_ar,
+                nonce=_NONCE,
             )
 
     def test_zoneinfo_utc_accepted(self) -> None:
@@ -220,8 +261,10 @@ class TestPayloadHandling:
         }
         env = build_envelope(
             job=_make_job(payload=custom_payload),
-            station_uuid=_STATION_UUID, key_version=1,
-            sent_at_utc=_SENT_AT, nonce=_NONCE,
+            station_uuid=_STATION_UUID,
+            key_version=1,
+            sent_at_utc=_SENT_AT,
+            nonce=_NONCE,
         )
         assert env["payload"] == custom_payload
 
@@ -231,8 +274,11 @@ class TestPayloadHandling:
         original = {"k": "original"}
         job = _make_job(payload=original)
         env = build_envelope(
-            job=job, station_uuid=_STATION_UUID, key_version=1,
-            sent_at_utc=_SENT_AT, nonce=_NONCE,
+            job=job,
+            station_uuid=_STATION_UUID,
+            key_version=1,
+            sent_at_utc=_SENT_AT,
+            nonce=_NONCE,
         )
         # Note: SyncJob is frozen, but the *contents* of the payload dict
         # can still be mutated in place. The builder's shallow copy
@@ -244,8 +290,10 @@ class TestPayloadHandling:
     def test_empty_payload_works(self) -> None:
         env = build_envelope(
             job=_make_job(payload={}),
-            station_uuid=_STATION_UUID, key_version=1,
-            sent_at_utc=_SENT_AT, nonce=_NONCE,
+            station_uuid=_STATION_UUID,
+            key_version=1,
+            sent_at_utc=_SENT_AT,
+            nonce=_NONCE,
         )
         assert env["payload"] == {}
 
@@ -258,8 +306,12 @@ class TestBuildAndSign:
 
     def test_returns_envelope_with_signature(self) -> None:
         env = build_and_sign_envelope(
-            job=_make_job(), station_uuid=_STATION_UUID, key_version=1,
-            sent_at_utc=_SENT_AT, nonce=_NONCE, key=_KEY,
+            job=_make_job(),
+            station_uuid=_STATION_UUID,
+            key_version=1,
+            sent_at_utc=_SENT_AT,
+            nonce=_NONCE,
+            key=_KEY,
         )
         assert "signature" in env
         assert len(env["signature"]) == 64
@@ -268,26 +320,40 @@ class TestBuildAndSign:
         """The signature in the composed result must equal what you'd
         get by calling build_envelope + sign_envelope independently."""
         env_unsigned = build_envelope(
-            job=_make_job(), station_uuid=_STATION_UUID, key_version=1,
-            sent_at_utc=_SENT_AT, nonce=_NONCE,
+            job=_make_job(),
+            station_uuid=_STATION_UUID,
+            key_version=1,
+            sent_at_utc=_SENT_AT,
+            nonce=_NONCE,
         )
         expected_sig = sign_envelope(env_unsigned, _KEY)
 
         env_signed = build_and_sign_envelope(
-            job=_make_job(), station_uuid=_STATION_UUID, key_version=1,
-            sent_at_utc=_SENT_AT, nonce=_NONCE, key=_KEY,
+            job=_make_job(),
+            station_uuid=_STATION_UUID,
+            key_version=1,
+            sent_at_utc=_SENT_AT,
+            nonce=_NONCE,
+            key=_KEY,
         )
         assert env_signed["signature"] == expected_sig
 
     def test_signed_envelope_has_all_unsigned_fields_unchanged(self) -> None:
         """Adding the signature must not perturb any other field."""
         env_unsigned = build_envelope(
-            job=_make_job(), station_uuid=_STATION_UUID, key_version=1,
-            sent_at_utc=_SENT_AT, nonce=_NONCE,
+            job=_make_job(),
+            station_uuid=_STATION_UUID,
+            key_version=1,
+            sent_at_utc=_SENT_AT,
+            nonce=_NONCE,
         )
         env_signed = build_and_sign_envelope(
-            job=_make_job(), station_uuid=_STATION_UUID, key_version=1,
-            sent_at_utc=_SENT_AT, nonce=_NONCE, key=_KEY,
+            job=_make_job(),
+            station_uuid=_STATION_UUID,
+            key_version=1,
+            sent_at_utc=_SENT_AT,
+            nonce=_NONCE,
+            key=_KEY,
         )
         for key in env_unsigned:
             assert env_signed[key] == env_unsigned[key]
@@ -296,24 +362,38 @@ class TestBuildAndSign:
         """End-to-end sensitivity test through the composed function."""
         env1 = build_and_sign_envelope(
             job=_make_job(payload={"x": 1}),
-            station_uuid=_STATION_UUID, key_version=1,
-            sent_at_utc=_SENT_AT, nonce=_NONCE, key=_KEY,
+            station_uuid=_STATION_UUID,
+            key_version=1,
+            sent_at_utc=_SENT_AT,
+            nonce=_NONCE,
+            key=_KEY,
         )
         env2 = build_and_sign_envelope(
             job=_make_job(payload={"x": 2}),
-            station_uuid=_STATION_UUID, key_version=1,
-            sent_at_utc=_SENT_AT, nonce=_NONCE, key=_KEY,
+            station_uuid=_STATION_UUID,
+            key_version=1,
+            sent_at_utc=_SENT_AT,
+            nonce=_NONCE,
+            key=_KEY,
         )
         assert env1["signature"] != env2["signature"]
 
     def test_changing_key_changes_signature(self) -> None:
         env1 = build_and_sign_envelope(
-            job=_make_job(), station_uuid=_STATION_UUID, key_version=1,
-            sent_at_utc=_SENT_AT, nonce=_NONCE, key=_KEY,
+            job=_make_job(),
+            station_uuid=_STATION_UUID,
+            key_version=1,
+            sent_at_utc=_SENT_AT,
+            nonce=_NONCE,
+            key=_KEY,
         )
         other_key = bytes.fromhex("b2" * 32)
         env2 = build_and_sign_envelope(
-            job=_make_job(), station_uuid=_STATION_UUID, key_version=1,
-            sent_at_utc=_SENT_AT, nonce=_NONCE, key=other_key,
+            job=_make_job(),
+            station_uuid=_STATION_UUID,
+            key_version=1,
+            sent_at_utc=_SENT_AT,
+            nonce=_NONCE,
+            key=other_key,
         )
         assert env1["signature"] != env2["signature"]

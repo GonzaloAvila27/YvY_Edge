@@ -5,13 +5,12 @@ from __future__ import annotations
 import pytest
 
 from yvy.application.use_cases.auth.complete_onboarding import (
-    AdminCreationData,
-    CompleteOnboardingUseCase,
     KEY_CUE,
     KEY_HARDWARE_FINGERPRINT,
-    KEY_ONBOARDING_COMPLETED_AT,
     KEY_SCHOOL_NAME,
     KEY_STATION_UUID,
+    AdminCreationData,
+    CompleteOnboardingUseCase,
     OnboardingData,
 )
 from yvy.application.use_cases.auth.create_user import CreateUserUseCase
@@ -68,15 +67,15 @@ def _data(with_secondary: bool = False, **overrides) -> OnboardingData:
         if with_secondary
         else None
     )
-    base = dict(
-        cue="540178700",
-        school_name="IEA Nº10 — Posadas",
-        school_short_name="IEA10",
-        timezone="America/Argentina/Cordoba",
-        primary_admin=primary,
-        secondary_admin=secondary,
-        hardware_fingerprint=None,
-    )
+    base = {
+        "cue": "540178700",
+        "school_name": "IEA Nº10 — Posadas",
+        "school_short_name": "IEA10",
+        "timezone": "America/Argentina/Cordoba",
+        "primary_admin": primary,
+        "secondary_admin": secondary,
+        "hardware_fingerprint": None,
+    }
     base.update(overrides)
     return OnboardingData(**base)
 
@@ -169,9 +168,7 @@ class TestCompleteOnboarding:
 
         Trade-off: el wizard puede reintentar sin perder los datos institucionales.
         """
-        weak = AdminCreationData(
-            username="director", full_name="X", password="123"
-        )
+        weak = AdminCreationData(username="director", full_name="X", password="123")
         with pytest.raises(WeakPasswordError):
             onboarding_uc.execute(_data(primary_admin=weak))
 
@@ -189,16 +186,10 @@ class TestCompleteOnboarding:
         app_config_repo: AppConfigRepository,
     ) -> None:
         """Si secondary username == primary username, falla en el segundo create."""
-        primary = AdminCreationData(
-            username="admin", full_name="A", password="strongpass1"
-        )
-        secondary = AdminCreationData(
-            username="admin", full_name="B", password="strongpass2"
-        )
+        primary = AdminCreationData(username="admin", full_name="A", password="strongpass1")
+        secondary = AdminCreationData(username="admin", full_name="B", password="strongpass2")
         with pytest.raises(UsernameAlreadyExistsError):
-            onboarding_uc.execute(
-                _data(primary_admin=primary, secondary_admin=secondary)
-            )
+            onboarding_uc.execute(_data(primary_admin=primary, secondary_admin=secondary))
 
         # Primer admin SÍ se creó (porque pasó la validación)
         assert user_repo.find_by_username("admin") is not None

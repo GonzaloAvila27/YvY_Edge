@@ -9,6 +9,7 @@ The module under test is pure logic — no DB, no network. Tests cover:
 - tz-aware UTC validation (rejected naive / non-UTC inputs).
 - ``apply_offset`` round-trip math.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta, timezone
@@ -16,12 +17,10 @@ from datetime import UTC, datetime, timedelta, timezone
 import pytest
 
 from yvy.infrastructure.sync.clock_offset import (
-    ClockRecalibration,
     RecalibrationReason,
     apply_offset,
     compute_recalibration,
 )
-
 
 _T0 = datetime(2026, 5, 23, 18, 0, 0, tzinfo=UTC)
 
@@ -308,7 +307,9 @@ class TestDataclass:
 
     def test_is_frozen(self) -> None:
         result = compute_recalibration(
-            server_time_utc=_T0, edge_time_utc=_T0, current_offset_seconds=0.0,
+            server_time_utc=_T0,
+            edge_time_utc=_T0,
+            current_offset_seconds=0.0,
         )
         with pytest.raises(AttributeError):
             result.new_offset_seconds = 99.0  # type: ignore[misc]
@@ -316,7 +317,9 @@ class TestDataclass:
     def test_reason_is_strenum(self) -> None:
         """Reason serializes as a string — useful for structured logs."""
         result = compute_recalibration(
-            server_time_utc=_T0, edge_time_utc=_T0, current_offset_seconds=0.0,
+            server_time_utc=_T0,
+            edge_time_utc=_T0,
+            current_offset_seconds=0.0,
         )
         assert isinstance(result.reason, RecalibrationReason)
         assert str(result.reason) == "below_threshold"

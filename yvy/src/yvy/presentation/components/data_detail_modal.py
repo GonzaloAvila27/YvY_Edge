@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import tkinter as tk
 from tkinter import ttk
 from typing import Any
@@ -11,15 +12,15 @@ from yvy.presentation.theme import (
     BG_CREAM,
     FONT_BODY,
     FONT_BODY_BOLD,
-    FONT_SMALL,
     PRIMARY,
     SPACE_LG,
     SPACE_MD,
-    SPACE_SM,
     SPACE_XL,
     TEXT_PRIMARY,
     TEXT_SECONDARY,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # Lista completa de campos a mostrar, en orden, con label y unidad.
@@ -92,17 +93,24 @@ class DataDetailModal(tk.Toplevel):
             row.pack(fill="x", pady=2)
 
             tk.Label(
-                row, text=f"{label}:",
-                bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY,
-                width=26, anchor="w",
+                row,
+                text=f"{label}:",
+                bg=BG_CARD,
+                fg=TEXT_SECONDARY,
+                font=FONT_BODY,
+                width=26,
+                anchor="w",
             ).pack(side="left")
 
             value = self._obs.get(key)
             value_str = self._format_value(key, value, unit)
 
             tk.Label(
-                row, text=value_str,
-                bg=BG_CARD, fg=TEXT_PRIMARY, font=FONT_BODY_BOLD,
+                row,
+                text=value_str,
+                bg=BG_CARD,
+                fg=TEXT_PRIMARY,
+                font=FONT_BODY_BOLD,
                 anchor="w",
             ).pack(side="left")
 
@@ -111,7 +119,9 @@ class DataDetailModal(tk.Toplevel):
         footer.pack(fill="x", side="bottom")
 
         ttk.Button(
-            footer, text="Cerrar", command=self._close,
+            footer,
+            text="Cerrar",
+            command=self._close,
             style="Primary.TButton",
         ).pack(side="right")
 
@@ -129,8 +139,8 @@ class DataDetailModal(tk.Toplevel):
     def _close(self) -> None:
         try:
             self.grab_release()
-        except tk.TclError:
-            pass
+        except tk.TclError as exc:
+            logger.debug("Widget destruido durante callback (ignorado): %s", exc)
         self.destroy()
 
     def _center_on_parent(self, parent: tk.Misc) -> None:
@@ -142,5 +152,5 @@ class DataDetailModal(tk.Toplevel):
             x = max(0, px + (pw - mw) // 2)
             y = max(0, py + (ph - mh) // 2)
             self.geometry(f"+{x}+{y}")
-        except tk.TclError:
-            pass
+        except tk.TclError as exc:
+            logger.debug("Widget destruido durante callback (ignorado): %s", exc)

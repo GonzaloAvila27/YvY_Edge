@@ -18,6 +18,7 @@ fallan.
 ``canonicalize`` es la copia vendor byte-idéntica al Core, así que reconstruir
 ``to_sign`` acá replica exactamente ``_verify_edge_hmac`` del Core (edge.py).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -83,9 +84,7 @@ class TestEdgeSyncHmacContract:
 
         req = route.calls.last.request
         # El Edge debe firmar exactamente los 4 campos del Core.
-        assert _declared_signature(req.headers) == _core_side_signature(
-            req.headers, _KEY
-        )
+        assert _declared_signature(req.headers) == _core_side_signature(req.headers, _KEY)
 
     def test_extra_fields_are_not_signed_only_sent_as_headers(self):
         """edge_version / last_sync_version viajan como headers, NO se firman."""
@@ -119,9 +118,7 @@ class TestEdgeSyncHmacContract:
             "sent_at_utc": req.headers["x-sent-at-utc"],
             "station_uuid": str(_UUID),
         }
-        old_sig = hmac.new(
-            _KEY, canonicalize(old_6_field), hashlib.sha256
-        ).hexdigest()
+        old_sig = hmac.new(_KEY, canonicalize(old_6_field), hashlib.sha256).hexdigest()
         assert _declared_signature(req.headers) != old_sig
 
     def test_canonical_bytes_are_exactly_the_4_fields(self):
@@ -158,9 +155,10 @@ class TestEdgeSyncHmacContract:
         }
         assert canonicalize(to_sign) == expected_bytes
         # Y la firma del Edge coincide con esos bytes exactos.
-        assert _declared_signature(req.headers) == hmac.new(
-            _KEY, expected_bytes, hashlib.sha256
-        ).hexdigest()
+        assert (
+            _declared_signature(req.headers)
+            == hmac.new(_KEY, expected_bytes, hashlib.sha256).hexdigest()
+        )
 
 
 @pytest.mark.unit
@@ -171,9 +169,7 @@ class TestDownloadHmacContract:
         package_url = f"{_SERVER_URL}/api/v1/edge/updates/yvy-edge-1.5.2.tar.gz"
 
         with respx.mock:
-            route = respx.get(package_url).mock(
-                return_value=Response(200, content=payload)
-            )
+            route = respx.get(package_url).mock(return_value=Response(200, content=payload))
             client = HttpClient(server_url=_SERVER_URL, verify=False)
             client.download_update_package(
                 package_url=package_url,
@@ -188,9 +184,7 @@ class TestDownloadHmacContract:
 
         req = route.calls.last.request
         # Download firma los MISMOS 4 campos; package_url viaja como path, no se firma.
-        assert _declared_signature(req.headers) == _core_side_signature(
-            req.headers, _KEY
-        )
+        assert _declared_signature(req.headers) == _core_side_signature(req.headers, _KEY)
 
     def test_package_url_is_not_signed(self, tmp_path):
         payload = b"x" * 100
@@ -198,9 +192,7 @@ class TestDownloadHmacContract:
         package_url = f"{_SERVER_URL}/api/v1/edge/updates/yvy-edge-1.5.2.tar.gz"
 
         with respx.mock:
-            route = respx.get(package_url).mock(
-                return_value=Response(200, content=payload)
-            )
+            route = respx.get(package_url).mock(return_value=Response(200, content=payload))
             client = HttpClient(server_url=_SERVER_URL, verify=False)
             client.download_update_package(
                 package_url=package_url,
@@ -221,7 +213,5 @@ class TestDownloadHmacContract:
             "sent_at_utc": req.headers["x-sent-at-utc"],
             "station_uuid": str(_UUID),
         }
-        old_sig = hmac.new(
-            _KEY, canonicalize(old_5_field), hashlib.sha256
-        ).hexdigest()
+        old_sig = hmac.new(_KEY, canonicalize(old_5_field), hashlib.sha256).hexdigest()
         assert _declared_signature(req.headers) != old_sig

@@ -140,8 +140,7 @@ class RunCatchupRecoveryUseCase:
         """
         if since.tzinfo is None:
             raise ValueError(
-                "since debe ser timezone-aware (UTC). "
-                "Usar datetime(..., tzinfo=timezone.utc)"
+                "since debe ser timezone-aware (UTC). " "Usar datetime(..., tzinfo=timezone.utc)"
             )
 
         # ─── 1. Adquirir lock atómicamente ────────────────────────────────

@@ -9,10 +9,26 @@ station_uuid, CUE, school_name, hardware_fingerprint, onboarding_completed_at.
 
 from __future__ import annotations
 
+import json
+import logging
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
+from yvy.domain.shared.version import version_lte
 from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
+
+logger = logging.getLogger(__name__)
+
+# Key única con el pending serializado a JSON (H10). Una escritura, una lectura:
+# el `UpdateCheckerDaemon` escribe desde su thread y el poll del header lee desde
+# el main thread cada 15 s; con 9 keys sueltas se podía leer un pending a medio
+# escribir (available=true con edge_version viejo).
+_PENDING_KEY = "update_pending"
+
+# OJO: `update_pending.downloaded/.downloaded_at/.local_path` NO son parte del
+# pending metadata — son flags de descarga que leen el downloader y el installer.
+# No se tocan acá.
 
 
 class AppConfigRepository:
@@ -23,9 +39,7 @@ class AppConfigRepository:
 
     def get(self, key: str) -> str | None:
         conn = self._factory.get_connection()
-        cur = conn.execute(
-            "SELECT value FROM app_config WHERE key = ?", (key,)
-        )
+        cur = conn.execute("SELECT value FROM app_config WHERE key = ?", (key,))
         row = cur.fetchone()
         return str(row[0]) if row else None
 
@@ -76,7 +90,7 @@ class AppConfigRepository:
     def set_last_sync_version(self, version: int) -> None:
         self.set("last_sync_version", str(version))
 
-    def get_pending_update(self) -> dict | None:
+    def get_pending_update(self) -> dict[str, Any] | None:
         """Retorna la metadata del update pendiente, o None si no hay.
 
         Guarda de obsolescencia (ERR-003): si la versión pendiente es <= la
@@ -86,14 +100,40 @@ class AppConfigRepository:
         manual (que no pasa por el cierre post-boot del flujo OTA) sin depender
         de que el server avise.
         """
-        if self.get("update_pending.available") != "true":
+        metadata = self._read_pending_atomic()
+        if metadata is None:
+            # Tolerancia de formato: nodo que venía con el pending en las 9 keys
+            # sueltas y todavía no pasó por un `set_pending_update` nuevo.
+            metadata = self._read_pending_legacy()
+        if metadata is None:
             return None
 
-        pending_version = self.get("update_pending.edge_version")
+        pending_version = metadata.get("edge_version")
         if pending_version and _pending_is_obsolete(pending_version):
             self.clear_pending_update()
             return None
 
+        return metadata
+
+    def _read_pending_atomic(self) -> dict[str, Any] | None:
+        """Lee el pending de la key JSON única. Un solo SELECT, valor completo."""
+        raw = self.get(_PENDING_KEY)
+        if not raw:
+            return None
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError, ValueError) as exc:
+            logger.warning("update_pending ilegible (%s); se cae al formato legacy", exc)
+            return None
+        if not isinstance(parsed, dict):
+            logger.warning("update_pending no es un objeto JSON; se cae al formato legacy")
+            return None
+        return parsed
+
+    def _read_pending_legacy(self) -> dict[str, Any] | None:
+        """Formato viejo: 9 keys sueltas. Se retira el próximo ciclo."""
+        if self.get("update_pending.available") != "true":
+            return None
         return {
             "edge_version": self.get("update_pending.edge_version"),
             "package_url": self.get("update_pending.package_url"),
@@ -105,20 +145,50 @@ class AppConfigRepository:
             "detected_at": self.get("update_pending.detected_at"),
         }
 
-    def set_pending_update(self, metadata: dict) -> None:
-        """Persiste la metadata de update recibida desde Core."""
+    def set_pending_update(self, metadata: dict[str, Any]) -> None:
+        """Persiste la metadata de update recibida desde Core (H10: atómico).
+
+        Orden deliberado:
+
+        1. ``available=false`` **antes** de tocar los campos legacy: si un lector
+           cae al fallback justo en el medio, ve "sin pending", nunca uno a medias.
+        2. Los campos legacy (dual-write de compatibilidad, se retira el próximo
+           ciclo — nadie los lee ya salvo el fallback).
+        3. La key JSON **al final**: es el punto de commit. El lector nuevo hace
+           un solo SELECT y obtiene o el pending anterior completo, o el nuevo
+           completo. Nunca una mezcla.
+        """
+        payload: dict[str, Any] = {
+            "edge_version": metadata["edge_version"],
+            "package_url": metadata["package_url"],
+            "package_sha256": metadata["package_sha256"],
+            "package_size_bytes": int(metadata["package_size_bytes"]),
+            "released_at": metadata["released_at"],
+            "min_edge_version": metadata.get("min_edge_version", ""),
+            "notes": metadata.get("notes", ""),
+            "detected_at": datetime.now(UTC).isoformat(),
+        }
+
+        self.set("update_pending.available", "false")
+        self.set("update_pending.edge_version", payload["edge_version"])
+        self.set("update_pending.package_url", payload["package_url"])
+        self.set("update_pending.package_sha256", payload["package_sha256"])
+        self.set("update_pending.package_size_bytes", str(payload["package_size_bytes"]))
+        self.set("update_pending.released_at", payload["released_at"])
+        self.set("update_pending.min_edge_version", payload["min_edge_version"])
+        self.set("update_pending.notes", payload["notes"])
+        self.set("update_pending.detected_at", payload["detected_at"])
         self.set("update_pending.available", "true")
-        self.set("update_pending.edge_version", metadata["edge_version"])
-        self.set("update_pending.package_url", metadata["package_url"])
-        self.set("update_pending.package_sha256", metadata["package_sha256"])
-        self.set("update_pending.package_size_bytes", str(metadata["package_size_bytes"]))
-        self.set("update_pending.released_at", metadata["released_at"])
-        self.set("update_pending.min_edge_version", metadata.get("min_edge_version", ""))
-        self.set("update_pending.notes", metadata.get("notes", ""))
-        self.set("update_pending.detected_at", datetime.now(UTC).isoformat())
+
+        self.set(_PENDING_KEY, json.dumps(payload, ensure_ascii=False))
 
     def clear_pending_update(self) -> None:
-        """Marca que no hay update pendiente (no borra las otras keys)."""
+        """Marca que no hay update pendiente.
+
+        Limpia AMBOS formatos: si sólo se borrara la key JSON, el fallback legacy
+        resucitaría el pending viejo.
+        """
+        self.delete(_PENDING_KEY)
         self.set("update_pending.available", "false")
 
     # ─── Helpers descarga (Sprint B) ─────────────────────────────────────
@@ -157,7 +227,10 @@ class AppConfigRepository:
     ) -> None:
         self.set("update_install.from_version", from_version)
         self.set("update_install.to_version", to_version)
-        self.set("update_install.requested_by", str(requested_by) if requested_by is not None else "SYSTEM")
+        self.set(
+            "update_install.requested_by",
+            str(requested_by) if requested_by is not None else "SYSTEM",
+        )
         self.set("update_install.requested_at", requested_at)
 
     def get_install_to_version(self) -> str | None:
@@ -204,6 +277,7 @@ class AppConfigRepository:
 
     def get_releases_installed(self) -> list[str]:
         import json
+
         raw = self.get("releases.installed")
         if not raw:
             return []
@@ -214,6 +288,7 @@ class AppConfigRepository:
 
     def set_releases_installed(self, versions: list[str]) -> None:
         import json
+
         self.set("releases.installed", json.dumps(versions))
 
     def get_current_release(self) -> str | None:
@@ -253,28 +328,14 @@ class AppConfigRepository:
 # ─── Helpers libres ──────────────────────────────────────────────────────────
 
 
-def _parse_semver(value: str) -> tuple[int, ...]:
-    """Parsea 'X.Y.Z' a tupla de ints (descarta sufijos -pre/+build).
-
-    Devuelve () si no se puede parsear — el caller decide qué hacer ante eso.
-    """
-    base = value.split("-")[0].split("+")[0]
-    try:
-        return tuple(int(x) for x in base.split(".")[:3])
-    except (ValueError, AttributeError):
-        return ()
-
-
 def _pending_is_obsolete(pending_version: str) -> bool:
     """True si ``pending_version`` <= la versión actual del nodo (``__version__``).
 
-    Ante versiones no parseables, devuelve False (no limpiar: mejor dejar el
-    pending visible que descartarlo por un parseo dudoso).
+    Política ante versiones no parseables: **False** (no limpiar). Mejor dejar el
+    pending visible que descartarlo por un parseo dudoso. Es la política opuesta
+    a la del installer (que ante la duda no bloquea la instalación); por eso
+    ``version_lte`` la exige explícita en vez de esconderla en un ``except``.
     """
     from yvy import __version__
 
-    pending = _parse_semver(pending_version)
-    current = _parse_semver(__version__)
-    if not pending or not current:
-        return False
-    return pending <= current
+    return version_lte(pending_version, __version__, on_unparseable=False)

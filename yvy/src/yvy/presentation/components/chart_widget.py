@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import logging
 import threading
+import tkinter as tk
 from collections.abc import Callable
 from tkinter import ttk
-import tkinter as tk
 
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -127,9 +127,7 @@ class ChartWidget(ttk.Frame):
         self._canvas_widget.grid(row=0, column=0, sticky="nsew")
 
         # ── Overlay de estado (loading / empty / error) ──────────────────
-        self._state_frame = tk.Frame(
-            self, bg=BG_CARD, width=width_px, height=height_px
-        )
+        self._state_frame = tk.Frame(self, bg=BG_CARD, width=width_px, height=height_px)
         self._state_frame.grid_propagate(False)
         self._state_label = tk.Label(
             self._state_frame,

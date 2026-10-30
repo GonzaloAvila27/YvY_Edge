@@ -1,11 +1,10 @@
 """Tests para allowed_chart_labels_for_role (Fix 5.1 — filtrado por rol)."""
 
 from yvy.presentation.views.dashboard_admin import (
-    _FROST_LABEL,
     _CHART_LABELS,
+    _FROST_LABEL,
     allowed_chart_labels_for_role,
 )
-
 
 # ─── Alumno ───────────────────────────────────────────────────────────────────
 
@@ -79,5 +78,5 @@ def test_alumno_list_is_non_empty() -> None:
 
 def test_alumno_list_is_shorter_than_full() -> None:
     alumno = allowed_chart_labels_for_role("alumno")
-    full   = allowed_chart_labels_for_role("admin")
+    full = allowed_chart_labels_for_role("admin")
     assert len(alumno) == len(full) - 1

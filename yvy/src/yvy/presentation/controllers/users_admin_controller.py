@@ -10,6 +10,7 @@ controller solo orquesta y propaga errores hacia la view.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 
 from yvy.application.use_cases.auth.change_password import ChangePasswordUseCase
 from yvy.application.use_cases.auth.create_user import CreateUserUseCase
@@ -43,7 +44,7 @@ class UsersAdminController:
         change_password_uc: ChangePasswordUseCase,
         set_active_uc: SetUserActiveUseCase,
         toggle_export_uc: ToggleExportFlagUseCase,
-        actor_user_id_provider,  # type: ignore[no-untyped-def]
+        actor_user_id_provider: Callable[[], int | None],
     ) -> None:
         self._user_repo = user_repo
         self._create_uc = create_user_uc

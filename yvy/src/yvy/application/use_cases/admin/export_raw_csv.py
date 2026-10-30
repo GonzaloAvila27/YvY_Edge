@@ -62,7 +62,7 @@ class ExportRawCsvUseCase:
     ) -> ExportRawResult:
         conn = self.factory.get_connection()
 
-        params: list = []
+        params: list[str] = []
         where_clauses: list[str] = []
         # sensor_raw usa received_at (no observed_at)
         if date_from is not None:
@@ -72,9 +72,7 @@ class ExportRawCsvUseCase:
             where_clauses.append("received_at <= ?")
             params.append(date_to.strftime("%Y-%m-%dT%H:%M:%S.999Z"))
 
-        where_sql = (
-            " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
-        )
+        where_sql = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
         sql = f"""
             SELECT id, event_id, pywws_mode, pywws_ts, received_at,
                    parsed_to_sensor_data, payload
@@ -102,15 +100,11 @@ class ExportRawCsvUseCase:
                 metadata={
                     "rows": rows_count,
                     "file_name": output_path.name,
-                    "date_from": (
-                        date_from.isoformat() if date_from else None
-                    ),
+                    "date_from": (date_from.isoformat() if date_from else None),
                     "date_to": date_to.isoformat() if date_to else None,
                 },
             )
         )
 
-        logger.info(
-            "Export sensor_raw: %d filas → %s", rows_count, output_path
-        )
+        logger.info("Export sensor_raw: %d filas → %s", rows_count, output_path)
         return ExportRawResult(file_path=output_path, rows_exported=rows_count)

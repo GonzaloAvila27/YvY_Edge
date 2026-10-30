@@ -16,6 +16,7 @@ Uso:
 Los datos se insertan directamente en sensor_data como pywws_mode='catchup'.
 No se encolan para sync. Son solo para exploración de UI.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -34,28 +35,28 @@ from yvy.bootstrap import build_core_dependencies
 # ─── Constantes climáticas Misiones, junio ────────────────────────────────────
 
 # Temperatura: ciclo diurno con mínima ~14°C (6 AM) y máxima ~26°C (14 hs)
-_TEMP_BASE = 20.0       # °C — media diaria
-_TEMP_AMP  = 6.0        # °C — amplitud del ciclo diurno
-_TEMP_HOUR_PEAK = 14    # hora local del pico de temperatura
-_TEMP_NOISE = 0.4       # °C — ruido gaussiano
+_TEMP_BASE = 20.0  # °C — media diaria
+_TEMP_AMP = 6.0  # °C — amplitud del ciclo diurno
+_TEMP_HOUR_PEAK = 14  # hora local del pico de temperatura
+_TEMP_NOISE = 0.4  # °C — ruido gaussiano
 
 # Humedad: inversamente correlada con la temperatura
-_HUM_BASE = 78.0        # %
-_HUM_AMP  = 12.0        # amplitud (alta al amanecer, baja al mediodía)
+_HUM_BASE = 78.0  # %
+_HUM_AMP = 12.0  # amplitud (alta al amanecer, baja al mediodía)
 _HUM_NOISE = 2.0
 
 # Presión (relativa a nivel del mar, Posadas ~60 m snm)
-_PRES_BASE = 1014.5     # hPa
-_PRES_SLOW_AMP = 4.0    # variación lenta de frentes
+_PRES_BASE = 1014.5  # hPa
+_PRES_SLOW_AMP = 4.0  # variación lenta de frentes
 _PRES_NOISE = 0.3
 
 # Viento
-_WIND_AVG = 2.0         # m/s — promedio diurno
+_WIND_AVG = 2.0  # m/s — promedio diurno
 _WIND_NIGHT_FACTOR = 0.4  # más calmo de noche
-_WIND_GUST_FACTOR_LOW  = 1.4
+_WIND_GUST_FACTOR_LOW = 1.4
 _WIND_GUST_FACTOR_HIGH = 2.5
 # Direcciones predominantes: NE (45°) y N (360°), con variación
-_WIND_DIR_MODES = [350, 45, 90, 180]    # N, NE, E, S — pesos desiguales
+_WIND_DIR_MODES = [350, 45, 90, 180]  # N, NE, E, S — pesos desiguales
 _WIND_DIR_WEIGHTS = [0.40, 0.30, 0.20, 0.10]
 
 # Lluvia (rain_total = contador acumulado del sensor, mm)
@@ -63,13 +64,14 @@ _WIND_DIR_WEIGHTS = [0.40, 0.30, 0.20, 0.10]
 _RAIN_EVENTS_PER_30D = 3
 
 # Indoor (dentro de la consola; más estable)
-_TEMP_INDOOR_OFFSET = 2.5    # más cálido que exterior
-_HUM_INDOOR_OFFSET  = -8.0   # más seco
+_TEMP_INDOOR_OFFSET = 2.5  # más cálido que exterior
+_HUM_INDOOR_OFFSET = -8.0  # más seco
 
 _INTERVAL_MIN = 5  # minutos entre lecturas
 
 
 # ─── Generador ───────────────────────────────────────────────────────────────
+
 
 class _WeatherGen:
     """Generador determinista de datos meteorológicos sintéticos."""
@@ -113,7 +115,7 @@ class _WeatherGen:
         # Usamos suma de senoidales de periodo ~3-7 días
         pres_drift_period1 = 3.5 * 24 * 60 / _INTERVAL_MIN
         pres_drift_period2 = 7.0 * 24 * 60 / _INTERVAL_MIN
-        temp_drift_period  = 5.0 * 24 * 60 / _INTERVAL_MIN
+        temp_drift_period = 5.0 * 24 * 60 / _INTERVAL_MIN
 
         for i in range(n_steps):
             dt = start + interval * i
@@ -126,30 +128,23 @@ class _WeatherGen:
             phase = 2 * math.pi * (local_hour - _TEMP_HOUR_PEAK) / 24.0
             temp_cycle = _TEMP_AMP * math.sin(phase - math.pi / 2)
             temp_drift = 1.5 * math.sin(2 * math.pi * i / temp_drift_period)
-            temp_out = (
-                _TEMP_BASE + temp_cycle + temp_drift
-                + self._rng.gauss(0, _TEMP_NOISE)
-            )
+            temp_out = _TEMP_BASE + temp_cycle + temp_drift + self._rng.gauss(0, _TEMP_NOISE)
             temp_out = round(max(-5.0, min(45.0, temp_out)), 1)
-            temp_in  = round(temp_out + _TEMP_INDOOR_OFFSET + self._rng.gauss(0, 0.3), 1)
+            temp_in = round(temp_out + _TEMP_INDOOR_OFFSET + self._rng.gauss(0, 0.3), 1)
 
             # ── Humedad ────────────────────────────────────────────────────
             hum_cycle = -_HUM_AMP * math.sin(phase - math.pi / 2)
-            hum_out = (
-                _HUM_BASE + hum_cycle
-                + self._rng.gauss(0, _HUM_NOISE)
-            )
+            hum_out = _HUM_BASE + hum_cycle + self._rng.gauss(0, _HUM_NOISE)
             hum_out = round(max(30.0, min(99.0, hum_out)), 0)
-            hum_in  = round(max(20.0, min(95.0, hum_out + _HUM_INDOOR_OFFSET + self._rng.gauss(0, 1.5))), 0)
+            hum_in = round(
+                max(20.0, min(95.0, hum_out + _HUM_INDOOR_OFFSET + self._rng.gauss(0, 1.5))), 0
+            )
 
             # ── Presión ────────────────────────────────────────────────────
-            pres_drift = (
-                _PRES_SLOW_AMP * 0.6 * math.sin(2 * math.pi * i / pres_drift_period1)
-                + _PRES_SLOW_AMP * 0.4 * math.sin(2 * math.pi * i / pres_drift_period2)
-            )
-            pres_rel = round(
-                _PRES_BASE + pres_drift + self._rng.gauss(0, _PRES_NOISE), 1
-            )
+            pres_drift = _PRES_SLOW_AMP * 0.6 * math.sin(
+                2 * math.pi * i / pres_drift_period1
+            ) + _PRES_SLOW_AMP * 0.4 * math.sin(2 * math.pi * i / pres_drift_period2)
+            pres_rel = round(_PRES_BASE + pres_drift + self._rng.gauss(0, _PRES_NOISE), 1)
             pres_rel = max(995.0, min(1035.0, pres_rel))
             pres_abs = round(pres_rel - 7.2, 1)  # Posadas ~60 m snm
 
@@ -158,28 +153,26 @@ class _WeatherGen:
             wind_base = _WIND_AVG * night_factor
             wind_speed = abs(self._rng.gauss(wind_base, wind_base * 0.5))
             wind_speed = round(min(15.0, wind_speed), 1)
-            gust_factor = self._rng.uniform(
-                _WIND_GUST_FACTOR_LOW, _WIND_GUST_FACTOR_HIGH
-            )
+            gust_factor = self._rng.uniform(_WIND_GUST_FACTOR_LOW, _WIND_GUST_FACTOR_HIGH)
             wind_gust = round(min(20.0, wind_speed * gust_factor), 1)
 
             # Dirección: uno de los modos con ±30° de variación
-            dir_mode = self._rng.choices(
-                _WIND_DIR_MODES, weights=_WIND_DIR_WEIGHTS
-            )[0]
+            dir_mode = self._rng.choices(_WIND_DIR_MODES, weights=_WIND_DIR_WEIGHTS)[0]
             wind_dir = round((dir_mode + self._rng.gauss(0, 20)) % 360, 0)
 
             # ── Lluvia ─────────────────────────────────────────────────────
             rain_rate_h = self._rain_rate_at(day_frac)
-            rain_delta  = rain_rate_h * (_INTERVAL_MIN / 60.0)
+            rain_delta = rain_rate_h * (_INTERVAL_MIN / 60.0)
             rain_total += max(0.0, rain_delta + self._rng.gauss(0, 0.02))
-            rain_total  = round(rain_total, 2)
-            rain_1h  = round(rain_rate_h * 1.0, 2)
-            rain_24h = round(sum(
-                r * (_INTERVAL_MIN / 60.0)
-                for r in [self._rain_rate_at(day_frac - d / 24.0)
-                          for d in range(24)]
-            ), 2)
+            rain_total = round(rain_total, 2)
+            rain_1h = round(rain_rate_h * 1.0, 2)
+            rain_24h = round(
+                sum(
+                    r * (_INTERVAL_MIN / 60.0)
+                    for r in [self._rain_rate_at(day_frac - d / 24.0) for d in range(24)]
+                ),
+                2,
+            )
 
             # ── UV e irradiancia ───────────────────────────────────────────
             sun_factor = max(0.0, math.sin(phase + math.pi / 2))
@@ -187,36 +180,37 @@ class _WeatherGen:
             solar = round(sun_factor * 800.0 * self._rng.uniform(0.6, 1.0), 0)
 
             # ── event_id UUID v5 ──────────────────────────────────────────
-            eid = str(uuid.uuid5(
-                uuid.NAMESPACE_OID, f"mock_{dt.isoformat()}"
-            ))
+            eid = str(uuid.uuid5(uuid.NAMESPACE_OID, f"mock_{dt.isoformat()}"))
 
-            rows.append({
-                "event_id": eid,
-                "pywws_mode": "catchup",
-                "observed_at": dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "temp_indoor": temp_in,
-                "temp_outdoor": temp_out,
-                "hum_indoor": hum_in,
-                "hum_outdoor": hum_out,
-                "pressure_abs": pres_abs,
-                "pressure_rel": pres_rel,
-                "wind_speed": wind_speed,
-                "wind_gust": wind_gust,
-                "wind_direction": wind_dir,
-                "rain_1h": rain_1h,
-                "rain_24h": rain_24h,
-                "rain_total": rain_total,
-                "uv_index": uv,
-                "solar_radiation": solar,
-                "is_valid": 1,
-                "validation_notes": "mock",
-            })
+            rows.append(
+                {
+                    "event_id": eid,
+                    "pywws_mode": "catchup",
+                    "observed_at": dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "temp_indoor": temp_in,
+                    "temp_outdoor": temp_out,
+                    "hum_indoor": hum_in,
+                    "hum_outdoor": hum_out,
+                    "pressure_abs": pres_abs,
+                    "pressure_rel": pres_rel,
+                    "wind_speed": wind_speed,
+                    "wind_gust": wind_gust,
+                    "wind_direction": wind_dir,
+                    "rain_1h": rain_1h,
+                    "rain_24h": rain_24h,
+                    "rain_total": rain_total,
+                    "uv_index": uv,
+                    "solar_radiation": solar,
+                    "is_valid": 1,
+                    "validation_notes": "mock",
+                }
+            )
 
         return rows
 
 
 # ─── Main ────────────────────────────────────────────────────────────────────
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)

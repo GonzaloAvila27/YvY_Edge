@@ -37,11 +37,10 @@ class _FrozenClock:
         return self._fixed
 
 
-def _seed_mixed_data(
-    factory: SQLiteConnectionFactory, *, now: datetime
-) -> dict[str, int]:
+def _seed_mixed_data(factory: SQLiteConnectionFactory, *, now: datetime) -> dict[str, int]:
     """Inserta data variada y devuelve conteos esperados."""
     import uuid as _uuid_mod
+
     conn = factory.get_connection()
 
     # ─── sensor_raw ──────────────────────────────────────────────────────
@@ -121,7 +120,9 @@ def _seed_mixed_data(
                 NULL, ?, '', ?)
             """,
             (
-                str(ev), station, json.dumps({}),
+                str(ev),
+                station,
+                json.dumps({}),
                 last.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
                 last.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
             ),
@@ -143,7 +144,9 @@ def _seed_mixed_data(
                 NULL, ?, '', ?)
             """,
             (
-                str(ev), station, json.dumps({}),
+                str(ev),
+                station,
+                json.dumps({}),
                 last.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
                 last.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
             ),
@@ -165,7 +168,9 @@ def _seed_mixed_data(
                 NULL, NULL, '', ?)
             """,
             (
-                str(ev), station, json.dumps({}),
+                str(ev),
+                station,
+                json.dumps({}),
                 created.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
             ),
         )
@@ -184,7 +189,9 @@ def _seed_mixed_data(
             NULL, ?, 'connection refused', ?)
         """,
         (
-            str(ev), station, json.dumps({}),
+            str(ev),
+            station,
+            json.dumps({}),
             last.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
             last.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
         ),
@@ -219,8 +226,7 @@ class TestRetentionE2E:
         assert sensor_repo.count_raw() == expected["raw_keep"] + expected["raw_delete"]
         assert sensor_repo.count_readings() == expected["data_count"]
         assert sync_repo.count() == (
-            expected["sync_keep_sent"] + expected["sync_delete"]
-            + expected["sync_keep_pending"] + 1
+            expected["sync_keep_sent"] + expected["sync_delete"] + expected["sync_keep_pending"] + 1
         )
 
         use_case = RunRetentionJobUseCase(

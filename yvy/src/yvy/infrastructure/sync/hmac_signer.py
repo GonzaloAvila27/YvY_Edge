@@ -35,6 +35,7 @@ Design notes
   not in envelope_no_sig`` would only mask the bug in production. The
   envelope_builder.py module always passes the correctly-shaped dict.
 """
+
 from __future__ import annotations
 
 import hashlib

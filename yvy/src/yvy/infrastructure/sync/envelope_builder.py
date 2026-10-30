@@ -65,19 +65,21 @@ ISO 8601 UTC with millisecond precision, suffixed with ``"Z"``:
 
     "2026-05-23T18:04:35.731Z"
 
-We use ``isoformat(timespec="milliseconds").replace("+00:00", "Z")``
-which is the same convention the server's middleware uses for
-``X-Server-Time``. The caller must pass a tz-aware UTC datetime; we
-DO NOT silently coerce a naive datetime. A naive datetime here would
-be a bug in the agent (the time_provider is supposed to return
-tz-aware UTC).
+We delegate to ``yvy.domain.shared.time_utils.iso_ms_z`` — the single
+canonical implementation (INI-2 · 2.1.2) — which is the same convention
+the server's middleware uses for ``X-Server-Time``. The caller must pass
+a tz-aware UTC datetime; we DO NOT silently coerce a naive datetime. A
+naive datetime here would be a bug in the agent (the time_provider is
+supposed to return tz-aware UTC).
 """
+
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from yvy.domain.shared.time_utils import iso_ms_z
 from yvy.domain.sync.models import SyncJob
 from yvy.infrastructure.sync.hmac_signer import sign_envelope
 
@@ -101,12 +103,19 @@ def _format_sent_at_utc(sent_at_utc: datetime) -> str:
         )
     # Compare offsets, not the tzinfo object identity (datetime.timezone.utc
     # and zoneinfo.ZoneInfo('UTC') are both legitimate UTC representations).
-    if sent_at_utc.utcoffset().total_seconds() != 0:
+    # utcoffset() is Optional per the type: for a tz-aware datetime it returns a
+    # timedelta, but a pathological tzinfo could yield None — treat that as
+    # non-UTC and reject, same as any other bad offset.
+    offset = sent_at_utc.utcoffset()
+    if offset is None or offset.total_seconds() != 0:
         raise ValueError(
-            f"sent_at_utc must be in UTC; got offset {sent_at_utc.utcoffset()}. "
+            f"sent_at_utc must be in UTC; got offset {offset}. "
             f"Convert with .astimezone(UTC) before calling the builder."
         )
-    return sent_at_utc.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    # Formateo canónico (INI-2 · 2.1.2). Las validaciones de arriba son más
+    # estrictas a propósito: acá un naive/offset≠0 es un bug aguas arriba, no
+    # algo a corregir en silencio.
+    return iso_ms_z(sent_at_utc)
 
 
 def build_envelope(

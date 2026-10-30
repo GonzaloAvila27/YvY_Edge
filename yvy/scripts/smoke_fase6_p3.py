@@ -62,14 +62,20 @@ def main() -> int:
     hasher = BcryptPasswordHasher(rounds=4)
 
     create_user_uc = CreateUserUseCase(
-        user_repo=user_repo, audit_repo=audit_repo, hasher=hasher,
+        user_repo=user_repo,
+        audit_repo=audit_repo,
+        hasher=hasher,
     )
     login_uc = LoginUseCase(
-        user_repo=user_repo, audit_repo=audit_repo, hasher=hasher,
+        user_repo=user_repo,
+        audit_repo=audit_repo,
+        hasher=hasher,
         time_provider=SystemClock(),
     )
     change_pwd_uc = ChangePasswordUseCase(
-        user_repo=user_repo, audit_repo=audit_repo, hasher=hasher,
+        user_repo=user_repo,
+        audit_repo=audit_repo,
+        hasher=hasher,
     )
 
     onboarding_uc = CompleteOnboardingUseCase(
@@ -144,7 +150,7 @@ def main() -> int:
     assert user_repo.find_by_username("director") is not None
     assert app_config_repo.get("station_uuid") is not None
 
-    print(f"✓ Wizard E2E OK")
+    print("✓ Wizard E2E OK")
     print(f"  station_uuid: {app_config_repo.get('station_uuid')}")
     print(f"  hardware_fingerprint: {app_config_repo.get('hardware_fingerprint')}")
     print(f"  Audit entries: {len(audit_repo.list_recent(limit=20))}")

@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 
 # Hora de inicio y fin de la noche en hora local (D80)
 _NIGHT_START_HOUR: int = 18  # 18:00 → empieza la noche
-_NIGHT_END_HOUR: int = 8     # 08:00 del día siguiente → termina la noche
+_NIGHT_END_HOUR: int = 8  # 08:00 del día siguiente → termina la noche
 
 
 def night_bands(

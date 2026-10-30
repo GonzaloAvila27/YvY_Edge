@@ -60,15 +60,37 @@ def _kpi_cell(
         ax.spines["bottom"].set_color(BORDER)
         ax.spines["bottom"].set_linewidth(0.5)
 
-    ax.text(0.5, 0.82, label,
-            ha="center", va="center", fontsize=7, color=TEXT_SECONDARY,
-            transform=ax.transAxes)
-    ax.text(0.5, 0.48, value,
-            ha="center", va="center", fontsize=15, fontweight="bold", color=PRIMARY,
-            transform=ax.transAxes)
-    ax.text(0.5, 0.16, meta,
-            ha="center", va="center", fontsize=7, color=TEXT_SECONDARY,
-            transform=ax.transAxes)
+    ax.text(
+        0.5,
+        0.82,
+        label,
+        ha="center",
+        va="center",
+        fontsize=7,
+        color=TEXT_SECONDARY,
+        transform=ax.transAxes,
+    )
+    ax.text(
+        0.5,
+        0.48,
+        value,
+        ha="center",
+        va="center",
+        fontsize=15,
+        fontweight="bold",
+        color=PRIMARY,
+        transform=ax.transAxes,
+    )
+    ax.text(
+        0.5,
+        0.16,
+        meta,
+        ha="center",
+        va="center",
+        fontsize=7,
+        color=TEXT_SECONDARY,
+        transform=ax.transAxes,
+    )
 
 
 class WindRoseChart(BaseChart):
@@ -89,10 +111,14 @@ class WindRoseChart(BaseChart):
         tz: ZoneInfo | None = None,
     ) -> None:
         if period_range is not None:
-            rose  = query_uc.execute_wind_rose_range(station_uuid, period_range.start, period_range.end)
-            stats = query_uc.execute_wind_stats_range(station_uuid, period_range.start, period_range.end)
+            rose = query_uc.execute_wind_rose_range(
+                station_uuid, period_range.start, period_range.end
+            )
+            stats = query_uc.execute_wind_stats_range(
+                station_uuid, period_range.start, period_range.end
+            )
         else:
-            rose  = query_uc.execute_wind_rose(station_uuid, period)
+            rose = query_uc.execute_wind_rose(station_uuid, period)
             stats = query_uc.execute_wind_stats(station_uuid, period)
 
         if not any(f > 0 for f in rose.frequencies):
@@ -102,12 +128,16 @@ class WindRoseChart(BaseChart):
         figure.clear()
         figure.set_facecolor(BG_CARD)
         gs = GridSpec(
-            3, 2,
+            3,
+            2,
             figure=figure,
             width_ratios=[0.68, 0.32],
             hspace=0.06,
             wspace=0.04,
-            left=0.03, right=0.98, top=0.92, bottom=0.06,
+            left=0.03,
+            right=0.98,
+            top=0.92,
+            bottom=0.06,
         )
 
         # ── Rosa polar ───────────────────────────────────────────────────────
@@ -116,31 +146,31 @@ class WindRoseChart(BaseChart):
         ax_rose.set_theta_direction(-1)
         ax_rose.set_facecolor(BG_CARD)
 
-        n      = len(rose.frequencies)
+        n = len(rose.frequencies)
         angles = np.deg2rad(np.linspace(0, 360, n, endpoint=False))
-        freqs  = np.array(rose.frequencies, dtype=float)
-        speeds = np.array(rose.avg_speeds,  dtype=float)
+        freqs = np.array(rose.frequencies, dtype=float)
+        speeds = np.array(rose.avg_speeds, dtype=float)
 
-        max_freq  = freqs.max()  or 1.0
+        max_freq = freqs.max() or 1.0
         max_speed = speeds.max() or 1.0
-        freqs_n   = freqs  / max_freq
-        speeds_n  = speeds / max_speed * 0.85
+        freqs_n = freqs / max_freq
+        speeds_n = speeds / max_speed * 0.85
 
         a_c = np.append(angles, angles[0])
-        f_c = np.append(freqs_n,  freqs_n[0])
+        f_c = np.append(freqs_n, freqs_n[0])
         s_c = np.append(speeds_n, speeds_n[0])
 
-        ax_rose.plot(a_c, f_c, color=PRIMARY,     linewidth=1.8, zorder=3)
-        ax_rose.fill(a_c, f_c, color=PRIMARY,     alpha=0.20,   zorder=2)
-        ax_rose.plot(a_c, s_c, color=ACCENT_GOLD, linewidth=1.2,
-                     linestyle="--", zorder=4)
+        ax_rose.plot(a_c, f_c, color=PRIMARY, linewidth=1.8, zorder=3)
+        ax_rose.fill(a_c, f_c, color=PRIMARY, alpha=0.20, zorder=2)
+        ax_rose.plot(a_c, s_c, color=ACCENT_GOLD, linewidth=1.2, linestyle="--", zorder=4)
         ax_rose.fill(a_c, s_c, color=ACCENT_GOLD, alpha=0.12, zorder=2)
 
         ax_rose.legend(
             handles=[
-                Line2D([0], [0], color=PRIMARY,     lw=1.8, label="Frecuencia"),
-                Line2D([0], [0], color=ACCENT_GOLD, lw=1.2,
-                       linestyle="--", label="Vel. media rel."),
+                Line2D([0], [0], color=PRIMARY, lw=1.8, label="Frecuencia"),
+                Line2D(
+                    [0], [0], color=ACCENT_GOLD, lw=1.2, linestyle="--", label="Vel. media rel."
+                ),
             ],
             loc="upper right",
             bbox_to_anchor=(1.25, 1.12),
@@ -152,24 +182,17 @@ class WindRoseChart(BaseChart):
         ax_rose.set_xticks(np.deg2rad(_CARDINAL_ANGLES_DEG))
         ax_rose.set_xticklabels(_CARDINAL_LABELS, fontsize=9, color=TEXT_SECONDARY)
         ax_rose.set_yticks([0.25, 0.50, 0.75, 1.0])
-        ax_rose.set_yticklabels(
-            ["25%", "50%", "75%", "100%"], fontsize=7, color=TEXT_SECONDARY
-        )
+        ax_rose.set_yticklabels(["25%", "50%", "75%", "100%"], fontsize=7, color=TEXT_SECONDARY)
         ax_rose.grid(color=BORDER, linestyle="--", linewidth=0.6, alpha=0.6)
         ax_rose.tick_params(colors=TEXT_SECONDARY, labelsize=8)
         ax_rose.spines["polar"].set_color(BORDER)
-        ax_rose.set_title(
-            self.label, fontsize=11, fontweight="bold", pad=10, color=TEXT_SECONDARY
-        )
+        ax_rose.set_title(self.label, fontsize=11, fontweight="bold", pad=10, color=TEXT_SECONDARY)
 
         # ── KPI cells ────────────────────────────────────────────────────────
 
         # Ráfaga máxima
         gust_val = f"{stats.max_gust_ms:.1f}" if stats.max_gust_ms is not None else "—"
-        gust_ts  = (
-            stats.max_gust_at.strftime("%d/%m %H:%M")
-            if stats.max_gust_at is not None else ""
-        )
+        gust_ts = stats.max_gust_at.strftime("%d/%m %H:%M") if stats.max_gust_at is not None else ""
         _kpi_cell(
             figure.add_subplot(gs[0, 1]),
             "Ráfaga máx.",
@@ -179,9 +202,7 @@ class WindRoseChart(BaseChart):
         )
 
         # Velocidad promedio
-        speed_val = (
-            f"{stats.avg_speed_ms:.1f}" if stats.avg_speed_ms is not None else "—"
-        )
+        speed_val = f"{stats.avg_speed_ms:.1f}" if stats.avg_speed_ms is not None else "—"
         _kpi_cell(
             figure.add_subplot(gs[1, 1]),
             "Vel. promedio",

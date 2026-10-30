@@ -85,9 +85,7 @@ class EmpiricalController:
         else:
             callbacks.on_success(result)
 
-    def create_event(
-        self, input_data: CreateEventInput, callbacks: CreateEventCallbacks
-    ) -> None:
+    def create_event(self, input_data: CreateEventInput, callbacks: CreateEventCallbacks) -> None:
         try:
             result = self._create_event_uc.execute(input_data)
         except (InvalidEventError, MalformedTimeError) as exc:
@@ -118,7 +116,5 @@ class EmpiricalController:
             )
         )
 
-    def get_observation_details(
-        self, observation_id: uuid.UUID
-    ) -> ObservationDetail | None:
+    def get_observation_details(self, observation_id: uuid.UUID) -> ObservationDetail | None:
         return self._get_observation_details_uc.execute(observation_id)

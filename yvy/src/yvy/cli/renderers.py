@@ -13,11 +13,9 @@ from yvy.cli.formatting import (
     Status,
     arrow_note,
     bold,
-    dim,
     header,
     row,
 )
-
 
 _STATUS_MAP = {
     "ok": Status.OK,
@@ -40,17 +38,19 @@ def print_report(
 
     # Calcular ancho de label dinámicamente para alinear
     labels = [c["name"] for c in report.get("checks", [])]
-    label_width = max((len(l) for l in labels), default=20)
+    label_width = max((len(name) for name in labels), default=20)
     label_width = min(label_width + 2, 30)  # cap para no romper en pantallas chicas
 
     for check in report.get("checks", []):
         status = _STATUS_MAP.get(check.get("status", "info"), Status.INFO)
-        print(row(
-            check["name"],
-            status,
-            check.get("detail"),
-            label_width=label_width,
-        ))
+        print(
+            row(
+                check["name"],
+                status,
+                check.get("detail"),
+                label_width=label_width,
+            )
+        )
 
     notes = report.get("notes", [])
     if notes:
@@ -65,4 +65,5 @@ def print_report(
             print(bold(summary))
         else:
             from yvy.cli.formatting import yellow
+
             print(bold(yellow(summary)))

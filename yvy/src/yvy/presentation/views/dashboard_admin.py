@@ -27,20 +27,17 @@ from __future__ import annotations
 
 import logging
 import threading
+import tkinter as tk
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta, tzinfo
-from zoneinfo import ZoneInfo
 from pathlib import Path
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 from typing import TYPE_CHECKING, Any
-
-import tkinter as tk
-from tkinter import ttk
+from zoneinfo import ZoneInfo
 
 from yvy.presentation.charts import SENSOR_CHARTS
 from yvy.presentation.components.chart_widget import ChartWidget
-from yvy.presentation.views.observatorio.frost_view import FrostView
 from yvy.presentation.components.help_button import HelpButton
 from yvy.presentation.components.period_selector import PeriodSelector
 from yvy.presentation.theme import (
@@ -61,12 +58,12 @@ from yvy.presentation.theme import (
     TEXT_PRIMARY,
     TEXT_SECONDARY,
 )
+from yvy.presentation.views.observatorio.frost_view import FrostView
 
 if TYPE_CHECKING:
     from yvy.application.use_cases.admin.export_data_csv import ExportDataCsvUseCase
     from yvy.application.use_cases.compute_derived import (
         ComputeDerivedUseCase,
-        CurrentDerivedValues,
     )
     from yvy.application.use_cases.query_sensor_aggregated import (
         QuerySensorAggregatedUseCase,
@@ -81,13 +78,11 @@ _NO_DATA = "—"
 _NO_DATA_DELTA = "sin datos suficientes"
 
 # Mapa display label → clave en SENSOR_CHARTS (preserva orden de inserción)
-_CHART_LABEL_TO_KEY: dict[str, str] = {
-    chart.label: key for key, chart in SENSOR_CHARTS.items()
-}
+_CHART_LABEL_TO_KEY: dict[str, str] = {chart.label: key for key, chart in SENSOR_CHARTS.items()}
 _FROST_LABEL = "Heladas y eventos térmicos"
 _CHART_LABEL_TO_KEY[_FROST_LABEL] = "frost"
 _CHART_LABELS: list[str] = list(_CHART_LABEL_TO_KEY.keys())
-_DEFAULT_CHART_LABEL = SENSOR_CHARTS["vpd"].label   # "VPD — Riesgo agroclimático"
+_DEFAULT_CHART_LABEL = SENSOR_CHARTS["vpd"].label  # "VPD — Riesgo agroclimático"
 _DEFAULT_PERIOD = "7d"
 _PERIODS = ["24h", "7d", "30d"]
 
@@ -114,19 +109,20 @@ def allowed_chart_labels_for_role(role: str) -> list[str]:
     # alumno (y cualquier rol desconocido)
     return [label for label in _CHART_LABELS if label != _FROST_LABEL]
 
+
 # Mapa chart key → help article key para el HelpButton del gráfico
 _CHART_KEY_TO_HELP: dict[str, str] = {
-    "vpd":              "glosario_vpd",
-    "temperatura":      "glosario_temperatura",
-    "humedad":          "glosario_humedad",
-    "presion":          "glosario_presion",
-    "viento":           "glosario_viento",
-    "lluvia":           "glosario_lluvia_uv",
-    "punto_rocio":      "glosario_dewpoint",
+    "vpd": "glosario_vpd",
+    "temperatura": "glosario_temperatura",
+    "humedad": "glosario_humedad",
+    "presion": "glosario_presion",
+    "viento": "glosario_viento",
+    "lluvia": "glosario_lluvia_uv",
+    "punto_rocio": "glosario_dewpoint",
     "amplitud_termica": "glosario_amplitud_termica",
-    "presion_tendencia":"glosario_tendencia_presion",
-    "rosa_vientos":     "glosario_rosa_vientos",
-    "frost":            "glosario_heladas",
+    "presion_tendencia": "glosario_tendencia_presion",
+    "rosa_vientos": "glosario_rosa_vientos",
+    "frost": "glosario_heladas",
 }
 
 
@@ -145,6 +141,7 @@ class _KpiData:
 @dataclass
 class _DerivedKpiData:
     """Datos derivados calculados por ComputeDerivedUseCase."""
+
     vpd: float | None = None
     vpd_zone_label: str = "—"
     vpd_zone_color: str = "#6B7280"
@@ -202,9 +199,7 @@ class DashboardAdminView(tk.Frame):
         self._db_factory = db_factory
         self._local_tz = local_tz or UTC
         self._tz: ZoneInfo = (
-            local_tz
-            if isinstance(local_tz, ZoneInfo)
-            else ZoneInfo("America/Argentina/Cordoba")
+            local_tz if isinstance(local_tz, ZoneInfo) else ZoneInfo("America/Argentina/Cordoba")
         )
         self._query_uc = query_sensor_aggregated_uc
         self._current_user = current_user
@@ -234,7 +229,7 @@ class DashboardAdminView(tk.Frame):
         role = getattr(self._current_user, "role", None)
         if role is None:
             return "alumno"
-        if hasattr(role, "value"):          # Role enum
+        if hasattr(role, "value"):  # Role enum
             return role.value.lower()
         return str(role).lower()
 
@@ -261,9 +256,7 @@ class DashboardAdminView(tk.Frame):
         if self._compute_derived_uc is None or self._query_uc is None:
             return _DerivedKpiData()
         try:
-            result = self._compute_derived_uc.execute_current(
-                self._query_uc, self._station_uuid
-            )
+            result = self._compute_derived_uc.execute_current(self._query_uc, self._station_uuid)
             return _DerivedKpiData(
                 vpd=result.vpd,
                 vpd_zone_label=result.vpd_zone_label,
@@ -276,9 +269,7 @@ class DashboardAdminView(tk.Frame):
             return _DerivedKpiData()
 
     def _query_kpis(self, conn) -> _KpiData:  # type: ignore[no-untyped-def]
-        since = (datetime.now(UTC) - timedelta(days=_DAYS)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        since = (datetime.now(UTC) - timedelta(days=_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
         row = conn.execute(
             """
             SELECT
@@ -304,9 +295,7 @@ class DashboardAdminView(tk.Frame):
             avg_temp=float(row[0]) if row and row[0] is not None else None,
             avg_hum=float(row[1]) if row and row[1] is not None else None,
             avg_pressure=float(row[2]) if row and row[2] is not None else None,
-            last_rain_24h=(
-                float(rain_row[0]) if rain_row and rain_row[0] is not None else None
-            ),
+            last_rain_24h=(float(rain_row[0]) if rain_row and rain_row[0] is not None else None),
             row_count=int(row[3]) if row else 0,
         )
 
@@ -330,22 +319,28 @@ class DashboardAdminView(tk.Frame):
         events: list[_EventRow] = []
         for r in rows:
             try:
-                ts = datetime.fromisoformat(
-                    str(r[0]).replace("Z", "+00:00")
-                ).astimezone(self._local_tz)
+                ts = datetime.fromisoformat(str(r[0]).replace("Z", "+00:00")).astimezone(
+                    self._local_tz
+                )
                 ts_label = ts.strftime("%d/%m %H:%M")
             except Exception:
                 ts_label = str(r[0])[:16] if r[0] else _NO_DATA
 
             notes = str(r[1]) if r[1] else None
-            title = (notes[:60] + "…" if notes and len(notes) > 60 else notes) if notes else "Observación empírica"
+            title = (
+                (notes[:60] + "…" if notes and len(notes) > 60 else notes)
+                if notes
+                else "Observación empírica"
+            )
             detail = str(r[2]) if r[2] else ""
-            events.append(_EventRow(
-                ts_label=ts_label,
-                title=title,
-                detail=detail,
-                dot_color=ACCENT_GOLD,
-            ))
+            events.append(
+                _EventRow(
+                    ts_label=ts_label,
+                    title=title,
+                    detail=detail,
+                    dot_color=ACCENT_GOLD,
+                )
+            )
         return events
 
     # ─── Construcción de UI ───────────────────────────────────────────────
@@ -357,7 +352,9 @@ class DashboardAdminView(tk.Frame):
         _vscroll.pack(side="right", fill="y")
 
         _canvas = tk.Canvas(
-            self, bg=BG_CREAM, highlightthickness=0,
+            self,
+            bg=BG_CREAM,
+            highlightthickness=0,
             yscrollcommand=_vscroll.set,
         )
         _canvas.pack(side="left", fill="both", expand=True)
@@ -375,9 +372,11 @@ class DashboardAdminView(tk.Frame):
             "<Configure>",
             lambda e: _canvas.configure(scrollregion=_canvas.bbox("all")),
         )
+
         # Mouse wheel — Windows
-        def _wheel(e: tk.Event) -> None:  # type: ignore[type-arg]
+        def _wheel(e: tk.Event) -> None:
             _canvas.yview_scroll(-1 * (e.delta // 120), "units")
+
         _canvas.bind_all("<MouseWheel>", _wheel)
         self.bind("<Destroy>", lambda _: self.unbind_all("<MouseWheel>"))
 
@@ -475,9 +474,9 @@ class DashboardAdminView(tk.Frame):
         role = self._get_role()
 
         # ── Selector de gráfico (filtrado por rol — D81) ───────────────
-        tk.Label(
-            bar, text="Gráfico:", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY
-        ).pack(side="left", padx=(0, SPACE_SM))
+        tk.Label(bar, text="Gráfico:", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY).pack(
+            side="left", padx=(0, SPACE_SM)
+        )
 
         chart_labels = allowed_chart_labels_for_role(role)
         self._chart_combo = ttk.Combobox(
@@ -507,9 +506,7 @@ class DashboardAdminView(tk.Frame):
         )
         self._period_selector.pack(side="left")
 
-    def _make_help_factory(
-        self, key: str
-    ) -> Callable[[tk.Misc], HelpButton] | None:
+    def _make_help_factory(self, key: str) -> Callable[[tk.Misc], HelpButton] | None:
         """Devuelve una factoría que crea un HelpButton con el parent correcto."""
         if self._help_repo is None:
             return None
@@ -543,12 +540,33 @@ class DashboardAdminView(tk.Frame):
         h_delta = delta(d.avg_hum)
         p_delta = delta(d.avg_pressure)
 
-        _make_kpi(parent, "Temperatura exterior", fmt(d.avg_temp),        "°C",  t_delta[0], t_delta[1],
-                  help_factory=self._make_help_factory("glosario_temperatura"))
-        _make_kpi(parent, "Humedad exterior",     fmt(d.avg_hum, 0),      "%",   h_delta[0], h_delta[1],
-                  help_factory=self._make_help_factory("glosario_humedad"))
-        _make_kpi(parent, "Presión atmosférica",  fmt(d.avg_pressure, 0), "hPa", p_delta[0], p_delta[1],
-                  help_factory=self._make_help_factory("glosario_presion"))
+        _make_kpi(
+            parent,
+            "Temperatura exterior",
+            fmt(d.avg_temp),
+            "°C",
+            t_delta[0],
+            t_delta[1],
+            help_factory=self._make_help_factory("glosario_temperatura"),
+        )
+        _make_kpi(
+            parent,
+            "Humedad exterior",
+            fmt(d.avg_hum, 0),
+            "%",
+            h_delta[0],
+            h_delta[1],
+            help_factory=self._make_help_factory("glosario_humedad"),
+        )
+        _make_kpi(
+            parent,
+            "Presión atmosférica",
+            fmt(d.avg_pressure, 0),
+            "hPa",
+            p_delta[0],
+            p_delta[1],
+            help_factory=self._make_help_factory("glosario_presion"),
+        )
         _make_kpi_vpd(
             parent,
             vpd_value=dv.vpd,
@@ -608,9 +626,9 @@ class DashboardAdminView(tk.Frame):
 
         hdr = tk.Frame(inner, bg=BG_CARD)
         hdr.pack(fill="x", pady=(0, SPACE_MD))
-        ttk.Label(
-            hdr, text="Observaciones empíricas recientes", style="CardH3.TLabel"
-        ).pack(side="left")
+        ttk.Label(hdr, text="Observaciones empíricas recientes", style="CardH3.TLabel").pack(
+            side="left"
+        )
         if self._help_repo is not None:
             HelpButton(
                 hdr,
@@ -620,8 +638,7 @@ class DashboardAdminView(tk.Frame):
                 bg=BG_CARD,
             ).pack(side="left", padx=(SPACE_SM, 0))
         tk.Label(
-            hdr, text="Ver todos →", bg=BG_CARD, fg=PRIMARY,
-            font=FONT_SMALL, cursor="hand2"
+            hdr, text="Ver todos →", bg=BG_CARD, fg=PRIMARY, font=FONT_SMALL, cursor="hand2"
         ).pack(side="right")
 
         if not self._data.events:
@@ -663,13 +680,18 @@ class DashboardAdminView(tk.Frame):
                     actor_user_id=None,
                     actor_username=None,
                 )
-                self.after(0, lambda: messagebox.showinfo(
-                    "Exportación completada",
-                    f"Se exportaron {result.rows_exported} filas a:\n{result.file_path}",
-                ))
+                self.after(
+                    0,
+                    lambda: messagebox.showinfo(
+                        "Exportación completada",
+                        f"Se exportaron {result.rows_exported} filas a:\n{result.file_path}",
+                    ),
+                )
             except Exception as exc:
                 logger.exception("Export dashboard falló")
-                self.after(0, lambda: messagebox.showerror("Error", f"No se pudo exportar:\n{exc}"))
+                self.after(
+                    0, lambda exc=exc: messagebox.showerror("Error", f"No se pudo exportar:\n{exc}")
+                )
 
         threading.Thread(target=_run, daemon=True).start()
 
@@ -678,6 +700,7 @@ class DashboardAdminView(tk.Frame):
     def apply_theme(self, palette: dict) -> None:
         """Reconfigura todos los widgets del dashboard con la paleta dada."""
         from yvy.presentation.theme_manager import recolor
+
         recolor(self, palette)
 
     # ─── Render del gráfico ───────────────────────────────────────────────
@@ -692,8 +715,8 @@ class DashboardAdminView(tk.Frame):
         if self._period_selector is not None:
             try:
                 return self._period_selector.get_period_range().preset_label
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("No se pudo leer período actual, se usa default: %s", exc)
         return _DEFAULT_PERIOD
 
     def _trigger_render(self) -> None:
@@ -714,7 +737,9 @@ class DashboardAdminView(tk.Frame):
 
         # Resolver período antes de despachar (puede lanzar ValueError para custom inválido)
         try:
-            period_range = self._period_selector.get_period_range() if self._period_selector else None
+            period_range = (
+                self._period_selector.get_period_range() if self._period_selector else None
+            )
         except ValueError:
             return
 
@@ -740,13 +765,14 @@ class DashboardAdminView(tk.Frame):
             return
 
         station_uuid = self._station_uuid
-        query_uc     = self._query_uc
-        _tz          = self._tz
+        query_uc = self._query_uc
+        _tz = self._tz
 
         # Captura explícita de variables para evitar closure tardío en el thread
         self._chart_widget.render(
             lambda fig, ax, c=chart, pr=period_range, s=station_uuid, t=_tz: c.render(
-                fig, ax,
+                fig,
+                ax,
                 pr.preset_label if pr else "24h",
                 s,
                 query_uc,
@@ -785,9 +811,9 @@ def _make_kpi(
 
     label_row = tk.Frame(inner, bg=BG_CARD)
     label_row.pack(fill="x")
-    tk.Label(
-        label_row, text=label, bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_TINY, anchor="w"
-    ).pack(side="left")
+    tk.Label(label_row, text=label, bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_TINY, anchor="w").pack(
+        side="left"
+    )
     if help_factory is not None:
         hw = help_factory(label_row)
         if hw is not None:
@@ -798,13 +824,13 @@ def _make_kpi(
     tk.Label(val_row, text=value, bg=BG_CARD, fg=TEXT_PRIMARY, font=FONT_KPI_VALUE).pack(
         side="left"
     )
-    tk.Label(
-        val_row, text=unit, bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL
-    ).pack(side="left", padx=(SPACE_SM, 0), pady=(SPACE_MD, 0))
+    tk.Label(val_row, text=unit, bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL).pack(
+        side="left", padx=(SPACE_SM, 0), pady=(SPACE_MD, 0)
+    )
 
-    tk.Label(
-        inner, text=delta, bg=BG_CARD, fg=delta_color, font=FONT_TINY, anchor="w"
-    ).pack(fill="x")
+    tk.Label(inner, text=delta, bg=BG_CARD, fg=delta_color, font=FONT_TINY, anchor="w").pack(
+        fill="x"
+    )
 
 
 def _make_kpi_vpd(
@@ -832,8 +858,7 @@ def _make_kpi_vpd(
     label_row = tk.Frame(inner, bg=BG_CARD)
     label_row.pack(fill="x")
     tk.Label(
-        label_row, text="VPD actual", bg=BG_CARD, fg=TEXT_SECONDARY,
-        font=FONT_TINY, anchor="w"
+        label_row, text="VPD actual", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_TINY, anchor="w"
     ).pack(side="left")
     if help_factory is not None:
         hw = help_factory(label_row)
@@ -845,35 +870,31 @@ def _make_kpi_vpd(
 
     vpd_str = f"{vpd_value:.2f}" if vpd_value is not None else _NO_DATA
     tk.Label(
-        val_row, text=vpd_str, bg=BG_CARD,
+        val_row,
+        text=vpd_str,
+        bg=BG_CARD,
         fg=vpd_zone_color if vpd_value is not None else TEXT_SECONDARY,
         font=FONT_KPI_VALUE,
     ).pack(side="left")
-    tk.Label(
-        val_row, text="kPa", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL
-    ).pack(side="left", padx=(SPACE_SM, 0), pady=(SPACE_MD, 0))
+    tk.Label(val_row, text="kPa", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL).pack(
+        side="left", padx=(SPACE_SM, 0), pady=(SPACE_MD, 0)
+    )
 
     # Zona como delta
     zone_text = vpd_zone_label if vpd_value is not None else _NO_DATA_DELTA
     zone_color = vpd_zone_color if vpd_value is not None else TEXT_SECONDARY
-    tk.Label(
-        inner, text=zone_text, bg=BG_CARD, fg=zone_color,
-        font=FONT_TINY, anchor="w"
-    ).pack(fill="x")
+    tk.Label(inner, text=zone_text, bg=BG_CARD, fg=zone_color, font=FONT_TINY, anchor="w").pack(
+        fill="x"
+    )
 
     # Lluvia hoy
     if today_rain_mm is not None:
-        rain_text = (
-            f"Lluvia hoy: {today_rain_mm:.1f} mm"
-            if today_rain_mm > 0
-            else "Sin lluvia hoy"
-        )
+        rain_text = f"Lluvia hoy: {today_rain_mm:.1f} mm" if today_rain_mm > 0 else "Sin lluvia hoy"
     else:
         rain_text = "Lluvia hoy: —"
-    tk.Label(
-        inner, text=rain_text, bg=BG_CARD, fg=TEXT_SECONDARY,
-        font=FONT_TINY, anchor="w"
-    ).pack(fill="x", pady=(2, 0))
+    tk.Label(inner, text=rain_text, bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_TINY, anchor="w").pack(
+        fill="x", pady=(2, 0)
+    )
 
 
 def _make_event_row(
@@ -886,17 +907,15 @@ def _make_event_row(
     row = tk.Frame(parent, bg=BG_CARD)
     row.pack(fill="x", pady=2)
 
+    tk.Label(row, text="●", bg=BG_CARD, fg=dot_color, font=("DejaVu Sans", 12)).pack(
+        side="left", padx=(0, SPACE_SM)
+    )
     tk.Label(
-        row, text="●", bg=BG_CARD, fg=dot_color, font=("DejaVu Sans", 12)
-    ).pack(side="left", padx=(0, SPACE_SM))
-    tk.Label(
-        row, text=timestamp, bg=BG_CARD, fg=TEXT_SECONDARY,
-        font=FONT_BODY, width=12, anchor="w"
+        row, text=timestamp, bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY, width=12, anchor="w"
     ).pack(side="left")
-    tk.Label(
-        row, text=title, bg=BG_CARD, fg=TEXT_PRIMARY,
-        font=FONT_BODY, anchor="w"
-    ).pack(side="left", padx=(SPACE_SM, 0))
-    tk.Label(
-        row, text=detail, bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY, anchor="e"
-    ).pack(side="right")
+    tk.Label(row, text=title, bg=BG_CARD, fg=TEXT_PRIMARY, font=FONT_BODY, anchor="w").pack(
+        side="left", padx=(SPACE_SM, 0)
+    )
+    tk.Label(row, text=detail, bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY, anchor="e").pack(
+        side="right"
+    )

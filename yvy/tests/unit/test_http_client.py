@@ -6,7 +6,7 @@ code paths without touching a server. Tests are organized into 5 classes:
 - ``TestSuccess``: happy path, SendResult construction.
 - ``TestStatusCodesArePropagated``: 4xx/5xx are NOT raised — they flow
   through as SendResult so the agent can pattern-match on them.
-- ``TestTransportErrors``: NetworkError / TimeoutError categorization.
+- ``TestTransportErrors``: NetworkError / HttpTimeoutError categorization.
 - ``TestMalformedResponses``: MalformedResponseError surface.
 - ``TestServerTimeHeader``: parsing + missing/malformed graceful handling.
 - ``TestRequestShape``: headers, body, base_url concatenation.
@@ -15,6 +15,7 @@ The :class:`HttpClient` class under test is intentionally thin — most
 of the logic is "did the right exception/result come out?", which is
 what these tests verify.
 """
+
 from __future__ import annotations
 
 import logging
@@ -26,10 +27,10 @@ import respx
 
 from yvy.infrastructure.sync.http_client import (
     HttpClient,
+    HttpTimeoutError,
     MalformedResponseError,
     NetworkError,
     SendResult,
-    TimeoutError,
 )
 
 # ─── Fixtures ────────────────────────────────────────────────────────────
@@ -106,16 +107,14 @@ class TestSuccess:
         respx.post(_INGEST_URL).respond(
             status_code=200,
             json={"ingest_result": "inserted"},
-            headers={"X-Server-Time": "2026-05-23T18:00:01.123Z",
-                     "X-Custom": "value"},
+            headers={"X-Server-Time": "2026-05-23T18:00:01.123Z", "X-Custom": "value"},
         )
 
         result = client.post_envelope(_INGEST_PATH, _VALID_ENVELOPE)
         assert isinstance(result.headers, dict)
         # httpx lowercases header names on the wire; we just preserve
         # what's there.
-        assert any(k.lower() == "x-custom" and v == "value"
-                   for k, v in result.headers.items())
+        assert any(k.lower() == "x-custom" and v == "value" for k, v in result.headers.items())
 
 
 # ─── 4xx / 5xx propagated, not raised ────────────────────────────────────
@@ -159,8 +158,10 @@ class TestStatusCodesArePropagated:
     def test_400_schema_returned_as_send_result(self, client: HttpClient) -> None:
         respx.post(_INGEST_URL).respond(
             status_code=400,
-            json={"error": "payload validation failed: rain_mm must be >= 0",
-                  "error_class": "SCHEMA"},
+            json={
+                "error": "payload validation failed: rain_mm must be >= 0",
+                "error_class": "SCHEMA",
+            },
             headers={"X-Server-Time": "2026-05-23T18:00:01.123Z"},
         )
 
@@ -201,39 +202,29 @@ class TestTransportErrors:
 
     @respx.mock
     def test_connect_error_raises_network_error(self, client: HttpClient) -> None:
-        respx.post(_INGEST_URL).mock(
-            side_effect=httpx.ConnectError("connection refused")
-        )
+        respx.post(_INGEST_URL).mock(side_effect=httpx.ConnectError("connection refused"))
 
         with pytest.raises(NetworkError):
             client.post_envelope(_INGEST_PATH, _VALID_ENVELOPE)
 
     @respx.mock
     def test_read_timeout_raises_timeout_error(self, client: HttpClient) -> None:
-        respx.post(_INGEST_URL).mock(
-            side_effect=httpx.ReadTimeout("server too slow")
-        )
+        respx.post(_INGEST_URL).mock(side_effect=httpx.ReadTimeout("server too slow"))
 
-        with pytest.raises(TimeoutError):
+        with pytest.raises(HttpTimeoutError):
             client.post_envelope(_INGEST_PATH, _VALID_ENVELOPE)
 
     @respx.mock
     def test_connect_timeout_raises_timeout_error(self, client: HttpClient) -> None:
-        respx.post(_INGEST_URL).mock(
-            side_effect=httpx.ConnectTimeout("handshake too slow")
-        )
+        respx.post(_INGEST_URL).mock(side_effect=httpx.ConnectTimeout("handshake too slow"))
 
-        with pytest.raises(TimeoutError):
+        with pytest.raises(HttpTimeoutError):
             client.post_envelope(_INGEST_PATH, _VALID_ENVELOPE)
 
     @respx.mock
-    def test_generic_httpx_error_raises_network_error(
-        self, client: HttpClient
-    ) -> None:
+    def test_generic_httpx_error_raises_network_error(self, client: HttpClient) -> None:
         """Catch-all for less-common httpx transport errors."""
-        respx.post(_INGEST_URL).mock(
-            side_effect=httpx.ReadError("connection reset by peer")
-        )
+        respx.post(_INGEST_URL).mock(side_effect=httpx.ReadError("connection reset by peer"))
 
         with pytest.raises(NetworkError):
             client.post_envelope(_INGEST_PATH, _VALID_ENVELOPE)
@@ -307,9 +298,7 @@ class TestServerTimeHeader:
         )
 
         result = client.post_envelope(_INGEST_PATH, _VALID_ENVELOPE)
-        assert result.server_time_utc == datetime(
-            2026, 5, 23, 18, 0, 1, 731000, tzinfo=UTC
-        )
+        assert result.server_time_utc == datetime(2026, 5, 23, 18, 0, 1, 731000, tzinfo=UTC)
 
     @respx.mock
     def test_missing_header_returns_none(self, client: HttpClient) -> None:
@@ -362,9 +351,7 @@ class TestRequestShape:
 
     @respx.mock
     def test_envelope_sent_as_json_body(self, client: HttpClient) -> None:
-        route = respx.post(_INGEST_URL).respond(
-            status_code=200, json={"ingest_result": "inserted"}
-        )
+        route = respx.post(_INGEST_URL).respond(status_code=200, json={"ingest_result": "inserted"})
 
         client.post_envelope(_INGEST_PATH, _VALID_ENVELOPE)
 
@@ -374,6 +361,7 @@ class TestRequestShape:
         sent_body = sent_request.content.decode("utf-8")
 
         import json
+
         assert json.loads(sent_body) == _VALID_ENVELOPE
 
     @respx.mock
@@ -421,9 +409,7 @@ class TestFailFastNoRetry:
 
     @respx.mock
     def test_connect_error_does_not_retry(self, client: HttpClient) -> None:
-        route = respx.post(_INGEST_URL).mock(
-            side_effect=httpx.ConnectError("refused")
-        )
+        route = respx.post(_INGEST_URL).mock(side_effect=httpx.ConnectError("refused"))
 
         with pytest.raises(NetworkError):
             client.post_envelope(_INGEST_PATH, _VALID_ENVELOPE)
@@ -434,11 +420,9 @@ class TestFailFastNoRetry:
 
     @respx.mock
     def test_timeout_does_not_retry(self, client: HttpClient) -> None:
-        route = respx.post(_INGEST_URL).mock(
-            side_effect=httpx.ReadTimeout("slow")
-        )
+        route = respx.post(_INGEST_URL).mock(side_effect=httpx.ReadTimeout("slow"))
 
-        with pytest.raises(TimeoutError):
+        with pytest.raises(HttpTimeoutError):
             client.post_envelope(_INGEST_PATH, _VALID_ENVELOPE)
 
         assert route.call_count == 1

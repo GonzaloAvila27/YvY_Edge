@@ -9,7 +9,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -44,7 +44,7 @@ def _take(path: str) -> None:
 
 def _seed(factory: SQLiteConnectionFactory) -> None:
     conn = factory.get_connection()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     station = "12345678-1234-4123-8123-123456789012"
     rows = [
         ("sent", now - timedelta(minutes=5), 1),
@@ -164,6 +164,7 @@ def main() -> int:
         parse_errors=3,
     )
     from yvy.presentation.components.catchup_modal import _State
+
     modal._state = _State.RESULT_OK
     modal._render_state()
     app.update()
@@ -173,6 +174,7 @@ def main() -> int:
 
     # 4. Estado RESULT_ERROR
     from yvy.domain.sensor.exceptions import CatchupAlreadyRunningError
+
     modal._last_error = CatchupAlreadyRunningError("Ya hay una recuperación en curso")
     modal._state = _State.RESULT_ERROR
     modal._render_state()

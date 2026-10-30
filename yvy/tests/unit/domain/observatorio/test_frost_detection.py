@@ -1,13 +1,10 @@
 """Tests para domain.observatorio.frost_detection."""
 
-import pytest
-
 from yvy.domain.observatorio.frost_detection import (
     FrostLevel,
     frost_color_hex,
     probable_frost_level,
 )
-
 
 # ─── probable_frost_level ─────────────────────────────────────────────────────
 

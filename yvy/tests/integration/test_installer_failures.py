@@ -13,7 +13,6 @@ from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
 from yvy.infrastructure.persistence.sqlite_audit_log_repository import SQLiteAuditLogRepository
 from yvy.infrastructure.updates.installer import UpdateInstaller
 
-
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 
@@ -36,26 +35,30 @@ def audit(db_factory: SQLiteConnectionFactory) -> SQLiteAuditLogRepository:
 
 
 @pytest.fixture
-def installer(cfg: AppConfigRepository, audit: SQLiteAuditLogRepository, yvy_root: Path) -> UpdateInstaller:
+def installer(
+    cfg: AppConfigRepository, audit: SQLiteAuditLogRepository, yvy_root: Path
+) -> UpdateInstaller:
     return UpdateInstaller(app_config_repo=cfg, audit_repo=audit, root_path=yvy_root)
 
 
 def _make_pkg(root: Path, content: bytes = b"data" * 100) -> tuple[Path, str]:
-    pkg = root / "data" / "updates" / "pending" / "yvy_1.3.0.tar.gz"
+    pkg = root / "data" / "updates" / "pending" / "yvy_99.0.0.tar.gz"
     pkg.write_bytes(content)
     return pkg, hashlib.sha256(content).hexdigest()
 
 
 def _register_pending(cfg: AppConfigRepository, pkg: Path, sha: str) -> None:
-    cfg.set_pending_update({
-        "edge_version": "1.3.0",
-        "package_url": "https://example.com/pkg.tar.gz",
-        "package_sha256": sha,
-        "package_size_bytes": pkg.stat().st_size,
-        "released_at": "2026-06-01T00:00:00Z",
-        "min_edge_version": "",
-        "notes": "",
-    })
+    cfg.set_pending_update(
+        {
+            "edge_version": "99.0.0",
+            "package_url": "https://example.com/pkg.tar.gz",
+            "package_sha256": sha,
+            "package_size_bytes": pkg.stat().st_size,
+            "released_at": "2026-06-01T00:00:00Z",
+            "min_edge_version": "",
+            "notes": "",
+        }
+    )
     cfg.mark_update_downloaded(str(pkg))
 
 
@@ -74,15 +77,17 @@ def test_prevalidate_fails_not_downloaded(
     installer: UpdateInstaller, cfg: AppConfigRepository, yvy_root: Path
 ) -> None:
     pkg, sha = _make_pkg(yvy_root)
-    cfg.set_pending_update({
-        "edge_version": "1.3.0",
-        "package_url": "https://example.com/pkg.tar.gz",
-        "package_sha256": sha,
-        "package_size_bytes": pkg.stat().st_size,
-        "released_at": "2026-06-01T00:00:00Z",
-        "min_edge_version": "",
-        "notes": "",
-    })
+    cfg.set_pending_update(
+        {
+            "edge_version": "99.0.0",
+            "package_url": "https://example.com/pkg.tar.gz",
+            "package_sha256": sha,
+            "package_size_bytes": pkg.stat().st_size,
+            "released_at": "2026-06-01T00:00:00Z",
+            "min_edge_version": "",
+            "notes": "",
+        }
+    )
     # NOT calling mark_update_downloaded
 
     result = installer.prevalidate()
@@ -127,6 +132,7 @@ def test_prevalidate_fails_disk_full(
 
     # Mock disk_usage to report nearly full disk
     from unittest.mock import MagicMock
+
     mock_usage = MagicMock()
     mock_usage.free = 1  # 1 byte free — not enough for pkg × 3
 
@@ -143,15 +149,17 @@ def test_prevalidate_fails_min_version_not_met(
     installer: UpdateInstaller, cfg: AppConfigRepository, yvy_root: Path
 ) -> None:
     pkg, sha = _make_pkg(yvy_root)
-    cfg.set_pending_update({
-        "edge_version": "1.3.0",
-        "package_url": "https://example.com/pkg.tar.gz",
-        "package_sha256": sha,
-        "package_size_bytes": pkg.stat().st_size,
-        "released_at": "2026-06-01T00:00:00Z",
-        "min_edge_version": "99.0.0",  # impossibly high minimum
-        "notes": "",
-    })
+    cfg.set_pending_update(
+        {
+            "edge_version": "99.0.0",
+            "package_url": "https://example.com/pkg.tar.gz",
+            "package_sha256": sha,
+            "package_size_bytes": pkg.stat().st_size,
+            "released_at": "2026-06-01T00:00:00Z",
+            "min_edge_version": "99.0.0",  # impossibly high minimum
+            "notes": "",
+        }
+    )
     cfg.mark_update_downloaded(str(pkg))
 
     result = installer.prevalidate()
@@ -187,15 +195,17 @@ def test_request_install_raises_not_downloaded(
 ) -> None:
     pkg, sha = _make_pkg(yvy_root)
     # Register but don't mark as downloaded
-    cfg.set_pending_update({
-        "edge_version": "1.3.0",
-        "package_url": "https://example.com/pkg.tar.gz",
-        "package_sha256": sha,
-        "package_size_bytes": pkg.stat().st_size,
-        "released_at": "2026-06-01T00:00:00Z",
-        "min_edge_version": "",
-        "notes": "",
-    })
+    cfg.set_pending_update(
+        {
+            "edge_version": "99.0.0",
+            "package_url": "https://example.com/pkg.tar.gz",
+            "package_sha256": sha,
+            "package_size_bytes": pkg.stat().st_size,
+            "released_at": "2026-06-01T00:00:00Z",
+            "min_edge_version": "",
+            "notes": "",
+        }
+    )
 
     with pytest.raises(RuntimeError):
         installer.request_install(requested_by_user_id=None)

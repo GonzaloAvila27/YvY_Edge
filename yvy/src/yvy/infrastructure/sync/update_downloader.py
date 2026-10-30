@@ -14,7 +14,6 @@ Diseño — NO descarga automáticamente:
 
 from __future__ import annotations
 
-import hashlib
 import logging
 from collections.abc import Callable
 from pathlib import Path
@@ -22,6 +21,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from yvy.infrastructure.sync.http_client import DownloadResult, HttpClient
+from yvy.infrastructure.system.hashing import verify_sha256_file
 
 if TYPE_CHECKING:
     from yvy.infrastructure.persistence.app_config_repository import (
@@ -73,7 +73,7 @@ class UpdateDownloader:
         local_path = Path(local_path_str)
         if not local_path.exists():
             return False
-        return self._verify_local_hash(local_path, pending.get("package_sha256", ""))
+        return verify_sha256_file(local_path, pending.get("package_sha256", ""))
 
     def download(
         self,
@@ -94,10 +94,10 @@ class UpdateDownloader:
                 error="no_pending: no hay update pendiente en app_config",
             )
 
-        package_url    = pending.get("package_url") or ""
-        expected_sha   = pending.get("package_sha256") or ""
-        expected_size  = int(pending.get("package_size_bytes") or 0)
-        version        = pending.get("edge_version") or "unknown"
+        package_url = pending.get("package_url") or ""
+        expected_sha = pending.get("package_sha256") or ""
+        expected_size = int(pending.get("package_size_bytes") or 0)
+        version = pending.get("edge_version") or "unknown"
 
         if not package_url:
             return DownloadResult(
@@ -115,7 +115,7 @@ class UpdateDownloader:
             local_path_str = self._app_config_repo.get("update_pending.local_path")
             if local_path_str:
                 lp = Path(local_path_str)
-                if lp.exists() and self._verify_local_hash(lp, expected_sha):
+                if lp.exists() and verify_sha256_file(lp, expected_sha):
                     logger.info(
                         "update_downloader.already_downloaded",
                         extra={"version": version, "path": str(lp)},
@@ -165,19 +165,3 @@ class UpdateDownloader:
             )
 
         return result
-
-    # ─── Helpers ─────────────────────────────────────────────────────────
-
-    @staticmethod
-    def _verify_local_hash(path: Path, expected_sha256: str) -> bool:
-        """Verifica SHA-256 del archivo local. False si algo falla."""
-        if not expected_sha256:
-            return False
-        try:
-            hasher = hashlib.sha256()
-            with path.open("rb") as f:
-                while chunk := f.read(65536):
-                    hasher.update(chunk)
-            return hasher.hexdigest().lower() == expected_sha256.lower()
-        except OSError:
-            return False

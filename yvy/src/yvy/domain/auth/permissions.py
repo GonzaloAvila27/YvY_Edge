@@ -155,23 +155,17 @@ class Permissions:
     @staticmethod
     def can_create_empirical_observation(user: User | None) -> bool:
         """Cualquier usuario activo puede crear observaciones empíricas."""
-        if user is None or not user.is_active:
-            return False
-        return True
+        return not (user is None or not user.is_active)
 
     @staticmethod
     def can_create_empirical_event(user: User | None) -> bool:
         """Cualquier usuario activo puede registrar eventos puntuales."""
-        if user is None or not user.is_active:
-            return False
-        return True
+        return not (user is None or not user.is_active)
 
     @staticmethod
     def can_list_empirical_observations(user: User | None) -> bool:
         """Ver lista de observaciones: cualquier usuario activo."""
-        if user is None or not user.is_active:
-            return False
-        return True
+        return not (user is None or not user.is_active)
 
     @staticmethod
     def can_mark_observation_anomaly(user: User | None) -> bool:

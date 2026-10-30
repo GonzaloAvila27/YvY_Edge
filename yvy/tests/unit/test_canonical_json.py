@@ -18,6 +18,7 @@ If a test fails on BOTH sides simultaneously, the test itself is wrong
 These tests have no dependencies beyond stdlib + pytest + the module
 under test, so they run anywhere without database or network.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -26,7 +27,6 @@ from yvy.infrastructure.sync.canonical_json import (
     CANONICAL_JSON_SPEC_VERSION,
     canonicalize,
 )
-
 
 # ─── Sanity: spec version constant ───────────────────────────────────────
 

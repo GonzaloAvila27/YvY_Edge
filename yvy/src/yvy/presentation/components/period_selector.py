@@ -9,6 +9,7 @@ Exports públicos:
 
 from __future__ import annotations
 
+import logging
 import tkinter as tk
 from collections.abc import Callable
 from datetime import date, datetime, timedelta
@@ -32,23 +33,25 @@ from yvy.presentation.theme import (
 
 __all__ = ["PeriodRange", "PeriodSelector", "resolve_preset"]
 
+logger = logging.getLogger(__name__)
+
 # ─── Presets disponibles ──────────────────────────────────────────────────────
 
 _ALL_PRESETS: list[str] = ["24h", "7d", "30d", "1y", "custom"]
 
 _PRESET_LABELS: dict[str, str] = {
-    "24h":    "24h",
-    "7d":     "7d",
-    "30d":    "30d",
-    "1y":     "1y",
+    "24h": "24h",
+    "7d": "7d",
+    "30d": "30d",
+    "1y": "1y",
     "custom": "Personalizado",
 }
 
 _PRESET_DELTA: dict[str, timedelta] = {
     "24h": timedelta(days=1),
-    "7d":  timedelta(days=7),
+    "7d": timedelta(days=7),
     "30d": timedelta(days=30),
-    "1y":  timedelta(days=365),
+    "1y": timedelta(days=365),
 }
 
 
@@ -137,9 +140,16 @@ class PeriodSelector(tk.Frame):
         caja queda blanca (no reconoce "white"/SystemWindow) → texto invisible.
         """
         return tk.Entry(
-            self._custom_row, width=11, font=FONT_SMALL,
-            bg=BG_CARD, fg=TEXT_PRIMARY, relief="flat", bd=0,
-            highlightbackground=BORDER, highlightthickness=1, highlightcolor=PRIMARY,
+            self._custom_row,
+            width=11,
+            font=FONT_SMALL,
+            bg=BG_CARD,
+            fg=TEXT_PRIMARY,
+            relief="flat",
+            bd=0,
+            highlightbackground=BORDER,
+            highlightthickness=1,
+            highlightcolor=PRIMARY,
             insertbackground=TEXT_PRIMARY,
         )
 
@@ -148,9 +158,9 @@ class PeriodSelector(tk.Frame):
         top_row = tk.Frame(self, bg=BG_CARD)
         top_row.grid(row=0, column=0, sticky="w")
 
-        tk.Label(
-            top_row, text="Período:", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY
-        ).pack(side="left", padx=(0, SPACE_SM))
+        tk.Label(top_row, text="Período:", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_BODY).pack(
+            side="left", padx=(0, SPACE_SM)
+        )
 
         single_preset = len(self._allowed_presets) == 1
 
@@ -203,9 +213,7 @@ class PeriodSelector(tk.Frame):
         self._date_error_lbl.pack(side="left")
 
         # ── Fila 1b: nota de clamp (oculto por defecto) ────────────────
-        self._clamp_lbl = tk.Label(
-            self, text="", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL
-        )
+        self._clamp_lbl = tk.Label(self, text="", bg=BG_CARD, fg=TEXT_SECONDARY, font=FONT_SMALL)
 
         # Si el preset inicial es "custom", mostrar el date picker
         if self._preset_var.get() == "custom":
@@ -277,8 +285,8 @@ class PeriodSelector(tk.Frame):
             try:
                 period = self.get_period_range()
                 self._on_change(period)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Callback de cambio de período falló (ignorado): %s", exc)
 
     def _on_apply_clicked(self) -> None:
         try:
@@ -313,12 +321,12 @@ class PeriodSelector(tk.Frame):
         try:
             from_date = date.fromisoformat(from_str)
         except ValueError:
-            raise ValueError("Desde: formato AAAA-MM-DD")
+            raise ValueError("Desde: formato AAAA-MM-DD") from None
 
         try:
             until_date = date.fromisoformat(until_str)
         except ValueError:
-            raise ValueError("Hasta: formato AAAA-MM-DD")
+            raise ValueError("Hasta: formato AAAA-MM-DD") from None
 
         start = datetime(from_date.year, from_date.month, from_date.day, tzinfo=self._tz)
         end = datetime(

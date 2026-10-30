@@ -18,7 +18,7 @@ Notas de mapeo dominio → schema:
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -47,9 +47,7 @@ class SQLiteSensorRepository:
         """
         conn = self._factory.get_connection()
 
-        received_at_iso = (
-            raw.received_at.isoformat() if raw.received_at is not None else None
-        )
+        received_at_iso = raw.received_at.isoformat() if raw.received_at is not None else None
 
         cur = conn.execute(
             """
@@ -166,9 +164,7 @@ class SQLiteSensorRepository:
             event_id=EventID.from_str(row["event_id"]),
             station_uuid=station,
             pywws_mode=PywwsMode(row["pywws_mode"]),
-            pywws_ts=canonicalize_to_minute_utc(
-                datetime.fromisoformat(row["pywws_ts"])
-            ),
+            pywws_ts=canonicalize_to_minute_utc(datetime.fromisoformat(row["pywws_ts"])),
             payload=json.loads(row["payload"]),
             received_at=(
                 datetime.fromisoformat(row["received_at"])
@@ -229,6 +225,25 @@ class SQLiteSensorRepository:
         cur = conn.execute("SELECT COUNT(*) FROM sensor_data")
         return int(cur.fetchone()[0])
 
+    def last_valid_observation_at(self) -> datetime | None:
+        """``MAX(observed_at)`` de las lecturas válidas, o ``None`` si no hay.
+
+        La usa el catchup de arranque para medir el gap contra el buffer del
+        sensor. Sólo lecturas con ``is_valid = 1``: una fila inválida no prueba
+        que hayamos capturado ese instante, y tomarla como último dato dejaría
+        el hueco sin recuperar.
+        """
+        conn = self._factory.get_connection()
+        row = conn.execute("SELECT MAX(observed_at) FROM sensor_data WHERE is_valid = 1").fetchone()
+        raw = row[0] if row else None
+        if raw is None:
+            return None
+        # El CHECK de la tabla garantiza ISO-8601 con 'T' y sufijo Z/+00:00,
+        # así que esto ya sale aware. El fallback existe por si algún día se
+        # relaja el CHECK: un naive acá haría explotar la resta contra now(UTC).
+        ts = datetime.fromisoformat(str(raw))
+        return ts.replace(tzinfo=UTC) if ts.tzinfo is None else ts
+
     # ─── Retención (Fase 5) ──────────────────────────────────────────────
 
     def delete_raw_older_than(self, threshold_utc: datetime) -> int:
@@ -267,9 +282,7 @@ class SQLiteSensorRepository:
         En producción esto lo setea el wizard de onboarding (Fase 6).
         """
         conn = self._factory.get_connection()
-        cur = conn.execute(
-            "SELECT value FROM app_config WHERE key = 'station_uuid'"
-        )
+        cur = conn.execute("SELECT value FROM app_config WHERE key = 'station_uuid'")
         row = cur.fetchone()
         if row is None:
             # En tests sin onboarding usamos un placeholder

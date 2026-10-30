@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -71,7 +71,7 @@ class OnboardingData:
     hardware_fingerprint: str | None = None  # None si no se pudo leer
     # Sync (Fase 9.2) — opcionales: el operador puede saltear este paso
     sync_server_url: str | None = None
-    station_credentials: dict | None = None  # dict con station_uuid, key_version, key_hmac_hex
+    station_credentials: dict[str, object] | None = None  # station_uuid, key_version, key_hmac_hex
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,7 +134,7 @@ class CompleteOnboardingUseCase:
             secondary_id = secondary.id
 
         # 4. Marcar onboarding completado
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         self.app_config_repo.set(KEY_ONBOARDING_COMPLETED_AT, now_iso)  # type: ignore[attr-defined]
 
         # 5. Audit
@@ -151,9 +151,7 @@ class CompleteOnboardingUseCase:
                     "school_name": data.school_name,
                     "primary_admin_id": primary.id,
                     "secondary_admin_id": secondary_id,
-                    "has_hardware_fingerprint": (
-                        data.hardware_fingerprint is not None
-                    ),
+                    "has_hardware_fingerprint": (data.hardware_fingerprint is not None),
                 },
             )
         )
@@ -192,12 +190,10 @@ class CompleteOnboardingUseCase:
             # Limpiar flag temporal si estaba seteado
             repo.delete(KEY_STATION_UUID_TEMPORARY)  # type: ignore[attr-defined]
 
-    def _write_credentials(self, creds: dict) -> None:
+    def _write_credentials(self, creds: dict[str, object]) -> None:
         """Escribe data/station_credentials.json en el filesystem."""
         creds_dir = self.credentials_root / "data"
         creds_dir.mkdir(parents=True, exist_ok=True)
         creds_path = creds_dir / "station_credentials.json"
-        creds_path.write_text(
-            json.dumps(creds, indent=2), encoding="utf-8"
-        )
+        creds_path.write_text(json.dumps(creds, indent=2), encoding="utf-8")
         logger.info("station_credentials.json escrito en %s", creds_path)

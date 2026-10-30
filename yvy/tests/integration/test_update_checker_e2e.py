@@ -3,12 +3,11 @@
 Usa respx para mockear las respuestas HTTP.
 DB real en memoria (SQLite) para app_config_repo.
 """
+
 from __future__ import annotations
 
-import sqlite3
 import threading
 import time
-from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
@@ -94,10 +93,12 @@ class TestEdgeSyncEndpointNoUpdate:
 
     @respx.mock
     def test_no_update_clears_previous_pending(self, app_config_repo, http_client):
-        """Si antes había un update pendiente y el server dice available=False, no lo borra.
+        """ERR-003: si el server dice available=False, el daemon limpia cualquier
+        pending previo.
 
-        El clear_pending_update es responsabilidad del instalador (fuera de scope).
-        Verificamos solo que no se llama set_pending_update.
+        Comportamiento nuevo (fix 1.5.1): en vez de dejar pendings obsoletos
+        visibles, el daemon los auto-limpia al confirmar que no hay update, sin
+        depender de que el instalador u otro trigger lo haga.
         """
         # Pre-seed: había un update pendiente
         app_config_repo.set("update_pending.available", "true")
@@ -125,15 +126,13 @@ class TestEdgeSyncEndpointNoUpdate:
         daemon.stop(timeout_s=2.0)
 
         assert app_config_repo.get_last_sync_version() == 45
-        # El update pendiente anterior sigue — daemon no lo borra
-        assert app_config_repo.get("update_pending.available") == "true"
+        # ERR-003: el daemon limpió el pending obsoleto al ver available=False
+        assert app_config_repo.get("update_pending.available") == "false"
 
 
 class TestEdgeSyncEndpointWithUpdate:
     @respx.mock
-    def test_update_available_persists_full_metadata(
-        self, app_config_repo, http_client
-    ):
+    def test_update_available_persists_full_metadata(self, app_config_repo, http_client):
         respx.get(f"{_SERVER_URL}/api/v1/edge/sync").mock(
             return_value=Response(
                 200,
@@ -141,8 +140,9 @@ class TestEdgeSyncEndpointWithUpdate:
                     "sync_version": 42,
                     "updates": {
                         "available": True,
-                        "edge_version": "0.9.3",
-                        "package_url": "/api/v1/edge/updates/0.9.3.tar.gz",
+                        # Versión futura: ERR-003 auto-limpia pending <= __version__.
+                        "edge_version": "99.0.0",
+                        "package_url": "/api/v1/edge/updates/99.0.0.tar.gz",
                         "package_sha256": "b" * 64,
                         "package_size_bytes": 45_200_000,
                         "released_at": "2026-06-15T10:00:00Z",
@@ -170,7 +170,7 @@ class TestEdgeSyncEndpointWithUpdate:
         assert app_config_repo.get_last_sync_version() == 42
         pending = app_config_repo.get_pending_update()
         assert pending is not None
-        assert pending["edge_version"] == "0.9.3"
+        assert pending["edge_version"] == "99.0.0"
         assert pending["package_size_bytes"] == 45_200_000
         assert pending["notes"] == "Fix USB timeout."
         assert pending["detected_at"] is not None  # timestamp de detección
@@ -202,6 +202,7 @@ class TestEdgeSyncEndpointErrors:
     @respx.mock
     def test_network_error_no_crash_no_persist(self, app_config_repo, http_client):
         import httpx
+
         respx.get(f"{_SERVER_URL}/api/v1/edge/sync").mock(
             side_effect=httpx.ConnectError("connection refused")
         )

@@ -14,6 +14,7 @@ Regla:
 - CÓDIGO/recursos (``src/``, ``migrations/``, ``resources/``) → slot.
 - DATOS/persistente (``data/``, ``releases/``, ``current.txt``, installer) → root estable.
 """
+
 from __future__ import annotations
 
 import os

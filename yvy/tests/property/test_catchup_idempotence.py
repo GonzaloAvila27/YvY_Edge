@@ -45,9 +45,7 @@ slot_strategy = st.builds(
     make_catchup_slot,
     hour=st.integers(min_value=10, max_value=14),
     minute=st.integers(min_value=0, max_value=59),
-    temp_outdoor=st.floats(
-        min_value=-10.0, max_value=45.0, allow_nan=False, allow_infinity=False
-    ),
+    temp_outdoor=st.floats(min_value=-10.0, max_value=45.0, allow_nan=False, allow_infinity=False),
     hum_outdoor=st.integers(min_value=20, max_value=100),
 )
 
@@ -117,9 +115,7 @@ class TestCatchupResultInvariants:
         use_case = _build_use_case(
             slots, sensor_repo, sync_repo, metrics_repo, station_uuid, far_future_clock
         )
-        result = use_case.execute(
-            since=datetime(2026, 4, 25, 0, 0, 0, tzinfo=UTC)
-        )
+        result = use_case.execute(since=datetime(2026, 4, 25, 0, 0, 0, tzinfo=UTC))
         total = result.new_in_raw + result.already_present + result.parse_errors
         assert total == result.slots_read
 
@@ -190,9 +186,7 @@ class TestCatchupIdempotenceProperty:
         use_case = _build_use_case(
             slots, sensor_repo, sync_repo, metrics_repo, station_uuid, far_future_clock
         )
-        result = use_case.execute(
-            since=datetime(2026, 4, 25, 0, 0, 0, tzinfo=UTC)
-        )
+        result = use_case.execute(since=datetime(2026, 4, 25, 0, 0, 0, tzinfo=UTC))
 
         rows_after = sensor_repo.count_raw()
         assert rows_after - rows_before == result.new_in_raw
@@ -235,8 +229,7 @@ class TestCatchupSinceFiltering:
         expected_max = sum(
             1
             for s in slots
-            if isinstance(s.get("idx"), str)
-            and datetime.fromisoformat(s["idx"]) >= since
+            if isinstance(s.get("idx"), str) and datetime.fromisoformat(s["idx"]) >= since
         )
 
         # slots_read no puede ser mayor que los que pasan el filtro

@@ -1,1 +1,1 @@
-﻿"""Vistas del subdominio empirical."""
+"""Vistas del subdominio empirical."""

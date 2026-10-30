@@ -15,7 +15,6 @@ from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
 from yvy.infrastructure.persistence.sqlite_audit_log_repository import SQLiteAuditLogRepository
 from yvy.infrastructure.updates.retention import ReleaseRetention
 
-
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 
@@ -37,7 +36,9 @@ def audit(db_factory: SQLiteConnectionFactory) -> SQLiteAuditLogRepository:
 
 
 @pytest.fixture
-def retention(cfg: AppConfigRepository, audit: SQLiteAuditLogRepository, releases_dir: Path) -> ReleaseRetention:
+def retention(
+    cfg: AppConfigRepository, audit: SQLiteAuditLogRepository, releases_dir: Path
+) -> ReleaseRetention:
     return ReleaseRetention(
         app_config_repo=cfg,
         audit_repo=audit,
@@ -98,9 +99,9 @@ def test_cleanup_keeps_all_three_anchors(
     result = retention.cleanup_after_install("1.3.0")
 
     assert "1.2.0" in result.removed
-    assert (releases_dir / "1.0.0").exists()   # stable
-    assert (releases_dir / "1.2.1").exists()   # previous
-    assert (releases_dir / "1.3.0").exists()   # current
+    assert (releases_dir / "1.0.0").exists()  # stable
+    assert (releases_dir / "1.2.1").exists()  # previous
+    assert (releases_dir / "1.3.0").exists()  # current
 
 
 @pytest.mark.unit
@@ -124,14 +125,15 @@ def test_cleanup_keeps_release_in_list_if_removal_fails(
     retention: ReleaseRetention, cfg: AppConfigRepository, releases_dir: Path
 ) -> None:
     from unittest.mock import patch
-    import shutil
 
     _slot(releases_dir, "1.2.0")
     _slot(releases_dir, "1.3.0")
     cfg.set_current_release("1.3.0")
     cfg.set_releases_installed(["1.2.0", "1.3.0"])
 
-    with patch("yvy.infrastructure.updates.retention.shutil.rmtree", side_effect=OSError("access denied")):
+    with patch(
+        "yvy.infrastructure.updates.retention.shutil.rmtree", side_effect=OSError("access denied")
+    ):
         result = retention.cleanup_after_install("1.3.0")
 
     assert any("1.2.0" in e for e in result.errors)
@@ -191,10 +193,12 @@ def test_stable_promotion_blocked_by_errors(
     cfg.set_current_since((datetime.now(UTC) - timedelta(days=20)).isoformat())
 
     for _ in range(10):
-        audit.append(AuditLogEntry(
-            event_type=AuditEventType.UPDATE_FAILED,
-            source=AuditSource.SYSTEM,
-        ))
+        audit.append(
+            AuditLogEntry(
+                event_type=AuditEventType.UPDATE_FAILED,
+                source=AuditSource.SYSTEM,
+            )
+        )
 
     result = retention.evaluate_stable_promotion()
 

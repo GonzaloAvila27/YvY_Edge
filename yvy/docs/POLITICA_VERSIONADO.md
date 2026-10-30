@@ -9,15 +9,23 @@
 YVY Edge tiene **tres archivos autoritativos** que deben mantenerse sincronizados en cada release.
 No existe un sistema de generación automática: el desarrollador los actualiza manualmente.
 
-| Archivo | Campo | Rol | Valor actual |
-|---|---|---|---|
-| `src/yvy/__init__.py` | `__version__` | Versión runtime — usada en UI, sync, CLI | `1.4.0` |
-| `src/yvy/__init__.py` | `__installer_version__` | Versión del paquete USB — usada en login screen | `1.4.0` |
-| `pyproject.toml` | `version` (bajo `[tool.poetry]`) | Versión del paquete Python (build, pip install) | `1.4.0` |
-| `CHANGELOG.md` | Encabezado `## [X.Y.Z] - YYYY-MM-DD` | Registro histórico de cambios | `1.4.0` |
+| Archivo | Campo | Rol |
+|---|---|---|
+| `src/yvy/__init__.py` | `__version__` | Versión runtime — usada en UI, sync, CLI |
+| `src/yvy/__init__.py` | `__installer_version__` | Versión del paquete USB — usada en login screen |
+| `pyproject.toml` | `version` (bajo `[tool.poetry]`) | Versión del paquete Python (build, pip install) |
+| `CHANGELOG.md` | Encabezado `## [X.Y.Z] - YYYY-MM-DD` | Registro histórico de cambios |
 
 > **Regla de consistencia:** los cuatro valores deben ser idénticos después de cada release.
 > Si difieren, se considera un error de proceso — ver §5 (Diagnóstico).
+>
+> **Verificado automáticamente** por `tests/unit/test_version_consistency.py`, que
+> chequea las **cuatro** fuentes. (Antes cubría sólo dos, y por ese agujero
+> `__installer_version__` derivó un minor entero sin que nadie lo notara: la
+> política declaraba el invariante pero nada lo hacía cumplir.)
+>
+> Esta tabla ya no lista "valor actual": el valor vigente es el que dice el código,
+> y el test es quien garantiza que las cuatro fuentes coincidan.
 
 ### Por qué cuatro y no uno
 

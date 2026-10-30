@@ -3,6 +3,7 @@
 Usa SQLite en memoria con schema mínimo de sensor_data.
 No depende de migraciones completas — solo las columnas necesarias.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -214,11 +215,23 @@ class TestExecute:
 
     def test_all_aliases_resolve_without_error(self, conn, uc):
         aliases = [
-            "temp_out", "temp_outdoor", "temp_indoor",
-            "hum_out", "hum_outdoor", "hum_indoor",
-            "pressure", "pressure_rel", "pressure_abs", "abs_pressure",
-            "wind_speed", "wind_ave", "wind_gust",
-            "uv", "uv_index", "solar", "solar_radiation",
+            "temp_out",
+            "temp_outdoor",
+            "temp_indoor",
+            "hum_out",
+            "hum_outdoor",
+            "hum_indoor",
+            "pressure",
+            "pressure_rel",
+            "pressure_abs",
+            "abs_pressure",
+            "wind_speed",
+            "wind_ave",
+            "wind_gust",
+            "uv",
+            "uv_index",
+            "solar",
+            "solar_radiation",
         ]
         for alias in aliases:
             series = uc.execute(alias, "24h", _STATION)
@@ -317,7 +330,7 @@ class TestExecuteRainDaily:
 
     def test_returns_daily_series(self, conn, uc):
         today = datetime.now(UTC).date().isoformat()
-        self._insert_daily(conn, today, 8,  10.0)
+        self._insert_daily(conn, today, 8, 10.0)
         self._insert_daily(conn, today, 12, 15.0)
         self._insert_daily(conn, today, 18, 20.0)
 
@@ -330,7 +343,7 @@ class TestExecuteRainDaily:
     def test_single_day_first_is_zero(self, conn, uc):
         """Primer día no tiene referencia previa → se reporta 0.0."""
         today = datetime.now(UTC).date().isoformat()
-        self._insert_daily(conn, today, 8,  10.0)
+        self._insert_daily(conn, today, 8, 10.0)
         self._insert_daily(conn, today, 20, 25.0)
 
         rain = uc.execute_rain_daily(_STATION, "7d")
@@ -343,13 +356,13 @@ class TestExecuteRainDaily:
         d1 = (datetime.now(UTC) - timedelta(days=1)).date().isoformat()
         d2 = datetime.now(UTC).date().isoformat()
 
-        self._insert_daily(conn, d1, 8,  10.0)
-        self._insert_daily(conn, d2, 8,  16.0)
+        self._insert_daily(conn, d1, 8, 10.0)
+        self._insert_daily(conn, d2, 8, 16.0)
 
         rain = uc.execute_rain_daily(_STATION, "7d")
 
         assert len(rain.dates) == 2
-        assert rain.mm[0] == 0.0   # día 1: sin referencia
+        assert rain.mm[0] == 0.0  # día 1: sin referencia
         assert abs(rain.mm[1] - 6.0) < 0.01  # día 2: 16 - 10 = 6
 
     def test_counter_reset_returns_zero_not_negative(self, conn, uc):
@@ -357,8 +370,8 @@ class TestExecuteRainDaily:
         d1 = (datetime.now(UTC) - timedelta(days=1)).date().isoformat()
         d2 = datetime.now(UTC).date().isoformat()
 
-        self._insert_daily(conn, d1, 8,  500.0)  # acumulador alto
-        self._insert_daily(conn, d2, 8,    2.0)  # reset: muy bajo
+        self._insert_daily(conn, d1, 8, 500.0)  # acumulador alto
+        self._insert_daily(conn, d2, 8, 2.0)  # reset: muy bajo
 
         rain = uc.execute_rain_daily(_STATION, "7d")
 

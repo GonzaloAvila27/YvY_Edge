@@ -44,7 +44,9 @@ class PressureTrendChart(BaseChart):
     ) -> None:
         # ── 1. Obtener serie de presión ───────────────────────────────
         if period_range is not None:
-            pres_series = query_uc.execute_range("pressure_abs", period_range.start, period_range.end, station_uuid)
+            pres_series = query_uc.execute_range(
+                "pressure_abs", period_range.start, period_range.end, station_uuid
+            )
         else:
             pres_series = query_uc.execute("pressure_abs", period, station_uuid)
 
@@ -62,9 +64,7 @@ class PressureTrendChart(BaseChart):
         apply_yvy_style(ax)
 
         # ── 4. Línea de presión en eje izquierdo ──────────────────────
-        y_pres = [
-            v if v is not None else float("nan") for v in pres_series.values
-        ]
+        y_pres = [v if v is not None else float("nan") for v in pres_series.values]
         ax.plot(
             pres_series.timestamps,
             y_pres,
@@ -87,10 +87,10 @@ class PressureTrendChart(BaseChart):
         ax2 = ax.twinx()
 
         # Preparar datos de barras (sólo donde hay delta calculado)
-        bar_ts    = []
-        bar_vals  = []
+        bar_ts = []
+        bar_vals = []
         bar_colors = []
-        for ts, d in zip(pres_series.timestamps, deltas):
+        for ts, d in zip(pres_series.timestamps, deltas, strict=False):
             if d is not None:
                 bar_ts.append(ts)
                 bar_vals.append(d)
@@ -100,10 +100,9 @@ class PressureTrendChart(BaseChart):
             # Ancho de barra proporcional al intervalo entre puntos
             # (matplotlib dates usa días como unidad)
             import matplotlib.dates as mdates
+
             if len(bar_ts) > 1:
-                dt_days = (
-                    mdates.date2num(bar_ts[1]) - mdates.date2num(bar_ts[0])
-                ) * 0.6
+                dt_days = (mdates.date2num(bar_ts[1]) - mdates.date2num(bar_ts[0])) * 0.6
             else:
                 dt_days = 0.01
 
@@ -121,10 +120,10 @@ class PressureTrendChart(BaseChart):
         # Rellenar entre la línea de presión y su mínimo donde delta < 0
         if valid_pres:
             pres_min = min(valid_pres)
-            fall_ts    = []
+            fall_ts = []
             fall_start = []
-            fall_end   = []
-            for ts, d, v in zip(pres_series.timestamps, deltas, pres_series.values):
+            fall_end = []
+            for ts, d, v in zip(pres_series.timestamps, deltas, pres_series.values, strict=False):
                 if d is not None and d < 0 and v is not None:
                     fall_ts.append(ts)
                     fall_start.append(pres_min)

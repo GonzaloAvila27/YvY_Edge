@@ -114,9 +114,7 @@ def _set_status(factory: SQLiteConnectionFactory, event_id: UUID, status: SyncSt
 class TestListRecent:
     """Validación de list_recent: orden, paginación, filtros."""
 
-    def test_returns_in_descending_id_order(
-        self, sync_repo: SQLiteSyncRepository
-    ) -> None:
+    def test_returns_in_descending_id_order(self, sync_repo: SQLiteSyncRepository) -> None:
         ids = [sync_repo.enqueue(_make_job()) for _ in range(5)]
 
         result = sync_repo.list_recent(limit=10)
@@ -244,9 +242,7 @@ class TestListRecent:
             ).fetchone()[0]
             for j in page1
         )
-        page2 = sync_repo.list_recent(
-            limit=3, status_filter=SyncStatus.SENT, before_id=min_id
-        )
+        page2 = sync_repo.list_recent(limit=3, status_filter=SyncStatus.SENT, before_id=min_id)
         assert len(page2) == 2  # quedan 2 sent
         assert all(j.status == SyncStatus.SENT for j in page2)
 
@@ -260,9 +256,7 @@ class TestListRecent:
 class TestCountByStatus:
     """Validación de count_by_status: todas las keys de SyncStatus, valores correctos."""
 
-    def test_returns_all_status_keys_when_empty(
-        self, sync_repo: SQLiteSyncRepository
-    ) -> None:
+    def test_returns_all_status_keys_when_empty(self, sync_repo: SQLiteSyncRepository) -> None:
         result = sync_repo.count_by_status()
 
         assert set(result.keys()) == set(SyncStatus)
@@ -293,9 +287,7 @@ class TestCountByStatus:
         assert result[SyncStatus.ERROR] == 1
         assert result[SyncStatus.SENDING] == 0  # nunca hubo
 
-    def test_returns_dict_with_int_values(
-        self, sync_repo: SQLiteSyncRepository
-    ) -> None:
+    def test_returns_dict_with_int_values(self, sync_repo: SQLiteSyncRepository) -> None:
         sync_repo.enqueue(_make_job())
 
         result = sync_repo.count_by_status()
@@ -316,9 +308,7 @@ class TestCountSentToday:
     que depende del SO. Estos tests verifican exactamente eso.
     """
 
-    def test_zero_when_no_sent_jobs(
-        self, sync_repo: SQLiteSyncRepository
-    ) -> None:
+    def test_zero_when_no_sent_jobs(self, sync_repo: SQLiteSyncRepository) -> None:
         # Hay pending pero ninguno sent
         sync_repo.enqueue(_make_job(status=SyncStatus.PENDING))
 
@@ -394,9 +384,7 @@ class TestCountSentToday:
         El test asegura que NO cuenta.
         """
         now_local = datetime.now(TZ_AR)
-        today_local_midnight = now_local.replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        today_local_midnight = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
 
         # Tomamos hoy local 02:30 UTC = ayer 23:30 AR
         # En zona AR (UTC-3), 02:30 UTC = 23:30 del día anterior local
@@ -404,9 +392,9 @@ class TestCountSentToday:
 
         # Verificación previa del setup: target_utc en AR debe ser AYER 23:30
         target_local = target_utc.astimezone(TZ_AR)
-        assert target_local.date() == (today_local_midnight - timedelta(days=1)).date(), (
-            f"Setup del test mal: target_local={target_local} debería ser ayer"
-        )
+        assert (
+            target_local.date() == (today_local_midnight - timedelta(days=1)).date()
+        ), f"Setup del test mal: target_local={target_local} debería ser ayer"
 
         j = _make_job()
         _insert_with_created_at(db_factory, j, target_utc, status=SyncStatus.SENT)
@@ -424,9 +412,7 @@ class TestCountSentToday:
     ) -> None:
         """Job con created_at = 00:00:01 local hoy DEBE contar."""
         now_local = datetime.now(TZ_AR)
-        just_after_midnight_local = now_local.replace(
-            hour=0, minute=0, second=1, microsecond=0
-        )
+        just_after_midnight_local = now_local.replace(hour=0, minute=0, second=1, microsecond=0)
         utc_equiv = just_after_midnight_local.astimezone(UTC)
 
         j = _make_job()

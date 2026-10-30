@@ -21,10 +21,10 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
+from yvy.domain.shared.time_utils import iso_ms_z
 from yvy.domain.sync.enums import EntityType, SyncStatus
 from yvy.domain.sync.models import SyncJob
 from yvy.infrastructure.persistence.connection import SQLiteConnectionFactory
-
 
 # Columnas que el row mapper espera. Todas las queries SELECT deben
 # respetar este orden. RETURNING también lo sigue.
@@ -147,9 +147,7 @@ class SQLiteSyncRepository:
 
     def count_by_status(self) -> dict[SyncStatus, int]:
         conn = self._factory.get_connection()
-        cur = conn.execute(
-            "SELECT status, COUNT(*) FROM sync_queue GROUP BY status"
-        )
+        cur = conn.execute("SELECT status, COUNT(*) FROM sync_queue GROUP BY status")
         result: dict[SyncStatus, int] = dict.fromkeys(SyncStatus, 0)
         for row in cur.fetchall():
             try:
@@ -161,10 +159,9 @@ class SQLiteSyncRepository:
 
     def count_sent_today(self, tz: tzinfo) -> int:
         from datetime import timedelta
+
         now_local = datetime.now(tz=tz)
-        local_midnight = now_local.replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        local_midnight = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
         local_tomorrow = local_midnight + timedelta(days=1)
         lower_utc = local_midnight.astimezone(UTC)
         upper_utc = local_tomorrow.astimezone(UTC)
@@ -233,7 +230,7 @@ class SQLiteSyncRepository:
         if not supported_entity_types:
             return None
 
-        now_iso = now_utc.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        now_iso = iso_ms_z(now_utc)
         types_placeholders = ",".join("?" for _ in supported_entity_types)
         types_params = [str(t) for t in supported_entity_types]
 
@@ -276,7 +273,7 @@ class SQLiteSyncRepository:
     ) -> None:
         """Marca el job como enviado o duplicado. Libera el lease."""
         new_status = SyncStatus.DUPLICATE if was_duplicate else SyncStatus.SENT
-        sent_iso = sent_at_utc.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        sent_iso = iso_ms_z(sent_at_utc)
 
         conn = self._factory.get_connection()
         conn.execute(
@@ -303,12 +300,8 @@ class SQLiteSyncRepository:
         permanent: bool = False,
     ) -> None:
         """Marca fallo transient o permanent. Libera el lease."""
-        now_iso = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-        next_retry_iso = (
-            next_retry_at.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-            if next_retry_at
-            else None
-        )
+        now_iso = iso_ms_z(datetime.now(UTC))
+        next_retry_iso = iso_ms_z(next_retry_at) if next_retry_at else None
         new_status = SyncStatus.ERROR if permanent else SyncStatus.PENDING
 
         conn = self._factory.get_connection()
@@ -355,8 +348,9 @@ class SQLiteSyncRepository:
         NO incrementa attempt_count. NO toca last_error.
         """
         from datetime import timedelta
+
         threshold_dt = now_utc - timedelta(seconds=lease_timeout_seconds)
-        threshold_iso = threshold_dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        threshold_iso = iso_ms_z(threshold_dt)
 
         conn = self._factory.get_connection()
         cur = conn.execute(

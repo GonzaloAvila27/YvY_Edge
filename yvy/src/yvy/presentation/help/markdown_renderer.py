@@ -22,12 +22,26 @@ Uso típico:
 El renderer usa Text tags de Tkinter, no canvas. Esto permite que el
 texto sea seleccionable y copiable (útil para el user que quiere
 copiar un dato del help).
+
+Ubicación (INI-4 · 4.2.1): vivía en ``infrastructure/help/`` pese a hablar
+Tkinter y a leer la paleta del tema — era la **única inversión de capas del
+repo** (infrastructure importando presentation). Los imports de ``theme`` y
+``theme_manager`` eran lazy sólo para esquivar el import circular que esa
+inversión provocaba; acá, en su capa, son imports normales.
 """
 
 from __future__ import annotations
 
 import re
 import tkinter as tk
+
+from yvy.presentation.theme import (
+    FONT_BODY_BOLD,
+    PRIMARY,
+    TEXT_PRIMARY,
+    TEXT_SECONDARY,
+)
+from yvy.presentation.theme_manager import DARK, theme_manager
 
 # Regex inline: agarra **bold** y *italic* en el orden correcto
 # (bold primero porque ** sería matched por *).
@@ -116,19 +130,11 @@ def _insert_inline(text_widget: tk.Text, line: str) -> None:
 
 def _configure_tags(widget: tk.Text) -> None:
     """Configura los tags de estilo adaptados al tema activo. Idempotente."""
-    from yvy.presentation.theme import (
-        FONT_BODY_BOLD,
-        PRIMARY,
-        TEXT_PRIMARY,
-        TEXT_SECONDARY,
-    )
-    from yvy.presentation.theme_manager import theme_manager, DARK
-
     is_dark = theme_manager.mode == "dark"
-    h1_fg   = DARK["gold"]        if is_dark else PRIMARY
-    text_fg = DARK["text"]        if is_dark else TEXT_PRIMARY
-    muted   = DARK["text_muted"]  if is_dark else TEXT_SECONDARY
-    bullet  = DARK["gold"]        if is_dark else PRIMARY
+    h1_fg = DARK["gold"] if is_dark else PRIMARY
+    text_fg = DARK["text"] if is_dark else TEXT_PRIMARY
+    muted = DARK["text_muted"] if is_dark else TEXT_SECONDARY
+    bullet = DARK["gold"] if is_dark else PRIMARY
 
     widget.tag_configure(
         "h1",
@@ -151,7 +157,7 @@ def _configure_tags(widget: tk.Text) -> None:
         spacing3=4,
         spacing1=2,
     )
-    widget.tag_configure("bold",   font=FONT_BODY_BOLD)
+    widget.tag_configure("bold", font=FONT_BODY_BOLD)
     widget.tag_configure("italic", font=("DejaVu Sans", 10, "italic"))
-    widget.tag_configure("bullet",    foreground=bullet, font=FONT_BODY_BOLD)
-    widget.tag_configure("separator", foreground=muted,  justify="center")
+    widget.tag_configure("bullet", foreground=bullet, font=FONT_BODY_BOLD)
+    widget.tag_configure("separator", foreground=muted, justify="center")
