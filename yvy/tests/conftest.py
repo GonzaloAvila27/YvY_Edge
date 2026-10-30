@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
 
 import pytest
 
@@ -64,4 +64,4 @@ def station_uuid() -> StationUUID:
 @pytest.fixture
 def frozen_clock() -> FrozenClock:
     """Reloj fijo a 2026-04-26 15:00 UTC."""
-    return FrozenClock(datetime(2026, 4, 26, 15, 0, 0, tzinfo=timezone.utc))
+    return FrozenClock(datetime(2026, 4, 26, 15, 0, 0, tzinfo=UTC))

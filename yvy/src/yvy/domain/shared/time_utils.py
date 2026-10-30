@@ -17,7 +17,7 @@ produzca el mismo ``event_id``.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Final
 
 from yvy.domain.shared.exceptions import InvalidTimestampError
@@ -54,10 +54,8 @@ class CanonicalTimestamp:
         # Verificación defensiva: si alguien construye este objeto a mano
         # con un datetime que rompe los invariantes, falla acá.
         if self.value.tzinfo is None:
-            raise InvalidTimestampError(
-                "CanonicalTimestamp requiere datetime timezone-aware"
-            )
-        if self.value.tzinfo.utcoffset(self.value) != timezone.utc.utcoffset(self.value):
+            raise InvalidTimestampError("CanonicalTimestamp requiere datetime timezone-aware")
+        if self.value.tzinfo.utcoffset(self.value) != UTC.utcoffset(self.value):
             raise InvalidTimestampError(
                 f"CanonicalTimestamp debe estar en UTC, recibido tz={self.value.tzinfo}"
             )
@@ -82,6 +80,41 @@ class CanonicalTimestamp:
 
     def __str__(self) -> str:
         return self.iso_format
+
+
+def iso_ms_z(dt: datetime) -> str:
+    """Formato ISO 8601 UTC con milisegundos y sufijo ``Z`` (INI-2 · 2.1.2 · H3).
+
+    ``2026-07-09T12:34:56.789Z``. Los microsegundos se **truncan** (no se
+    redondean) a milisegundos.
+
+    Es un **formato-contrato**: ``sent_at_utc`` es uno de los cuatro campos que
+    se firman con HMAC hacia el Core. Un byte de diferencia invalida la firma.
+
+    Había dos implementaciones, equivalentes sólo por casualidad::
+
+        dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"                 # 5 sitios
+        dt.isoformat(timespec="milliseconds").replace("+00:00", "Z")   # 1 sitio
+
+    Coinciden byte a byte **sólo si dt es aware-UTC**. Fuera de ese caso fallan
+    de formas distintas y silenciosas:
+
+    - la primera formatea los campos locales y les pega una ``Z``: para un
+      datetime en ``-03:00`` emite la hora local **afirmando que es UTC**;
+    - la segunda no encuentra ``+00:00`` que reemplazar y devuelve la string
+      **sin la Z**, rompiendo el formato.
+
+    Por eso acá los naive se rechazan (no hay forma correcta de adivinar su zona)
+    y los aware se convierten a UTC antes de formatear.
+
+    Raises:
+        InvalidTimestampError: si ``dt`` es naive.
+    """
+    if dt.tzinfo is None:
+        raise InvalidTimestampError(
+            f"iso_ms_z requiere un datetime timezone-aware. Recibido naive: {dt!r}"
+        )
+    return dt.astimezone(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 def canonicalize_to_minute_utc(dt: datetime) -> CanonicalTimestamp:
@@ -117,7 +150,7 @@ def canonicalize_to_minute_utc(dt: datetime) -> CanonicalTimestamp:
         )
 
     # Convertir a UTC. Si ya está en UTC esto es no-op.
-    dt_utc = dt.astimezone(timezone.utc)
+    dt_utc = dt.astimezone(UTC)
 
     # Truncar al minuto. NO redondear: 14:32:53 → 14:32:00, NO 14:33:00.
     truncated = dt_utc.replace(second=0, microsecond=0)
@@ -158,14 +191,12 @@ def parse_pywws_ts(raw: str | datetime) -> CanonicalTimestamp:
         try:
             parsed = datetime.fromisoformat(raw)
         except ValueError as exc:
-            raise InvalidTimestampError(
-                f"timestamp string no parseable: {raw!r}"
-            ) from exc
+            raise InvalidTimestampError(f"timestamp string no parseable: {raw!r}") from exc
     else:
         parsed = raw
 
     # Política específica de pywws: si viene naive, asumimos UTC.
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
 
     return canonicalize_to_minute_utc(parsed)

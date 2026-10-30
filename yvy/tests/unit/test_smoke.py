@@ -9,10 +9,15 @@ import pytest
 
 @pytest.mark.unit
 def test_package_importable() -> None:
-    """El paquete yvy debe ser importable."""
+    """El paquete yvy debe ser importable y exponer una versión válida.
+
+    No se afirma un valor fijo (eso obligaría a tocar este test en cada
+    release y reintroduciría el drift). La consistencia con pyproject la
+    enforcea tests/unit/test_version_consistency.py.
+    """
     import yvy
 
-    assert yvy.__version__ == "0.1.0"
+    assert isinstance(yvy.__version__, str) and yvy.__version__
 
 
 @pytest.mark.unit
@@ -45,7 +50,11 @@ def test_paths_resolve() -> None:
 
 @pytest.mark.unit
 def test_main_returns_zero() -> None:
-    """El main debe ejecutarse sin errores y retornar 0."""
-    from yvy.main import main
+    """El CLI debe ejecutarse sin errores y retornar 0 en un comando simple.
 
-    assert main() == 0
+    (Antes se probaba ``main([])``; el CLI consolidado exige subcomando, así que
+    se usa ``version`` — mismo objetivo: el entry point corre y devuelve 0.)
+    """
+    from yvy.cli.__main__ import main
+
+    assert main(["version"]) == 0

@@ -55,9 +55,7 @@ class RawPayload:
 
     def __post_init__(self) -> None:
         if not isinstance(self.payload, dict):
-            raise TypeError(
-                f"payload debe ser dict, recibido {type(self.payload).__name__}"
-            )
+            raise TypeError(f"payload debe ser dict, recibido {type(self.payload).__name__}")
         if self.received_at is not None and self.received_at.tzinfo is None:
             raise ValueError("received_at debe ser timezone-aware (UTC)")
 

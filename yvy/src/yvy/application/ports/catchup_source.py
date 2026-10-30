@@ -10,8 +10,9 @@ Diferencias con SensorSource (live):
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from datetime import datetime
-from typing import Any, Iterator, Protocol
+from typing import Any, Protocol
 
 
 class CatchupSource(Protocol):

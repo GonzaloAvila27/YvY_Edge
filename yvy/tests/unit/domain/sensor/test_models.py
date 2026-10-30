@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
@@ -45,9 +45,7 @@ class TestPywwsMode:
 @pytest.mark.unit
 class TestRawPayload:
     def test_construction_minimal(self, event_id: EventID, station_uuid: StationUUID) -> None:
-        ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=timezone.utc)
-        )
+        ts = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC))
         raw = RawPayload(
             event_id=event_id,
             station_uuid=station_uuid,
@@ -59,9 +57,7 @@ class TestRawPayload:
         assert raw.payload == {"temp_out": "23.5"}
 
     def test_immutability(self, event_id: EventID, station_uuid: StationUUID) -> None:
-        ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=timezone.utc)
-        )
+        ts = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC))
         raw = RawPayload(
             event_id=event_id,
             station_uuid=station_uuid,
@@ -72,9 +68,7 @@ class TestRawPayload:
             raw.event_id = event_id  # type: ignore[misc]
 
     def test_payload_must_be_dict(self, event_id: EventID, station_uuid: StationUUID) -> None:
-        ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=timezone.utc)
-        )
+        ts = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC))
         with pytest.raises(TypeError, match="dict"):
             RawPayload(
                 event_id=event_id,
@@ -84,12 +78,8 @@ class TestRawPayload:
                 payload="not a dict",  # type: ignore[arg-type]
             )
 
-    def test_received_at_must_be_aware(
-        self, event_id: EventID, station_uuid: StationUUID
-    ) -> None:
-        ts = canonicalize_to_minute_utc(
-            datetime(2026, 4, 26, 14, 32, 0, tzinfo=timezone.utc)
-        )
+    def test_received_at_must_be_aware(self, event_id: EventID, station_uuid: StationUUID) -> None:
+        ts = canonicalize_to_minute_utc(datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC))
         naive = datetime(2026, 4, 26, 14, 32, 0)
         with pytest.raises(ValueError, match="aware"):
             RawPayload(
@@ -107,7 +97,7 @@ class TestSensorReading:
         reading = SensorReading(
             event_id=event_id,
             pywws_mode=PywwsMode.LIVE,
-            observed_at=datetime(2026, 4, 26, 14, 32, 0, tzinfo=timezone.utc),
+            observed_at=datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC),
         )
         assert reading.event_id == event_id
         assert reading.is_valid is True
@@ -125,7 +115,7 @@ class TestSensorReading:
         reading = SensorReading(
             event_id=event_id,
             pywws_mode=PywwsMode.LIVE,
-            observed_at=datetime(2026, 4, 26, 14, 32, 0, tzinfo=timezone.utc),
+            observed_at=datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC),
             temp_outdoor=Decimal("23.5"),
             pressure_rel=Decimal("1013.2"),
         )
@@ -136,7 +126,7 @@ class TestSensorReading:
         reading = SensorReading(
             event_id=event_id,
             pywws_mode=PywwsMode.LIVE,
-            observed_at=datetime(2026, 4, 26, 14, 32, 0, tzinfo=timezone.utc),
+            observed_at=datetime(2026, 4, 26, 14, 32, 0, tzinfo=UTC),
         )
         with pytest.raises((AttributeError, TypeError)):
             reading.is_valid = False  # type: ignore[misc]

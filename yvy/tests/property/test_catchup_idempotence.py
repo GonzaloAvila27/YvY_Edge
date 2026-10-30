@@ -14,7 +14,7 @@ real, así que están separados de los unit property tests.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -34,7 +34,6 @@ from yvy.infrastructure.pywws.catchup_source import StubCatchupSource, make_catc
 from yvy.infrastructure.pywws.parser import PywwsPayloadParser
 from yvy.infrastructure.system.clock import FrozenClock
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Strategies
 # ─────────────────────────────────────────────────────────────────────────────
@@ -46,9 +45,7 @@ slot_strategy = st.builds(
     make_catchup_slot,
     hour=st.integers(min_value=10, max_value=14),
     minute=st.integers(min_value=0, max_value=59),
-    temp_outdoor=st.floats(
-        min_value=-10.0, max_value=45.0, allow_nan=False, allow_infinity=False
-    ),
+    temp_outdoor=st.floats(min_value=-10.0, max_value=45.0, allow_nan=False, allow_infinity=False),
     hum_outdoor=st.integers(min_value=20, max_value=100),
 )
 
@@ -67,7 +64,7 @@ def metrics_repo(db_factory) -> AppMetricsRepository:
 
 @pytest.fixture
 def far_future_clock() -> FrozenClock:
-    return FrozenClock(datetime(2026, 4, 26, 18, 0, 0, tzinfo=timezone.utc))
+    return FrozenClock(datetime(2026, 4, 26, 18, 0, 0, tzinfo=UTC))
 
 
 def _build_use_case(
@@ -118,9 +115,7 @@ class TestCatchupResultInvariants:
         use_case = _build_use_case(
             slots, sensor_repo, sync_repo, metrics_repo, station_uuid, far_future_clock
         )
-        result = use_case.execute(
-            since=datetime(2026, 4, 25, 0, 0, 0, tzinfo=timezone.utc)
-        )
+        result = use_case.execute(since=datetime(2026, 4, 25, 0, 0, 0, tzinfo=UTC))
         total = result.new_in_raw + result.already_present + result.parse_errors
         assert total == result.slots_read
 
@@ -147,7 +142,7 @@ class TestCatchupIdempotenceProperty:
         far_future_clock: FrozenClock,
     ) -> None:
         """Re-ejecutar con los mismos slots no aumenta filas en sensor_raw."""
-        since = datetime(2026, 4, 25, 0, 0, 0, tzinfo=timezone.utc)
+        since = datetime(2026, 4, 25, 0, 0, 0, tzinfo=UTC)
 
         # Primera corrida
         use_case_1 = _build_use_case(
@@ -191,9 +186,7 @@ class TestCatchupIdempotenceProperty:
         use_case = _build_use_case(
             slots, sensor_repo, sync_repo, metrics_repo, station_uuid, far_future_clock
         )
-        result = use_case.execute(
-            since=datetime(2026, 4, 25, 0, 0, 0, tzinfo=timezone.utc)
-        )
+        result = use_case.execute(since=datetime(2026, 4, 25, 0, 0, 0, tzinfo=UTC))
 
         rows_after = sensor_repo.count_raw()
         assert rows_after - rows_before == result.new_in_raw
@@ -225,7 +218,7 @@ class TestCatchupSinceFiltering:
         far_future_clock: FrozenClock,
     ) -> None:
         """Slots con timestamp < since no aparecen en el resultado."""
-        since = datetime(2026, 4, 26, since_hour, 0, 0, tzinfo=timezone.utc)
+        since = datetime(2026, 4, 26, since_hour, 0, 0, tzinfo=UTC)
 
         use_case = _build_use_case(
             slots, sensor_repo, sync_repo, metrics_repo, station_uuid, far_future_clock
@@ -236,8 +229,7 @@ class TestCatchupSinceFiltering:
         expected_max = sum(
             1
             for s in slots
-            if isinstance(s.get("idx"), str)
-            and datetime.fromisoformat(s["idx"]) >= since
+            if isinstance(s.get("idx"), str) and datetime.fromisoformat(s["idx"]) >= since
         )
 
         # slots_read no puede ser mayor que los que pasan el filtro

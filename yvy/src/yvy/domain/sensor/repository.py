@@ -9,6 +9,7 @@ implementación importa este Protocol para implementarlo).
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Protocol
 
 from yvy.domain.sensor.models import RawPayload, SensorReading
@@ -54,4 +55,27 @@ class SensorRepository(Protocol):
 
     def count_readings(self) -> int:
         """Cantidad total de filas en sensor_data. Útil para tests."""
+        ...
+
+    # ─── Retención (Fase 5) ──────────────────────────────────────────────
+
+    def delete_raw_older_than(self, threshold_utc: datetime) -> int:
+        """Borra filas de ``sensor_raw`` con ``received_at < threshold_utc``.
+
+        Atómica: un único DELETE en una transacción. SQLite garantiza
+        que si crashea a mitad, no queda DB en estado inconsistente.
+
+        Args:
+            threshold_utc: timestamp UTC tz-aware. Filas con
+                ``received_at`` estrictamente menor se borran.
+
+        Returns:
+            Cantidad de filas borradas.
+
+        Notes:
+            NO toca ``sensor_data``. La gobernanza de datos institucional
+            requiere persistencia indefinida de las lecturas parseadas.
+            Si en algún futuro se necesita purgar ``sensor_data``, agregar
+            un método dedicado y discutir con stakeholders antes.
+        """
         ...

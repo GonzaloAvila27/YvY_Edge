@@ -30,7 +30,6 @@ from typing import Any
 
 from yvy.application.ports.sensor_source import SensorSource
 from yvy.application.ports.time_provider import TimeProvider
-from yvy.domain.sensor.event_id import build_event_id
 from yvy.domain.sensor.exceptions import (
     FuturisticTimestampError,
     MalformedPayloadError,
@@ -100,9 +99,7 @@ class CaptureLiveReadingUseCase:
         raw_dict = self._sensor.read_live()
         if raw_dict is None:
             logger.debug("No live reading available")
-            return CaptureResult(
-                captured=False, was_new=False, skip_reason="no_data_available"
-            )
+            return CaptureResult(captured=False, was_new=False, skip_reason="no_data_available")
 
         # 2. Parsear a dominio
         try:
@@ -114,19 +111,13 @@ class CaptureLiveReadingUseCase:
             )
         except MismatchedStationError as exc:
             logger.warning("Payload de otra estación, skip: %s", exc)
-            return CaptureResult(
-                captured=False, was_new=False, skip_reason="mismatched_station"
-            )
+            return CaptureResult(captured=False, was_new=False, skip_reason="mismatched_station")
         except FuturisticTimestampError as exc:
             logger.warning("Timestamp del futuro (clock roto?), skip: %s", exc)
-            return CaptureResult(
-                captured=False, was_new=False, skip_reason="futuristic_timestamp"
-            )
+            return CaptureResult(captured=False, was_new=False, skip_reason="futuristic_timestamp")
         except (MalformedPayloadError, InvalidTimestampError) as exc:
             logger.warning("Payload inválido, skip: %s", exc)
-            return CaptureResult(
-                captured=False, was_new=False, skip_reason="malformed_payload"
-            )
+            return CaptureResult(captured=False, was_new=False, skip_reason="malformed_payload")
 
         # 3. Persistir raw → obtener id
         prev_count_raw = self._sensor_repo.count_raw()
@@ -215,7 +206,7 @@ class CaptureLiveReadingUseCase:
 # ─────────────────────────────────────────────────────────────────────────────
 from typing import Protocol  # noqa: E402
 
-from yvy.domain.shared.value_objects import StationUUID as _SU  # noqa: E402, F401
+from yvy.domain.shared.value_objects import StationUUID as _SU  # noqa: E402, F401, N814
 
 
 class PayloadParser(Protocol):

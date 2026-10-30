@@ -1,0 +1,104 @@
+name: CI
+
+# Gates de calidad de YVY Edge, todos BLOQUEANTES. Antes de esto el linter no
+# protegía nada (audit/peer-review §3.4: "quality gates invertidos"). El proyecto
+# vive en el subdirectorio `yvy/`.
+#
+#   lint       ruff (lint + formato)
+#   arch       reglas arquitectónicas del proyecto, que ningún linter conoce
+#              (ver scripts/check_arch_rules.py)
+#   types      mypy sobre los contratos de tipos (ver docs/PLAN_ADOPCION_MYPY.md)
+#
+# Follow-up (no incluido acá): job de pytest. Requiere validar el entorno
+# headless (MPLBACKEND=Agg, tkinter skip, refresh de poetry.lock).
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Ruff (lint + format)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: yvy
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Pinneado a la misma versión que el entorno local y `ruff = "^0.7.0"`
+      # en pyproject. La config de reglas vive en yvy/pyproject.toml.
+      - name: Install ruff
+        run: pip install ruff==0.7.4
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+  arch:
+    name: Reglas arquitectónicas
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: yvy
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Sólo usa la stdlib (ast): no hace falta instalar el proyecto ni sus deps.
+      # Cada regla existe porque su violación ya causó un incidente, o porque
+      # cerrarla costó una iniciativa entera del plan de estabilización.
+      - name: Check arch rules
+        run: python scripts/check_arch_rules.py
+
+  types:
+    name: mypy (contratos y tipos)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: yvy
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Las dependencias del proyecto SON parte del gate: sin ellas, mypy no
+      # resuelve los tipos de las libs de terceros (bcrypt, httpx…), todo cae a
+      # Any por `ignore_missing_imports`, y `warn_return_any` dispara errores que
+      # no existen en el código real. El gate debe ver los mismos tipos que el
+      # entorno que se despliega.
+      # Editable, igual que el entorno local (poetry): evita que `yvy` exista a la
+      # vez en site-packages y en mypy_path.
+      - name: Install project + deps
+        run: pip install -e .
+
+      # Pinneado como ruff. Un bump de mypy es un PR deliberado, nunca implícito:
+      # cambiar de versión cambia la inferencia (INI-6 · §9).
+      - name: Install mypy
+        run: pip install mypy==1.20.2
+
+      # RATCHET DE ALCANCE (INI-6 · §4): esta lista de paquetes es el gate. Sólo
+      # crece, y cada paquete entra a 0 en su nivel de strictness (pyproject) y
+      # se queda en 0. NO se corre `mypy src`: eso incluiría el leaf UI descartado.
+      #
+      # Alcance CERRADO (INI-6, 2026-07-10): estos 4 paquetes tienen los contratos
+      # reales del sistema. presentation/{views,components,charts} y los scripts
+      # smoke_*/screenshot_* quedan fuera — pelea con stubs de matplotlib/PIL/Tk,
+      # costo sin contrato (mismo criterio que tests/). Ver docs/PLAN_ADOPCION_MYPY.md §11.
+      # Sumar presentation a futuro es válido (§10.1: el alcance sólo crece).
+      - name: Check types (paquetes en el gate)
+        run: mypy src/yvy/domain src/yvy/application src/yvy/infrastructure src/yvy/cli

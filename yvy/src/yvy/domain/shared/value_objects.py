@@ -59,9 +59,7 @@ class StationUUID:
         try:
             uuid_obj = UUID(raw)
         except (ValueError, AttributeError, TypeError) as exc:
-            raise InvalidStationUUIDError(
-                f"string no parseable como UUID: {raw!r}"
-            ) from exc
+            raise InvalidStationUUIDError(f"string no parseable como UUID: {raw!r}") from exc
         return cls(value=uuid_obj)
 
     def __str__(self) -> str:
@@ -108,9 +106,7 @@ class EventID:
         try:
             uuid_obj = UUID(raw)
         except (ValueError, AttributeError, TypeError) as exc:
-            raise InvalidEventIDError(
-                f"string no parseable como UUID: {raw!r}"
-            ) from exc
+            raise InvalidEventIDError(f"string no parseable como UUID: {raw!r}") from exc
         return cls(value=uuid_obj)
 
     def __str__(self) -> str:

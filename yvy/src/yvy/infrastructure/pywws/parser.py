@@ -22,7 +22,7 @@ La política de "campos faltantes": si pywws no reporta una variable
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -34,7 +34,6 @@ from yvy.domain.sensor.exceptions import (
     MismatchedStationError,
 )
 from yvy.domain.sensor.models import RawPayload, SensorReading
-from yvy.domain.shared.exceptions import InvalidTimestampError
 from yvy.domain.shared.time_utils import parse_pywws_ts
 from yvy.domain.shared.value_objects import StationUUID
 
@@ -115,8 +114,7 @@ class PywwsPayloadParser:
         payload_station = raw_dict.get("station_uuid")
         if payload_station is not None and str(payload_station) != str(station_uuid):
             raise MismatchedStationError(
-                f"payload.station_uuid={payload_station} "
-                f"!= configurado={station_uuid}"
+                f"payload.station_uuid={payload_station} " f"!= configurado={station_uuid}"
             )
 
         # ─── 3. Modo pywws ────────────────────────────────────────────────
@@ -124,8 +122,7 @@ class PywwsPayloadParser:
             mode = PywwsMode(pywws_mode_str)
         except ValueError as exc:
             raise MalformedPayloadError(
-                f"pywws_mode inválido: {pywws_mode_str!r}. "
-                f"Esperado: 'live' | 'catchup'"
+                f"pywws_mode inválido: {pywws_mode_str!r}. " f"Esperado: 'live' | 'catchup'"
             ) from exc
 
         # ─── 4. Construir event_id determinístico ─────────────────────────
@@ -268,7 +265,7 @@ def _make_json_safe(d: dict[str, Any]) -> dict[str, Any]:
         if isinstance(v, datetime):
             # Aseguramos UTC isoformat
             if v.tzinfo is None:
-                v = v.replace(tzinfo=timezone.utc)
+                v = v.replace(tzinfo=UTC)
             out[k] = v.isoformat()
         elif isinstance(v, Decimal):
             out[k] = str(v)
